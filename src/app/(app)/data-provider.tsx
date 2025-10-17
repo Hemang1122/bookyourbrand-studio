@@ -2,7 +2,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect } from 'react';
-import type { Project, Task, User, Client, ScrumUpdate } from '@/lib/types';
+import type { Project, Task, User, Client, ScrumUpdate, TaskStatus } from '@/lib/types';
 import { projects as initialProjects, tasks as initialTasks, users as initialUsers, clients as initialClients, scrumUpdates as initialScrumUpdates } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 
@@ -16,6 +16,7 @@ type DataContextType = {
   addProject: (project: Omit<Project, 'id' | 'coverImage'>) => void;
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
+  updateTaskStatus: (taskId: string, status: TaskStatus) => void;
   addClient: (name: string, company: string, email: string) => void;
   addTeamMember: (name: string, email: string) => void;
   addScrumUpdate: (update: Omit<ScrumUpdate, 'id'>) => void;
@@ -71,6 +72,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       return p;
     }));
   };
+
+  const updateTaskStatus = (taskId: string, status: TaskStatus) => {
+    setTasks(prev => prev.map(t => {
+      if (t.id === taskId) {
+        return { ...t, status: status };
+      }
+      return t;
+    }));
+    toast({ title: 'Task Updated', description: 'Task status has been changed.' });
+  }
 
   const addClient = (name: string, company: string, email: string) => {
      const newClient: Client = {
@@ -133,6 +144,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         addProject, 
         addTask, 
         updateProjectTeam, 
+        updateTaskStatus,
         addClient, 
         addTeamMember, 
         addScrumUpdate, 

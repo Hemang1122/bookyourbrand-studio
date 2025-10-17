@@ -21,7 +21,10 @@ export function ProjectList() {
     if (user.role === 'client') {
       return projects.filter(p => p.client.id === user.id);
     }
-    return projects; // Admins and team members see all projects
+    if (user.role === 'team') {
+      return projects.filter(p => p.team.some(teamMember => teamMember.id === user.id));
+    }
+    return projects; // Admins see all projects
   }, [projects, user]);
 
   return (
