@@ -23,6 +23,7 @@ import type { Client, Project, User } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { useData } from '../../data-provider';
+import { useAuth } from '@/lib/auth-client';
 
 type AddProjectDialogProps = {
   onProjectAdd: (project: Omit<Project, 'id' | 'coverImage'>) => void;
@@ -39,13 +40,21 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   const [client, setClient] = useState<string | undefined>(preselectedClient?.id);
   const [team, setTeam] = useState<string[]>([]);
   const { toast } = useToast();
+  const { user } = useAuth();
   const { teamMembers, clients, users } = useData();
 
   const teamMemberOptions = teamMembers.map(tm => ({ value: tm.id, label: tm.name }));
+  const isClientUser = user?.role === 'client';
 
   const handleAddProject = () => {
-    if (!name || !description || !deadline || !client || team.length === 0) {
-      toast({ title: 'Error', description: 'All fields, including team members, are required.', variant: 'destructive' });
+    // Admin validation
+    if (!isClientUser && team.length === 0) {
+      toast({ title: 'Error', description: 'Please assign at least one team member.', variant: 'destructive' });
+      return;
+    }
+    // Universal validation
+    if (!name || !description || !deadline || !client) {
+      toast({ title: 'Error', description: 'Project name, description, client and deadline are required.', variant: 'destructive' });
       return;
     }
     const selectedClient = clients.find(c => c.id === client);
@@ -53,7 +62,9 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
         toast({ title: 'Error', description: 'Selected client not found.', variant: 'destructive' });
         return;
     }
-    const selectedTeam = users.filter(u => team.includes(u.id));
+    
+    // Admins assign team, clients submit with an empty team
+    const selectedTeam = isClientUser ? [] : users.filter(u => team.includes(u.id));
 
     const newProject = {
       name,
@@ -110,15 +121,17 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
                 </Select>
             </div>
           )}
-          <div className="space-y-2">
-            <Label>Assign Team Members</Label>
-            <MultiSelect
-              options={teamMemberOptions}
-              selected={team}
-              onChange={setTeam}
-              placeholder="Select team members..."
-            />
-          </div>
+          {!isClientUser && (
+            <div className="space-y-2">
+              <Label>Assign Team Members</Label>
+              <MultiSelect
+                options={teamMemberOptions}
+                selected={team}
+                onChange={setTeam}
+                placeholder="Select team members..."
+              />
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="deadline">Deadline</Label>
             <Popover>
