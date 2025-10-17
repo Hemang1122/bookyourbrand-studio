@@ -2,6 +2,7 @@
 import { getUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import AppLayoutClient from './layout-client';
+import { FirebaseClientProvider } from '@/firebase';
 
 export default async function AppLayout({
   children,
@@ -14,5 +15,9 @@ export default async function AppLayout({
     redirect('/login');
   }
 
-  return <AppLayoutClient user={user}>{children}</AppLayoutClient>;
+  return (
+    <FirebaseClientProvider>
+      <AppLayoutClient user={user}>{children}</AppLayoutClient>
+    </FirebaseClientProvider>
+  );
 }
