@@ -79,6 +79,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       company: company,
       avatar: newUser.avatar,
     };
+    
+    // Add to the source of truth for auth
+    initialUsers.push(newUser);
+    initialClients.push(newClient);
+
     setUsers(prev => [...prev, newUser]);
     setClients(prev => [...prev, newClient]);
   }
@@ -94,6 +99,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       username,
       password: password || 'password'
     };
+    
+    // Add to the source of truth for auth
+    initialUsers.push(newMember);
+    
     setUsers(prev => [...prev, newMember]);
   }
 
