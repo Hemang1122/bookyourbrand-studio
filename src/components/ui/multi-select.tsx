@@ -31,7 +31,7 @@ const multiSelectVariants = cva(
   }
 );
 
-interface MultiSelectProps extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<multiSelectVariants> {
+interface MultiSelectProps extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof multiSelectVariants> {
   options: {
     label: string;
     value: string;
@@ -44,7 +44,7 @@ interface MultiSelectProps extends React.ButtonHTMLAttributes<HTMLButtonElement>
 }
 
 const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>(
-  ({ options, selected, onChange, className, placeholder = 'Select options', ...props }) => {
+  ({ options, selected, onChange, className, placeholder = 'Select options', ...props }, ref) => {
     const [open, setOpen] = React.useState(false);
 
     const handleUnselect = (item: string) => {
@@ -55,6 +55,7 @@ const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>(
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
+            ref={ref}
             variant="outline"
             role="combobox"
             aria-expanded={open}
