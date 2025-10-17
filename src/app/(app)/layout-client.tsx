@@ -20,7 +20,7 @@ import { DataProvider, useData } from './data-provider';
 import { Button } from '@/components/ui/button';
 import { BookOpenCheck } from 'lucide-react';
 import { DailyReportDialog } from './components/daily-report-dialog';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc } from '@/firebase';
 import { redirect } from 'next/navigation';
 import { NotificationSound } from '@/components/ui/notification-sound';
 import { doc } from 'firebase/firestore';
@@ -71,10 +71,10 @@ export default function AppLayoutClient({
   const firestore = useFirestore();
 
   // Create a memoized reference to the user's document in Firestore.
-  const userDocRef = useMemoFirebase(() => {
+  const userDocRef = React.useMemo(() => {
     if (!firestore || !firebaseUser) return null;
     return doc(firestore, 'users', firebaseUser.uid);
-  }, [firestore, firebaseUser]);
+  }, [firestore, firebaseUser?.uid]);
 
   // Use the useDoc hook to get the user profile data from Firestore.
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userDocRef);

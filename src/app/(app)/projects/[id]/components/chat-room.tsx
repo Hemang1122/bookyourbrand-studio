@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import type { ChatMessage, User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Send, Paperclip, Link as LinkIcon, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/lib/auth-client';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection } from '@/firebase';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { AddChatAttachmentDialog } from './add-chat-attachment-dialog';
@@ -31,12 +31,12 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const { triggerNotification } = useData();
   const prevMessagesCount = useRef(0);
 
-  const messagesRef = useMemoFirebase(() => {
+  const messagesRef = useMemo(() => {
     if (!firestore) return null;
     return collection(firestore, 'projects', projectId, 'chats', CHAT_ID, 'messages');
   }, [firestore, projectId]);
 
-  const messagesQuery = useMemoFirebase(() => {
+  const messagesQuery = useMemo(() => {
     if (!messagesRef) return null;
     return query(messagesRef, orderBy('timestamp', 'asc'));
   }, [messagesRef]);

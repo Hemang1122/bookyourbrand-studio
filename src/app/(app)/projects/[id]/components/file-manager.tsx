@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { ProjectFile } from '@/lib/types';
 import {
   Table,
@@ -16,7 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth-client';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore } from '@/firebase';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -32,7 +32,7 @@ export function FileManager({ projectId }: FileManagerProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const filesCollectionRef = useMemoFirebase(() => {
+  const filesCollectionRef = useMemo(() => {
     if (!firestore) return null;
     return collection(firestore, 'projects', projectId, 'files');
   }, [firestore, projectId]);
