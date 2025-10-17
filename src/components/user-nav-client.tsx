@@ -1,4 +1,5 @@
-import { getUser } from '@/lib/auth';
+'use client';
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -14,14 +15,9 @@ import { logout } from '@/actions/auth';
 import Link from 'next/link';
 import { CreditCard, LogOut, Settings, User as UserIcon } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import type { User } from '@/lib/types';
 
-export async function UserNav() {
-  const user = await getUser();
-
-  if (!user) {
-    return null;
-  }
-
+export function UserNavClient({ user }: { user: User }) {
   const userAvatar = PlaceHolderImages.find(img => img.id === user.avatar);
 
   return (
