@@ -2,7 +2,7 @@
 'use client';
 
 import { createContext, useContext, useState } from 'react';
-import type { Project, Task, User, Client } from '@/lib/types';
+import type { Project, Task, User, Client, ScrumUpdate } from '@/lib/types';
 import { projects as initialProjects, tasks as initialTasks, users as initialUsers, clients as initialClients } from '@/lib/data';
 
 type DataContextType = {
@@ -11,11 +11,13 @@ type DataContextType = {
   clients: Client[];
   teamMembers: User[];
   users: User[];
+  scrumUpdates: ScrumUpdate[];
   addProject: (project: Omit<Project, 'id' | 'coverImage'>) => void;
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
   addClient: (name: string, company: string, email: string) => void;
   addTeamMember: (name: string, email: string) => void;
+  addScrumUpdate: (update: Omit<ScrumUpdate, 'id'>) => void;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -25,6 +27,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [clients, setClients] = useState<Client[]>(initialClients);
   const [users, setUsers] = useState<User[]>(initialUsers);
+  const [scrumUpdates, setScrumUpdates] = useState<ScrumUpdate[]>([]);
 
   const teamMembers = users.filter(u => u.role === 'admin' || u.role === 'team');
 
@@ -62,7 +65,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addClient = (name: string, company: string, email: string) => {
-    const totalUsers = users.length;
+    const totalUsers = initialUsers.length;
     const newUser: User = {
       id: `user-${totalUsers + 1}`,
       name: name,
@@ -72,7 +75,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       username: name.toLowerCase().replace(/\s/g, ''),
     };
     const newClient: Client = {
-      id: `client-${clients.length + 1}`,
+      id: `client-${initialClients.length + 1}`,
       name: name,
       email: email,
       company: company,
@@ -88,7 +91,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }
 
   const addTeamMember = (name: string, email: string) => {
-    const totalUsers = users.length;
+    const totalUsers = initialUsers.length;
     const newMember: User = {
       id: `user-${totalUsers + 1}`,
       name: name,
@@ -104,8 +107,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setUsers(prev => [...prev, newMember]);
   }
 
+  const addScrumUpdate = (updateData: Omit<ScrumUpdate, 'id'>) => {
+    const newUpdate: ScrumUpdate = {
+      ...updateData,
+      id: `scrum-${Date.now()}`,
+    };
+    setScrumUpdates(prev => [newUpdate, ...prev]);
+  };
+
   return (
-    <DataContext.Provider value={{ projects, tasks, clients, teamMembers, users, addProject, addTask, updateProjectTeam, addClient, addTeamMember }}>
+    <DataContext.Provider value={{ projects, tasks, clients, teamMembers, users, scrumUpdates, addProject, addTask, updateProjectTeam, addClient, addTeamMember, addScrumUpdate }}>
       {children}
     </DataContext.Provider>
   );

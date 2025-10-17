@@ -14,14 +14,15 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Download } from 'lucide-react';
+import { ScrumExportDialog } from './components/scrum-export-dialog';
 
 export default function ScrumPage() {
   const { user } = useAuth();
-  const { users } = useData();
+  const { users, scrumUpdates, addScrumUpdate } = useData();
   const { toast } = useToast();
   const [yesterday, setYesterday] = useState('');
   const [today, setToday] = useState('');
-  const [updates, setUpdates] = useState<ScrumUpdate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -38,14 +39,12 @@ export default function ScrumPage() {
 
     // Simulate API call
     setTimeout(() => {
-      const newUpdate: ScrumUpdate = {
-        id: `scrum-${Date.now()}`,
+      addScrumUpdate({
         userId: user.id,
         yesterday,
         today,
         timestamp: new Date().toISOString(),
-      };
-      setUpdates(prev => [newUpdate, ...prev]);
+      });
       setYesterday('');
       setToday('');
       toast({
@@ -104,8 +103,20 @@ export default function ScrumPage() {
 
         <Card>
             <CardHeader>
-                <CardTitle>Team Updates for Today</CardTitle>
-                <CardDescription>Review the daily updates from your team.</CardDescription>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle>Team Updates for Today</CardTitle>
+                        <CardDescription>Review the daily updates from your team.</CardDescription>
+                    </div>
+                    {user?.role === 'admin' && (
+                        <ScrumExportDialog updates={scrumUpdates} users={users}>
+                            <Button variant="outline">
+                                <Download className="mr-2 h-4 w-4" />
+                                Export as PDF
+                            </Button>
+                        </ScrumExportDialog>
+                    )}
+                </div>
             </CardHeader>
             <CardContent>
                <Table>
@@ -118,8 +129,8 @@ export default function ScrumPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {updates.length > 0 ? (
-                            updates.map(update => {
+                        {scrumUpdates.length > 0 ? (
+                            scrumUpdates.map(update => {
                                 const author = users.find(u => u.id === update.userId);
                                 const avatar = PlaceHolderImages.find(img => img.id === author?.avatar);
                                 if (!author) return null;
