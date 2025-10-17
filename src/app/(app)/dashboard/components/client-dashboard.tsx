@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { FolderKanban, Clock, CheckCircle2 } from 'lucide-react';
+import { FolderKanban, Clock, CheckCircle2, Plus } from 'lucide-react';
 import type { Project, Task, User } from '@/lib/types';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { AddProjectDialog } from '../../projects/components/add-project-dialog';
 
 type ClientDashboardProps = {
   user: User;
@@ -15,15 +16,30 @@ type ClientDashboardProps = {
   tasks: Task[];
 };
 
-export function ClientDashboard({ user, projects, tasks: initialTasks }: ClientDashboardProps) {
+export function ClientDashboard({ user, projects: initialProjects, tasks: initialTasks }: ClientDashboardProps) {
+  const [projects, setProjects] = useState(initialProjects);
   const myClientRecord = projects[0].client; // Mock: assume user is linked to a client record
   const myProjects = projects.filter(p => p.client.id === myClientRecord.id);
   const activeProjects = myProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;
   const completedProjects = myProjects.filter(p => p.status === 'Completed').length;
   const [tasks, setTasks] = useState(initialTasks);
 
+  const handleProjectAdd = (newProject: Project) => {
+    setProjects(prev => [...prev, newProject]);
+  }
+
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+         <AddProjectDialog onProjectAdd={handleProjectAdd} client={myClientRecord}>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Project
+            </Button>
+          </AddProjectDialog>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

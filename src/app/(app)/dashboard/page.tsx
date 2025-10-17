@@ -11,9 +11,9 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex-1 space-y-4">
-      <div className="flex items-center justify-between space-y-2">
+      {user.role !== 'client' && <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-      </div>
+      </div>}
       {user.role === 'admin' && <AdminDashboard projects={projects} tasks={tasks} clients={clients} />}
       {user.role === 'team' && <TeamDashboard user={user} projects={projects} tasks={tasks} />}
       {user.role === 'client' && <ClientDashboard user={user} projects={projects} tasks={tasks} />}
