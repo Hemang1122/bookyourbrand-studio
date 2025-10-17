@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { User } from '@/lib/types';
@@ -25,6 +24,7 @@ import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { redirect } from 'next/navigation';
 import { NotificationSound } from '@/components/ui/notification-sound';
 import { doc } from 'firebase/firestore';
+import React from 'react';
 
 function AppHeader({user}: {user: User}) {
     const { open, setOpen } = useSidebar();
@@ -63,7 +63,7 @@ function AppLayoutContent({
 
 
 export default function AppLayoutClient({
-  children
+  children,
 }: {
   children: React.ReactNode;
 }) {
@@ -77,7 +77,10 @@ export default function AppLayoutClient({
   }, [firestore, firebaseUser]);
 
   // Use the useDoc hook to get the user profile data from Firestore.
-  const { data: user, isLoading: isProfileLoading } = useDoc<User>(userDocRef);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userDocRef);
+  
+  // Memoize the user profile object to prevent re-renders
+  const user = React.useMemo(() => userProfile, [userProfile]);
 
   const isLoading = isAuthLoading || isProfileLoading;
 
