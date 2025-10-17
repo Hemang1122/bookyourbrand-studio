@@ -26,7 +26,7 @@ export default async function AppLayout({
   }
 
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={false}>
       <div className="min-h-screen w-full">
         <Sidebar collapsible="icon">
           <SidebarHeader>
