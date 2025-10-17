@@ -41,29 +41,27 @@ export default function LoginPage() {
     const userToLogin = users.find(u => u.id === selectedUser);
     if (userToLogin && auth) {
       try {
-        // We will use a hardcoded password for this prototype.
-        await signInWithEmailAndPassword(auth, userToLogin.email, 'password');
-        // Redirect is handled by the layout now
+        // First, try to create the user. If they already exist, this will fail.
+        await createUser(auth, userToLogin.email, 'password');
+        // If creation is successful, the user is automatically signed in.
+        // The onAuthStateChanged listener in the layout will handle the redirect.
       } catch (error: any) {
-         if (error.code === 'auth/user-not-found') {
-          // If the user doesn't exist, create them. This is a common scenario in this prototype.
+        if (error.code === 'auth/email-already-in-use') {
+          // If the user already exists, we sign them in.
           try {
-            await createUser(auth, userToLogin.email, 'password');
             await signInWithEmailAndPassword(auth, userToLogin.email, 'password');
-          } catch (createUserError: any) {
-            console.error("Failed to create user after 'not-found' error:", createUserError);
-            toast({
-                title: 'Login Error',
-                description: `Could not create or sign in user: ${createUserError.message}`,
-                variant: 'destructive',
+          } catch (signInError: any) {
+             toast({
+              title: 'Login Failed',
+              description: `An unexpected error occurred during sign-in: ${signInError.message}`,
+              variant: 'destructive',
             });
           }
         } else {
-          // For any other login error (like invalid-credential), just show an error.
-          console.error("An unexpected error occurred during sign-in:", error);
+          // For any other creation error, show a toast.
           toast({
-            title: 'Login Failed',
-            description: 'Please check the credentials or try again. If the user is new, their account might still be provisioning.',
+            title: 'Login Error',
+            description: `Could not create or sign in user: ${error.message}`,
             variant: 'destructive',
           });
         }
