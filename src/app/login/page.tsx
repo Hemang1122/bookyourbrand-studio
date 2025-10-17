@@ -1,4 +1,3 @@
-
 'use client';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,25 +39,30 @@ export default function LoginPage() {
     const userToLogin = users.find(u => u.id === selectedUser);
     if (userToLogin && auth) {
       try {
-        // We will use a hardcoded password for this prototype.
+        // First, try to sign in.
         await signInWithEmailAndPassword(auth, userToLogin.email, 'password');
         // Redirect is handled by the layout now
       } catch (error: any) {
-        if (error.code === 'auth/user-not-found') {
-          // Create the user if they don't exist in Firebase Auth
+        // If sign-in fails (e.g., user not found or wrong password), try to create the user.
+        // This is a robust way to handle users in this prototype environment.
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
           try {
             await createUser(auth, userToLogin.email, 'password');
-            // Try signing in again after creating
+            // After creation, sign-in should succeed.
             await signInWithEmailAndPassword(auth, userToLogin.email, 'password');
-          } catch(createUserError) {
-             console.error("Error creating user:", createUserError);
+          } catch (createUserError: any) {
+             // If creating the user also fails (e.g., email already exists with a different credential),
+             // it's a state we can't automatically recover from in this prototype.
+             console.error("Failed to create or sign in user:", createUserError);
           }
         } else {
-            console.error("Error signing in:", error);
+          // Handle other unexpected errors
+          console.error("An unexpected error occurred during sign-in:", error);
         }
       }
     }
   };
+
 
   if (user) {
     redirect('/dashboard');
