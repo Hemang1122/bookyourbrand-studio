@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Logo } from '@/components/logo';
+import { LoginLogo } from '@/components/login-logo';
 
 export default function LoginPage() {
   return (
@@ -22,7 +22,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm shadow-2xl">
         <CardHeader className="text-center">
           <div className="mb-4 flex justify-center">
-            <Logo />
+            <LoginLogo />
           </div>
           <CardTitle className="text-2xl font-bold">Welcome!</CardTitle>
           <CardDescription>
