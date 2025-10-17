@@ -11,14 +11,27 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { logout } from '@/actions/auth';
+import { useFirebase } from '@/firebase';
+import { signOut } from 'firebase/auth';
 import Link from 'next/link';
 import { CreditCard, LogOut, Settings, User as UserIcon } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import type { User } from '@/lib/types';
+import { useRouter } from 'next/navigation';
 
 export function UserNavClient({ user }: { user: User }) {
   const userAvatar = PlaceHolderImages.find(img => img.id === user.avatar);
+  const { auth } = useFirebase();
+  const router = useRouter();
+  
+  const handleLogout = async () => {
+      if (auth) {
+        await signOut(auth);
+        // The useUser hook in the layout will detect the change and trigger a redirect to /login
+        // We can add a manual push as a fallback.
+        router.push('/login');
+      }
+  }
 
   return (
     <DropdownMenu>
@@ -61,13 +74,9 @@ export function UserNavClient({ user }: { user: User }) {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <form action={logout} className="w-full">
-            <button type="submit" className='flex items-center w-full'>
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
-            </button>
-          </form>
+        <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>Log out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
