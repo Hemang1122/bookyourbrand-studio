@@ -2,13 +2,12 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { FolderKanban, Clock, CheckCircle2, Plus } from 'lucide-react';
+import { FolderKanban, Clock, CheckCircle2 } from 'lucide-react';
 import type { Project, Task, User } from '@/lib/types';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { AddTaskDialog } from '../../projects/[id]/components/add-task-dialog';
 
 type ClientDashboardProps = {
   user: User;
@@ -22,11 +21,6 @@ export function ClientDashboard({ user, projects, tasks: initialTasks }: ClientD
   const activeProjects = myProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;
   const completedProjects = myProjects.filter(p => p.status === 'Completed').length;
   const [tasks, setTasks] = useState(initialTasks);
-
-  const handleTaskAdd = (newTask: Task) => {
-    // In a real app, this would be a state update from a central store or a re-fetch.
-    setTasks(prevTasks => [...prevTasks, newTask]);
-  };
 
   return (
     <div className="space-y-6">
@@ -69,15 +63,9 @@ export function ClientDashboard({ user, projects, tasks: initialTasks }: ClientD
             <div>
                 <CardTitle>My Projects Overview</CardTitle>
                 <CardDescription>
-                    Track the progress of your ongoing projects and add new tasks.
+                    Track the progress of your ongoing projects.
                 </CardDescription>
             </div>
-             <AddTaskDialog projects={myProjects} onTaskAdd={handleTaskAdd}>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Task
-                </Button>
-              </AddTaskDialog>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">

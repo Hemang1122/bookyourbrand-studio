@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -16,28 +16,21 @@ import { useToast } from '@/hooks/use-toast';
 import { summarizeProjectBrief, SummarizeProjectBriefOutput } from '@/ai/flows/ai-powered-task-summarization';
 import { Wand2, Plus, Bot, Loader2 } from 'lucide-react';
 import { users } from '@/lib/data';
-import type { Task, Project } from '@/lib/types';
+import type { Task } from '@/lib/types';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type AddTaskDialogProps = {
-  projectId?: string;
-  projects?: Project[];
+  projectId: string;
   onTaskAdd: (task: Task) => void;
   children: React.ReactNode;
 };
 
-export function AddTaskDialog({ projectId, projects, onTaskAdd, children }: AddTaskDialogProps) {
+export function AddTaskDialog({ projectId, onTaskAdd, children }: AddTaskDialogProps) {
   const [open, setOpen] = useState(false);
   const [brief, setBrief] = useState('');
   const [aiResult, setAiResult] = useState<SummarizeProjectBriefOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(projectId);
   const { toast } = useToast();
-
-  useEffect(() => {
-    setSelectedProjectId(projectId);
-  }, [projectId, open]);
 
   const handleSummarize = async () => {
     if (!brief) {
@@ -57,14 +50,9 @@ export function AddTaskDialog({ projectId, projects, onTaskAdd, children }: AddT
   };
 
   const handleAddTask = (title: string, description: string) => {
-    if (!selectedProjectId) {
-        toast({ title: 'Error', description: 'Please select a project.', variant: 'destructive' });
-        return;
-    }
-    
     const newTask: Task = {
         id: `task-${Date.now()}`,
-        projectId: selectedProjectId,
+        projectId: projectId,
         title,
         description,
         assignedTo: users.find(u => u.role === 'team')!, // Mock assignment
@@ -92,24 +80,6 @@ export function AddTaskDialog({ projectId, projects, onTaskAdd, children }: AddT
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-
-         {projects && projects.length > 0 && (
-            <div className="space-y-2">
-                <Label htmlFor="project">Project</Label>
-                 <Select onValueChange={setSelectedProjectId} defaultValue={selectedProjectId}>
-                    <SelectTrigger id="project">
-                        <SelectValue placeholder="Select a project" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {projects.map(p => (
-                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-          )}
-
-
           <div className="space-y-2">
             <Label htmlFor="title">Task Title</Label>
             <Input id="title" placeholder="e.g., Design new logo concept" />
@@ -149,7 +119,7 @@ export function AddTaskDialog({ projectId, projects, onTaskAdd, children }: AddT
               rows={5}
             />
           </div>
-          <Button onClick={handleSummarize} disabled={isLoading || !selectedProjectId}>
+          <Button onClick={handleSummarize} disabled={isLoading}>
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
             Generate Tasks with AI
           </Button>
