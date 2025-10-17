@@ -1,12 +1,12 @@
-import type { User, Client, Project, Task, ChatMessage, ProjectFile, ProjectStatus, TaskStatus, UserRole } from './types';
+import type { User, Client, Project, Task, ChatMessage, ProjectFile, ScrumUpdate } from './types';
 
 export const users: User[] = [
-  { id: 'user-1', name: 'Alex Johnson', email: 'admin@bookyourbrands.com', avatar: 'avatar-1', role: 'admin', username: 'admin', password: 'password' },
-  { id: 'user-2', name: 'Maria Garcia', email: 'maria@example.com', avatar: 'avatar-2', role: 'team', username: 'maria', password: 'password' },
-  { id: 'user-3', name: 'James Smith', email: 'james@example.com', avatar: 'avatar-3', role: 'team', username: 'james', password: 'password' },
-  { id: 'user-4', name: 'Creative Co.', email: 'client@creative.co', avatar: 'avatar-4', role: 'client', username: 'creative', password: 'password' },
-  { id: 'user-5', name: 'Innovate Inc.', email: 'client@innovate.inc', avatar: 'avatar-5', role: 'client', username: 'innovate', password: 'password' },
-  { id: 'user-6', name: 'Marketing Masters', email: 'client@marketing.com', avatar: 'avatar-6', role: 'client', username: 'marketing', password: 'password' },
+  { id: 'user-1', name: 'Alex Johnson', email: 'admin@bookyourbrands.com', avatar: 'avatar-1', role: 'admin', username: 'admin' },
+  { id: 'user-2', name: 'Maria Garcia', email: 'maria@example.com', avatar: 'avatar-2', role: 'team', username: 'maria' },
+  { id: 'user-3', name: 'James Smith', email: 'james@example.com', avatar: 'avatar-3', role: 'team', username: 'james' },
+  { id: 'user-4', name: 'Creative Co.', email: 'client@creative.co', avatar: 'avatar-4', role: 'client', username: 'creative' },
+  { id: 'user-5', name: 'Innovate Inc.', email: 'client@innovate.inc', avatar: 'avatar-5', role: 'client', username: 'innovate' },
+  { id: 'user-6', name: 'Marketing Masters', email: 'client@marketing.com', avatar: 'avatar-6', role: 'client', username: 'marketing' },
 ];
 
 export const clients: Client[] = [
@@ -88,3 +88,13 @@ export const projectFiles: { [key: string]: ProjectFile[] } = {
         { id: 'file-3', name: 'raw_footage.mov', url: '#', uploadedBy: clients[1] as unknown as User, uploadedAt: '2024-07-18', size: '1.2GB', type: 'Raw' },
     ]
 };
+
+export const scrumUpdates: ScrumUpdate[] = [
+    {
+        id: 'scrum-1',
+        userId: 'user-2',
+        yesterday: 'Finished the initial mockups for the new landing page.',
+        today: 'Start working on the component library.',
+        timestamp: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString(),
+    }
+];

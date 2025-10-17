@@ -3,7 +3,7 @@
 
 import { createContext, useContext, useState } from 'react';
 import type { Project, Task, User, Client, ScrumUpdate } from '@/lib/types';
-import { projects as initialProjects, tasks as initialTasks, users as initialUsers, clients as initialClients } from '@/lib/data';
+import { projects as initialProjects, tasks as initialTasks, users as initialUsers, clients as initialClients, scrumUpdates as initialScrumUpdates } from '@/lib/data';
 
 type DataContextType = {
   projects: Project[];
@@ -27,7 +27,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [clients, setClients] = useState<Client[]>(initialClients);
   const [users, setUsers] = useState<User[]>(initialUsers);
-  const [scrumUpdates, setScrumUpdates] = useState<ScrumUpdate[]>([]);
+  const [scrumUpdates, setScrumUpdates] = useState<ScrumUpdate[]>(initialScrumUpdates);
 
   const teamMembers = users.filter(u => u.role === 'admin' || u.role === 'team');
 
@@ -112,6 +112,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...updateData,
       id: `scrum-${Date.now()}`,
     };
+    initialScrumUpdates.unshift(newUpdate);
     setScrumUpdates(prev => [newUpdate, ...prev]);
   };
 
