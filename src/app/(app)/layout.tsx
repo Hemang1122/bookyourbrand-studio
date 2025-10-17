@@ -1,6 +1,5 @@
 
 import AppLayoutClient from './layout-client';
-import { FirebaseClientProvider } from '@/firebase';
 import { getUser } from '@/lib/auth';
 
 export default async function AppLayout({
@@ -13,8 +12,6 @@ export default async function AppLayout({
   const user = await getUser();
 
   return (
-    <FirebaseClientProvider>
       <AppLayoutClient initialUser={user}>{children}</AppLayoutClient>
-    </FirebaseClientProvider>
   );
 }
