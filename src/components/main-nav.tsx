@@ -8,6 +8,7 @@ import {
   Users,
   Settings,
   Briefcase,
+  ClipboardList,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -22,6 +23,7 @@ const navItems = [
   { href: '/projects', icon: FolderKanban, label: 'Projects', roles: ['admin', 'team', 'client'] },
   { href: '/clients', icon: Briefcase, label: 'Clients', roles: ['admin'] },
   { href: '/team', icon: Users, label: 'Team', roles: ['admin'] },
+  { href: '/scrum', icon: ClipboardList, label: 'Scrum Sheet', roles: ['admin', 'team'] },
   { href: '/settings', icon: Settings, label: 'Settings', roles: ['admin', 'team', 'client'] },
 ];
 

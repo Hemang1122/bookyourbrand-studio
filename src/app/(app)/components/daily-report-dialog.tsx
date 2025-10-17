@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -13,11 +13,13 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { generateActivityReport } from '@/ai/flows/generate-activity-report';
-import { Bot, Loader2, Calendar as CalendarIcon } from 'lucide-react';
+import { Bot, Loader2, Calendar as CalendarIcon, Download } from 'lucide-react';
 import { useData } from '../data-provider';
 import { format } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { users as allUsers } from '@/lib/data';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
 
 type DailyReportDialogProps = {
   children: React.ReactNode;
@@ -29,7 +31,8 @@ export function DailyReportDialog({ children }: DailyReportDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const { toast } = useToast();
-  const { projects, tasks } = useData();
+  const { projects, tasks, users } = useData();
+  const reportContentRef = useRef<HTMLDivElement>(null);
 
   const handleGenerateReport = async () => {
     if (!selectedDate) {
@@ -43,7 +46,7 @@ export function DailyReportDialog({ children }: DailyReportDialogProps) {
         date: format(selectedDate, 'yyyy-MM-dd'),
         projects,
         tasks,
-        users: allUsers,
+        users,
       };
       const result = await generateActivityReport(input);
       setReport(result.report);
@@ -52,6 +55,24 @@ export function DailyReportDialog({ children }: DailyReportDialogProps) {
       toast({ title: 'AI Error', description: 'Failed to generate the report.', variant: 'destructive' });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDownloadPdf = () => {
+    if (reportContentRef.current) {
+      html2canvas(reportContentRef.current).then((canvas) => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+        const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+        const imgX = (pdfWidth - imgWidth * ratio) / 2;
+        const imgY = 30;
+        pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+        pdf.save(`daily_report_${format(selectedDate || new Date(), 'yyyy-MM-dd')}.pdf`);
+      });
     }
   };
 
@@ -97,6 +118,8 @@ export function DailyReportDialog({ children }: DailyReportDialogProps) {
               )}
               {report ? (
                  <div
+                    id="report-content"
+                    ref={reportContentRef}
                     className="prose prose-sm dark:prose-invert max-w-none"
                     dangerouslySetInnerHTML={{ __html: report.replace(/\n/g, '<br />') }}
                   />
@@ -104,6 +127,10 @@ export function DailyReportDialog({ children }: DailyReportDialogProps) {
                 !isLoading && <p className="text-center text-sm text-muted-foreground">Your report will appear here.</p>
               )}
             </ScrollArea>
+             <Button onClick={handleDownloadPdf} disabled={!report || isLoading} className="w-full">
+                <Download className="mr-2 h-4 w-4" />
+                Download PDF
+            </Button>
           </div>
         </div>
         <DialogFooter>

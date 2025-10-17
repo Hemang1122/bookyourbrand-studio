@@ -54,10 +54,18 @@ export type ChatMessage = {
 
 export type ProjectFile = {
   id: string;
-  name: string;
+  name:string;
   url: string;
   uploadedBy: User;
   uploadedAt: string;
   size: string;
   type: 'Reference' | 'Deliverable' | 'Raw';
+};
+
+export type ScrumUpdate = {
+  id: string;
+  userId: string;
+  yesterday: string;
+  today: string;
+  timestamp: string;
 };
