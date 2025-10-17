@@ -7,6 +7,7 @@ import {
   FolderKanban,
   Users,
   Settings,
+  Briefcase,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -19,7 +20,8 @@ import { useSidebar } from '@/components/ui/sidebar';
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'team', 'client'] },
   { href: '/projects', icon: FolderKanban, label: 'Projects', roles: ['admin', 'team', 'client'] },
-  { href: '/clients', icon: Users, label: 'Clients', roles: ['admin'] },
+  { href: '/clients', icon: Briefcase, label: 'Clients', roles: ['admin'] },
+  { href: '/team', icon: Users, label: 'Team', roles: ['admin'] },
   { href: '/settings', icon: Settings, label: 'Settings', roles: ['admin', 'team', 'client'] },
 ];
 
