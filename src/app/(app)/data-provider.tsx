@@ -1,15 +1,20 @@
+
 'use client';
 
 import { createContext, useContext, useState } from 'react';
-import type { Project, Task, User } from '@/lib/types';
-import { projects as initialProjects, tasks as initialTasks, users } from '@/lib/data';
+import type { Project, Task, User, Client } from '@/lib/types';
+import { projects as initialProjects, tasks as initialTasks, users as initialUsers, clients as initialClients } from '@/lib/data';
 
 type DataContextType = {
   projects: Project[];
   tasks: Task[];
+  clients: Client[];
+  teamMembers: User[];
   addProject: (project: Omit<Project, 'id' | 'coverImage'>) => void;
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
+  addClient: (name: string, company: string, email: string) => void;
+  addTeamMember: (name: string, email: string) => void;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -17,6 +22,10 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [clients, setClients] = useState<Client[]>(initialClients);
+  const [users, setUsers] = useState<User[]>(initialUsers);
+
+  const teamMembers = users.filter(u => u.role === 'admin' || u.role === 'team');
 
   const addProject = (projectData: Omit<Project, 'id' | 'coverImage'>) => {
     const newProject: Project = {
@@ -51,8 +60,40 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }));
   };
 
+  const addClient = (name: string, company: string, email: string) => {
+    const totalUsers = users.length;
+    const newUser: User = {
+      id: `user-${totalUsers + 1}`,
+      name: name,
+      email: email,
+      avatar: `avatar-${(totalUsers % 6) + 1}`,
+      role: 'client',
+    };
+    const newClient: Client = {
+      id: `client-${clients.length + 1}`,
+      name: name,
+      email: email,
+      company: company,
+      avatar: newUser.avatar,
+    };
+    setUsers(prev => [...prev, newUser]);
+    setClients(prev => [...prev, newClient]);
+  }
+
+  const addTeamMember = (name: string, email: string) => {
+    const totalUsers = users.length;
+    const newMember: User = {
+      id: `user-${totalUsers + 1}`,
+      name: name,
+      email: email,
+      avatar: `avatar-${(totalUsers % 6) + 1}`,
+      role: 'team',
+    };
+    setUsers(prev => [...prev, newMember]);
+  }
+
   return (
-    <DataContext.Provider value={{ projects, tasks, addProject, addTask, updateProjectTeam }}>
+    <DataContext.Provider value={{ projects, tasks, clients, teamMembers, addProject, addTask, updateProjectTeam, addClient, addTeamMember }}>
       {children}
     </DataContext.Provider>
   );
