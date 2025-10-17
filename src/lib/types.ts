@@ -1,3 +1,5 @@
+import { FieldValue } from 'firebase/firestore';
+
 export type UserRole = 'admin' | 'team' | 'client';
 
 export type User = {
@@ -7,7 +9,6 @@ export type User = {
   avatar: string; // Corresponds to id in placeholder-images.json
   role: UserRole;
   username: string;
-  password?: string; // Password should be handled securely on a real backend
 };
 
 export type Client = {
@@ -46,9 +47,11 @@ export type Task = {
 
 export type ChatMessage = {
   id: string;
-  sender: User;
+  senderId: string;
+  senderName: string;
+  senderAvatar: string;
   message: string;
-  timestamp: string;
+  timestamp: FieldValue | Date;
   fileUrl?: string;
 };
 
@@ -56,10 +59,12 @@ export type ProjectFile = {
   id: string;
   name:string;
   url: string;
-  uploadedBy: User;
-  uploadedAt: string;
+  uploadedById: string;
+  uploadedByName: string;
+  uploadedByAvatar: string;
+  uploadedAt: FieldValue | Date;
   size: string;
-  type: 'Reference' | 'Deliverable' | 'Raw';
+  type: string;
 };
 
 export type ScrumUpdate = {

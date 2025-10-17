@@ -67,26 +67,16 @@ export const tasks: Task[] = [
   { id: 'task-6', projectId: 'proj-3', title: 'Logo redesign sketches', description: 'Provide initial sketches for the new logo.', assignedTo: users[2], status: 'Completed', dueDate: '2024-05-15' },
 ];
 
-export const chatMessages: { [key: string]: ChatMessage[] } = {
-  'proj-1': [
-    { id: 'msg-1', sender: clients[0] as unknown as User, message: "Hey team, any updates on the initial concepts?", timestamp: '2024-07-09T10:00:00Z' },
-    { id: 'msg-2', sender: users[1], message: "Hi! Yes, just finished them up. I'll be uploading the draft for review shortly.", timestamp: '2024-07-09T10:05:00Z' },
-    { id: 'msg-3', sender: users[0], message: "Great work, Maria. Looking forward to seeing them.", timestamp: '2024-07-09T10:06:00Z' },
-  ],
-  'proj-2': [
-    { id: 'msg-4', sender: clients[1] as unknown as User, message: "We've uploaded the raw footage to the file manager. Let us know if you need anything else.", timestamp: '2024-07-18T14:30:00Z' },
-    { id: 'msg-5', sender: users[1], message: "Received, thanks! I'll start the editing process tomorrow morning.", timestamp: '2024-07-18T14:35:00Z' },
-  ]
+// This mock data is no longer the source of truth for chat and files.
+// It is kept here for reference but the app now uses Firestore.
+export const chatMessages: { [key: string]: any[] } = {
+  'proj-1': [],
+  'proj-2': []
 };
 
-export const projectFiles: { [key: string]: ProjectFile[] } = {
-    'proj-1': [
-        { id: 'file-1', name: 'brief.pdf', url: '#', uploadedBy: clients[0] as unknown as User, uploadedAt: '2024-07-01', size: '2.5MB', type: 'Reference' },
-        { id: 'file-2', name: 'concept_draft_v1.zip', url: '#', uploadedBy: users[1], uploadedAt: '2024-07-09', size: '15.2MB', type: 'Deliverable' },
-    ],
-    'proj-2': [
-        { id: 'file-3', name: 'raw_footage.mov', url: '#', uploadedBy: clients[1] as unknown as User, uploadedAt: '2024-07-18', size: '1.2GB', type: 'Raw' },
-    ]
+export const projectFiles: { [key: string]: any[] } = {
+    'proj-1': [],
+    'proj-2': []
 };
 
 export const scrumUpdates: ScrumUpdate[] = [

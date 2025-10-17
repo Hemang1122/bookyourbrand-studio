@@ -10,7 +10,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { ListTodo, MessageSquare, Files, Info, Users, Edit } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { chatMessages, projectFiles } from '@/lib/data';
 import { useData } from '../../data-provider';
 import type { Project, User } from '@/lib/types';
 import { useAuth } from '@/lib/auth-client';
@@ -62,10 +61,6 @@ export default function ProjectDetailPage() {
     // This will be called if the project is not found after loading.
     return notFound();
   }
-
-  // Mock data for chat and files still used for simplicity
-  const messages = chatMessages[project.id] || [];
-  const files = projectFiles[project.id] || [];
 
   return (
     <div className="space-y-6">
@@ -155,7 +150,7 @@ export default function ProjectDetailPage() {
               <CardDescription>Communicate with the client and team in real-time.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ChatRoom initialMessages={messages} />
+              <ChatRoom projectId={project.id} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -166,7 +161,7 @@ export default function ProjectDetailPage() {
               <CardDescription>Upload and access all project-related files.</CardDescription>
             </CardHeader>
             <CardContent>
-              <FileManager initialFiles={files} />
+              <FileManager projectId={project.id} />
             </CardContent>
           </Card>
         </TabsContent>
