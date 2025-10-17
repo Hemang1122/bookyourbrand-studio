@@ -8,6 +8,7 @@ import {
   SidebarFooter,
   SidebarTrigger,
   SidebarInset,
+  SidebarRail,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/logo';
 import { MainNav } from '@/components/main-nav';
@@ -27,7 +28,7 @@ export default async function AppLayout({
   return (
     <SidebarProvider>
       <div className="min-h-screen w-full">
-        <Sidebar>
+        <Sidebar collapsible="icon">
           <SidebarHeader>
             <Logo />
           </SidebarHeader>
@@ -37,10 +38,11 @@ export default async function AppLayout({
           <SidebarFooter>
             {/* Can add footer items here */}
           </SidebarFooter>
+          <SidebarRail />
         </Sidebar>
         <SidebarInset>
           <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
-            <SidebarTrigger className="sm:hidden" />
+            <SidebarTrigger />
             <div className="flex-1" />
             <ModeToggle />
             <UserNav />
