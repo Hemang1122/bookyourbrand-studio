@@ -47,24 +47,27 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   const isClientUser = user?.role === 'client';
 
   const handleAddProject = () => {
+    const finalClientId = isClientUser ? user?.id : client;
+
     // Admin validation
     if (!isClientUser && team.length === 0) {
       toast({ title: 'Error', description: 'Please assign at least one team member.', variant: 'destructive' });
       return;
     }
     // Universal validation
-    if (!name || !description || !deadline || !client) {
+    if (!name || !description || !deadline || !finalClientId) {
       toast({ title: 'Error', description: 'Project name, description, client and deadline are required.', variant: 'destructive' });
       return;
     }
-    const selectedClient = clients.find(c => c.id === client);
+    const selectedClient = clients.find(c => c.id === finalClientId);
     if (!selectedClient) {
         toast({ title: 'Error', description: 'Selected client not found.', variant: 'destructive' });
         return;
     }
     
-    // Admins assign team, clients submit with an empty team
+    // Admins assign team, clients submit with their own team (which is empty initially)
     const selectedTeam = isClientUser ? [] : users.filter(u => team.includes(u.id));
+
 
     const newProject = {
       name,
@@ -108,7 +111,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
             <Label htmlFor="guidelines">Project Guidelines</Label>
             <Textarea id="guidelines" value={guidelines} onChange={(e) => setGuidelines(e.target.value)} placeholder="Provide specific instructions or guidelines for the team." />
           </div>
-          {!preselectedClient && (
+          {!preselectedClient && !isClientUser && (
             <div className="space-y-2">
                 <Label htmlFor="client">Client</Label>
                 <Select onValueChange={setClient} value={client}>
@@ -154,6 +157,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
           </div>
         </div>
         <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
           <Button onClick={handleAddProject}>Add Project</Button>
         </DialogFooter>
       </DialogContent>
