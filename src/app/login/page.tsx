@@ -1,3 +1,4 @@
+
 'use client';
 import { Button } from '@/components/ui/button';
 import {
@@ -7,65 +8,46 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { LoginLogo } from '@/components/login-logo';
-import { users } from '@/lib/data';
 import { useFirebase } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useState } from 'react';
 import { redirect } from 'next/navigation';
-import {
-  createUserWithEmailAndPassword as createUser,
-} from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
-  const admins = users.filter(u => u.role === 'admin');
-  const team = users.filter(u => u.role === 'team');
-  const clients = users.filter(u => u.role === 'client');
-  const [selectedUser, setSelectedUser] = useState<string>('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const { auth, user } = useFirebase();
   const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const userToLogin = users.find(u => u.id === selectedUser);
-    if (userToLogin && auth) {
-      try {
-        // First, try to create the user. If they already exist, this will fail.
-        await createUser(auth, userToLogin.email, 'password');
-        // If creation is successful, the user is automatically signed in.
-        // The onAuthStateChanged listener in the layout will handle the redirect.
-      } catch (error: any) {
-        if (error.code === 'auth/email-already-in-use') {
-          // If the user already exists, we sign them in.
-          try {
-            await signInWithEmailAndPassword(auth, userToLogin.email, 'password');
-          } catch (signInError: any) {
-             toast({
-              title: 'Login Failed',
-              description: `An unexpected error occurred during sign-in: ${signInError.message}`,
-              variant: 'destructive',
-            });
-          }
-        } else {
-          // For any other creation error, show a toast.
-          toast({
-            title: 'Login Error',
-            description: `Could not create or sign in user: ${error.message}`,
-            variant: 'destructive',
-          });
-        }
+    if (!auth || !email || !password) {
+      toast({ title: 'Login Error', description: 'Email and password are required.', variant: 'destructive'});
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      // On successful login, the onAuthStateChanged listener in the layout
+      // will handle the user state and the redirect will happen automatically.
+    } catch (error: any) {
+      let description = 'An unexpected error occurred during sign-in.';
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        description = 'Invalid email or password. Please try again.';
       }
+      toast({
+        title: 'Login Failed',
+        description: description,
+        variant: 'destructive',
+      });
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -81,43 +63,38 @@ export default function LoginPage() {
           <div className="mb-4 flex justify-center">
             <LoginLogo />
           </div>
-          <CardTitle className="text-2xl font-bold">Welcome!</CardTitle>
+          <CardTitle className="text-2xl font-bold">Welcome Back!</CardTitle>
           <CardDescription>
-            Select a user to sign in to your account.
+            Enter your credentials to sign in to your account.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="user_id">Select User</Label>
-              <Select name="user_id" required onValueChange={setSelectedUser} value={selectedUser}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a user to log in as" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Admins</SelectLabel>
-                    {admins.map(user => (
-                      <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                   <SelectGroup>
-                    <SelectLabel>Team</SelectLabel>
-                    {team.map(user => (
-                      <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                   <SelectGroup>
-                    <SelectLabel>Clients</SelectLabel>
-                    {clients.map(user => (
-                      <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="m@example.com"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
+              />
             </div>
-            <Button type="submit" className="w-full">
-              Sign In
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Signing In...' : 'Sign In'}
             </Button>
           </form>
         </CardContent>

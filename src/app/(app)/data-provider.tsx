@@ -4,6 +4,11 @@
 import { createContext, useContext, useState } from 'react';
 import type { Project, Task, User, Client, ScrumUpdate } from '@/lib/types';
 import { projects as initialProjects, tasks as initialTasks, users as initialUsers, clients as initialClients, scrumUpdates as initialScrumUpdates } from '@/lib/data';
+import { useFirebase } from '@/firebase';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { useToast } from '@/hooks/use-toast';
+import { doc, setDoc } from 'firebase/firestore';
+
 
 type DataContextType = {
   projects: Project[];
@@ -15,8 +20,8 @@ type DataContextType = {
   addProject: (project: Omit<Project, 'id' | 'coverImage'>) => void;
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
-  addClient: (name: string, company: string, email: string) => void;
-  addTeamMember: (name: string, email: string) => void;
+  addClient: (name: string, company: string, email: string, password: string) => void;
+  addTeamMember: (name: string, email: string, password: string) => void;
   addScrumUpdate: (update: Omit<ScrumUpdate, 'id'>) => void;
   triggerNotification: () => void;
   playNotification: boolean;
@@ -32,6 +37,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [scrumUpdates, setScrumUpdates] = useState<ScrumUpdate[]>(initialScrumUpdates);
   const [playNotification, setPlayNotification] = useState(false);
+  const { auth, firestore } = useFirebase();
+  const { toast } = useToast();
 
 
   const teamMembers = users.filter(u => u.role === 'admin' || u.role === 'team');
@@ -69,47 +76,68 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }));
   };
 
-  const addClient = (name: string, company: string, email: string) => {
-    const totalUsers = initialUsers.length;
-    const newUser: User = {
-      id: `user-${totalUsers + 1}`,
-      name: name,
-      email: email,
-      avatar: `avatar-${(totalUsers % 6) + 1}`,
-      role: 'client',
-      username: name.toLowerCase().replace(/\s/g, ''),
-    };
-    const newClient: Client = {
-      id: `client-${initialClients.length + 1}`,
-      name: name,
-      email: email,
-      company: company,
-      avatar: newUser.avatar,
-    };
-    
-    // Add to the source of truth for auth
-    initialUsers.push(newUser);
-    initialClients.push(newClient);
+  const addClient = async (name: string, company: string, email: string, password: string) => {
+    if (!auth || !firestore) return;
+    try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const firebaseUser = userCredential.user;
 
-    setUsers(prev => [...prev, newUser]);
-    setClients(prev => [...prev, newClient]);
+        const totalUsers = initialUsers.length;
+        const newUser: User = {
+          id: firebaseUser.uid,
+          name: name,
+          email: email,
+          avatar: `avatar-${(totalUsers % 6) + 1}`,
+          role: 'client',
+          username: name.toLowerCase().replace(/\s/g, ''),
+        };
+        const newClient: Client = {
+          id: `client-${initialClients.length + 1}`,
+          name: name,
+          email: email,
+          company: company,
+          avatar: newUser.avatar,
+        };
+        
+        await setDoc(doc(firestore, "users", firebaseUser.uid), newUser);
+        // This should also write to a 'clients' collection in a real app
+        // For now, we update local state for simplicity of the prototype
+        
+        initialUsers.push(newUser);
+        initialClients.push(newClient);
+
+        setUsers(prev => [...prev, newUser]);
+        setClients(prev => [...prev, newClient]);
+
+    } catch (error: any) {
+        toast({ title: 'Error creating client', description: error.message, variant: 'destructive' });
+    }
   }
 
-  const addTeamMember = (name: string, email: string) => {
-    const totalUsers = initialUsers.length;
-    const newMember: User = {
-      id: `user-${totalUsers + 1}`,
-      name: name,
-      email: email,
-      avatar: `avatar-${(totalUsers % 6) + 1}`,
-      role: 'team',
-      username: name.toLowerCase().replace(/\s/g, ''),
-    };
-    
-    // Add to the source of truth for auth
-    initialUsers.push(newMember);
-    
-    setUsers(prev => [...prev, newMember]);
+  const addTeamMember = async (name: string, email: string, password: string) => {
+     if (!auth || !firestore) return;
+    try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const firebaseUser = userCredential.user;
+
+        const totalUsers = initialUsers.length;
+        const newMember: User = {
+          id: firebaseUser.uid,
+          name: name,
+          email: email,
+          avatar: `avatar-${(totalUsers % 6) + 1}`,
+          role: 'team',
+          username: name.toLowerCase().replace(/\s/g, ''),
+        };
+        
+        await setDoc(doc(firestore, "users", firebaseUser.uid), newMember);
+        
+        initialUsers.push(newMember);
+        
+        setUsers(prev => [...prev, newMember]);
+    } catch (error: any) {
+         toast({ title: 'Error creating team member', description: error.message, variant: 'destructive' });
+    }
   }
 
   const addScrumUpdate = (updateData: Omit<ScrumUpdate, 'id'>) => {

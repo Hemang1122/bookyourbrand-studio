@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 
 type AddClientDialogProps = {
-  onClientAdd: (name: string, company: string, email: string) => void;
+  onClientAdd: (name: string, company: string, email: string, password: string) => void;
   children: React.ReactNode;
 };
 
@@ -26,25 +26,26 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [founderDetails, setFounderDetails] = useState('');
   const [agreementLink, setAgreementLink] = useState('');
   const [idCardLink, setIdCardLink] = useState('');
   const { toast } = useToast();
 
   const handleAddClient = () => {
-    if (!name || !company || !email || !agreementLink || !idCardLink) {
-      toast({ title: 'Error', description: 'All fields are required.', variant: 'destructive' });
+    if (!name || !company || !email || !password) {
+      toast({ title: 'Error', description: 'Name, company, email, and password are required.', variant: 'destructive' });
       return;
     }
     
-    // In a real app, you would save these links.
-    onClientAdd(name, company, email);
+    onClientAdd(name, company, email, password);
     toast({ title: 'Client Added', description: `"${name}" has been added.` });
     setOpen(false);
     // Reset fields
     setName('');
     setCompany('');
     setEmail('');
+    setPassword('');
     setFounderDetails('');
     setAgreementLink('');
     setIdCardLink('');
@@ -71,17 +72,21 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
             <Label htmlFor="email">Client Email</Label>
             <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g., contact@acme.com" />
           </div>
+           <div className="space-y-2">
+            <Label htmlFor="password">Set Password</Label>
+            <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Assign a secure password" />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="founder-details">Founder Details</Label>
             <Textarea id="founder-details" value={founderDetails} onChange={(e) => setFounderDetails(e.target.value)} placeholder="Enter details about the founder(s)." />
           </div>
            <div className="space-y-2">
-            <Label htmlFor="agreement">Client Agreement Link (Required)</Label>
-            <Input id="agreement" value={agreementLink} onChange={e => setAgreementLink(e.target.value)} placeholder="https://link.to/agreement.pdf" required />
+            <Label htmlFor="agreement">Client Agreement Link</Label>
+            <Input id="agreement" value={agreementLink} onChange={e => setAgreementLink(e.target.value)} placeholder="https://link.to/agreement.pdf" />
           </div>
            <div className="space-y-2">
-            <Label htmlFor="identity-card">Founder's Identity Card Link (Required)</Label>
-            <Input id="identity-card" value={idCardLink} onChange={e => setIdCardLink(e.target.value)} placeholder="https://link.to/id-card.pdf" required />
+            <Label htmlFor="identity-card">Founder's Identity Card Link</Label>
+            <Input id="identity-card" value={idCardLink} onChange={e => setIdCardLink(e.target.value)} placeholder="https://link.to/id-card.pdf" />
           </div>
         </div>
         <DialogFooter>

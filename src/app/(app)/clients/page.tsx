@@ -1,7 +1,6 @@
 
 'use client';
 
-import { clients as initialClients, users as initialUsers } from '@/lib/data';
 import { columns } from './components/columns';
 import { DataTable } from './components/data-table';
 import { useAuth } from '@/lib/auth-client';
@@ -17,8 +16,6 @@ export default function ClientsPage() {
 
   if (user?.role !== 'admin') {
     // Non-admins should not see this page.
-    // Using redirect in a client component is not ideal,
-    // but for this mock app it's a simple solution.
     if (typeof window !== 'undefined') {
       redirect('/dashboard');
     }
