@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Send, Paperclip } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAuth } from '@/lib/auth-client';
 
 type ChatRoomProps = {
   initialMessages: ChatMessage[];
@@ -18,11 +19,11 @@ type ChatRoomProps = {
 export function ChatRoom({ initialMessages }: ChatRoomProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [newMessage, setNewMessage] = useState('');
-  const currentUser = users[0]; // Mock current user as admin
+  const { user: currentUser } = useAuth();
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newMessage.trim() === '') return;
+    if (newMessage.trim() === '' || !currentUser) return;
 
     const message: ChatMessage = {
       id: `msg-${Date.now()}`,
@@ -33,6 +34,8 @@ export function ChatRoom({ initialMessages }: ChatRoomProps) {
     setMessages([...messages, message]);
     setNewMessage('');
   };
+  
+  if (!currentUser) return null;
 
   return (
     <div className="flex h-[60vh] flex-col">
@@ -44,7 +47,7 @@ export function ChatRoom({ initialMessages }: ChatRoomProps) {
             return (
               <div
                 key={msg.id}
-                className={`flex items-end gap-2 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
+                className={`flex items-start gap-3 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
               >
                 {!isCurrentUser && (
                    <Avatar className="h-8 w-8">
@@ -52,11 +55,14 @@ export function ChatRoom({ initialMessages }: ChatRoomProps) {
                      <AvatarFallback>{msg.sender.name.charAt(0)}</AvatarFallback>
                    </Avatar>
                 )}
-                <div className={`max-w-xs rounded-lg px-4 py-2 lg:max-w-md ${isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                  <p className="text-sm">{msg.message}</p>
-                  <p className={`text-xs mt-1 ${isCurrentUser ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
+                <div className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${isCurrentUser ? 'items-end' : 'items-start'}`}>
+                    <span className="text-xs text-muted-foreground">{msg.sender.name}</span>
+                    <div className={`rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                        <p className="text-sm">{msg.message}</p>
+                    </div>
+                    <p className={`text-xs mt-1 ${isCurrentUser ? 'text-right' : 'text-left'} text-muted-foreground/80`}>
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
                 </div>
                  {isCurrentUser && (
                    <Avatar className="h-8 w-8">

@@ -8,8 +8,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { AddTaskDialog } from './add-task-dialog';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, Wand2 } from 'lucide-react';
 import { useData } from '../../../data-provider';
+import { useAuth } from '@/lib/auth-client';
 
 type TaskListProps = {
   projectId: string;
@@ -17,6 +18,7 @@ type TaskListProps = {
 
 export function TaskList({ projectId }: TaskListProps) {
   const { tasks, addTask } = useData();
+  const { user } = useAuth();
   const projectTasks = tasks.filter((t) => t.projectId === projectId);
 
 
@@ -29,12 +31,14 @@ export function TaskList({ projectId }: TaskListProps) {
   return (
     <div className="space-y-4">
         <div className="flex justify-end">
-            <AddTaskDialog projectId={projectId} onTaskAdd={addTask}>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Task
-              </Button>
-            </AddTaskDialog>
+            {user?.role === 'admin' && (
+              <AddTaskDialog projectId={projectId} onTaskAdd={addTask}>
+                <Button>
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  Generate Tasks with AI
+                </Button>
+              </AddTaskDialog>
+            )}
         </div>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         {Object.entries(columns).map(([status, tasksInColumn]) => (
