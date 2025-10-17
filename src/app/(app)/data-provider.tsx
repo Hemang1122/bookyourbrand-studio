@@ -4,6 +4,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { Project, Task, User, Client, ScrumUpdate } from '@/lib/types';
 import { projects as initialProjects, tasks as initialTasks, users as initialUsers, clients as initialClients, scrumUpdates as initialScrumUpdates } from '@/lib/data';
+import { useToast } from '@/hooks/use-toast';
 
 type DataContextType = {
   projects: Project[];
@@ -33,6 +34,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [clients, setClients] = useState<Client[]>(initialClients);
   const [scrumUpdates, setScrumUpdates] = useState<ScrumUpdate[]>(initialScrumUpdates);
   const [playNotification, setPlayNotification] = useState(false);
+  const { toast } = useToast();
 
   const teamMembers = users.filter(u => u.role === 'admin' || u.role === 'team');
 

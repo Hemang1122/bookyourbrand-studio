@@ -152,9 +152,9 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type a message..."
             autoComplete="off"
-            disabled={!messagesRef}
+            disabled={!firestore}
           />
-          <Button type="submit" size="icon" disabled={!messagesRef || !newMessage}>
+          <Button type="submit" size="icon" disabled={!firestore || !newMessage}>
             <Send className="h-5 w-5" />
             <span className="sr-only">Send message</span>
           </Button>

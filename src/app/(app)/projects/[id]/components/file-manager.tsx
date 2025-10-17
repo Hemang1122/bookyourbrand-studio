@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -61,7 +62,7 @@ export function FileManager({ projectId }: FileManagerProps) {
     <div className="space-y-4">
       <div className="flex justify-end">
         <AddFileLinkDialog onAddFile={handleAddFileLink}>
-          <Button>
+          <Button disabled={!firestore}>
             <Plus className="mr-2 h-4 w-4" />
             Add File Link
           </Button>
