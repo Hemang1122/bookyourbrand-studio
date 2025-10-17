@@ -82,7 +82,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const firebaseUser = userCredential.user;
 
-        const totalUsers = initialUsers.length;
+        const totalUsers = users.length;
         const newUser: User = {
           id: firebaseUser.uid,
           name: name,
@@ -92,7 +92,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           username: name.toLowerCase().replace(/\s/g, ''),
         };
         const newClient: Client = {
-          id: `client-${initialClients.length + 1}`,
+          id: firebaseUser.uid, // Use firebase UID for client ID as well for consistency
           name: name,
           email: email,
           company: company,
@@ -103,9 +103,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         // This should also write to a 'clients' collection in a real app
         // For now, we update local state for simplicity of the prototype
         
-        initialUsers.push(newUser);
-        initialClients.push(newClient);
-
         setUsers(prev => [...prev, newUser]);
         setClients(prev => [...prev, newClient]);
 
@@ -120,7 +117,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const firebaseUser = userCredential.user;
 
-        const totalUsers = initialUsers.length;
+        const totalUsers = users.length;
         const newMember: User = {
           id: firebaseUser.uid,
           name: name,
@@ -132,9 +129,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         
         await setDoc(doc(firestore, "users", firebaseUser.uid), newMember);
         
-        initialUsers.push(newMember);
-        
         setUsers(prev => [...prev, newMember]);
+
     } catch (error: any) {
          toast({ title: 'Error creating team member', description: error.message, variant: 'destructive' });
     }
