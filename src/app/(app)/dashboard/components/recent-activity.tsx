@@ -1,0 +1,40 @@
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import type { Task, Project } from '@/lib/types';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+
+type RecentActivityProps = {
+    tasks: Task[];
+    projects: Project[];
+}
+
+export function RecentActivity({ tasks, projects }: RecentActivityProps) {
+  const recentCompletedTasks = tasks
+    .filter((task) => task.status === 'Completed')
+    .slice(0, 5);
+
+  return (
+    <div className="space-y-8">
+      {recentCompletedTasks.map((task) => {
+        const project = projects.find(p => p.id === task.projectId);
+        const userAvatar = PlaceHolderImages.find(img => img.id === task.assignedTo.avatar);
+        return (
+            <div key={task.id} className="flex items-center">
+                <Avatar className="h-9 w-9">
+                <AvatarImage src={userAvatar?.imageUrl} alt={task.assignedTo.name} data-ai-hint={userAvatar?.imageHint} />
+                <AvatarFallback>{task.assignedTo.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div className="ml-4 space-y-1">
+                <p className="text-sm font-medium leading-none">
+                    <span className="font-semibold">{task.assignedTo.name}</span> completed a task.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    "{task.title}" in project "{project?.name}"
+                </p>
+                </div>
+                <div className="ml-auto text-sm text-muted-foreground">{new Date(task.dueDate).toLocaleDateString()}</div>
+            </div>
+        )
+      })}
+    </div>
+  );
+}

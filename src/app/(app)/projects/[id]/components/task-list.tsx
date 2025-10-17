@@ -1,0 +1,69 @@
+'use client';
+
+import { useState } from 'react';
+import type { Task } from '@/lib/types';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { AddTaskDialog } from './add-task-dialog';
+
+type TaskListProps = {
+  initialTasks: Task[];
+  projectId: string;
+};
+
+export function TaskList({ initialTasks, projectId }: TaskListProps) {
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+
+  const columns = {
+    Pending: tasks.filter((t) => t.status === 'Pending'),
+    'In Progress': tasks.filter((t) => t.status === 'In Progress'),
+    Completed: tasks.filter((t) => t.status === 'Completed'),
+  };
+
+  const handleAddTask = (newTask: Task) => {
+    setTasks(prev => [...prev, newTask])
+  }
+
+  return (
+    <div className="space-y-4">
+        <div className="flex justify-end">
+            <AddTaskDialog projectId={projectId} onTaskAdd={handleAddTask} />
+        </div>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        {Object.entries(columns).map(([status, tasksInColumn]) => (
+          <div key={status} className="flex flex-col gap-4">
+            <h3 className="text-lg font-semibold tracking-tight">
+              {status} <span className="text-sm text-muted-foreground">({tasksInColumn.length})</span>
+            </h3>
+            <div className="flex flex-col gap-4 rounded-lg bg-muted/50 p-4">
+              {tasksInColumn.map((task) => {
+                const userAvatar = PlaceHolderImages.find(img => img.id === task.assignedTo.avatar);
+                return (
+                    <Card key={task.id} className="bg-background">
+                        <CardHeader className="p-4">
+                        <CardTitle className="text-base">{task.title}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="flex items-center justify-between p-4 pt-0">
+                            <Badge variant="outline">Due: {task.dueDate}</Badge>
+                            <Avatar className="h-8 w-8">
+                                <AvatarImage src={userAvatar?.imageUrl} alt={task.assignedTo.name} data-ai-hint={userAvatar?.imageHint}/>
+                                <AvatarFallback>{task.assignedTo.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                        </CardContent>
+                    </Card>
+                );
+              })}
+              {tasksInColumn.length === 0 && (
+                <div className="text-center text-sm text-muted-foreground py-8">
+                    No tasks in this stage.
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
