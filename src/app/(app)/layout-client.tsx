@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { User } from '@/lib/types';
@@ -22,9 +23,9 @@ import { BookOpenCheck } from 'lucide-react';
 import { DailyReportDialog } from './components/daily-report-dialog';
 import { useUser, useFirebase } from '@/firebase';
 import { redirect } from 'next/navigation';
+import { users } from '@/lib/data';
 
-function AppHeader() {
-    const { user } = useAuth();
+function AppHeader({user}: {user: User}) {
     const { open, setOpen } = useSidebar();
     return (
         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
@@ -46,13 +47,12 @@ function AppHeader() {
 
 export default function AppLayoutClient({
   children,
-  user: initialUser,
+  initialUser,
 }: {
   children: React.ReactNode;
-  user: User;
+  initialUser: User | null;
 }) {
-  const { isUserLoading, user } = useUser();
-  const { auth } = useFirebase();
+  const { user: firebaseUser, isUserLoading } = useUser();
 
   if (isUserLoading) {
     return (
@@ -62,22 +62,24 @@ export default function AppLayoutClient({
     );
   }
 
-  // If there's no user from Firebase but we had an initial one, it means they logged out.
-  if (!user && auth) {
-    // This can cause a redirect loop if not handled carefully.
-    // The `logout` action already redirects to /login.
-    // This is a fallback.
-    if (typeof window !== 'undefined') {
-       window.location.href = '/login';
-    }
-    return null;
+  if (!firebaseUser) {
+    // If Firebase has confirmed there's no user, redirect to login.
+    redirect('/login');
   }
-  
-  // The initialUser from the server is passed to AuthProvider
-  // so client components have immediate access without waiting for Firebase.
-  // The useUser hook will provide the live user state from Firebase once it loads.
+
+  // Find the full user profile from our mock data using the authenticated Firebase user's ID.
+  // In a real app, this might come from a 'users' collection in Firestore.
+  const user = users.find(u => u.email === firebaseUser.email);
+
+  if (!user) {
+    // This case can happen if the user exists in Firebase Auth but not in our mock `users` array.
+    // We should handle this gracefully. For now, we'll show an error and a way to log out.
+     console.error("User not found in data.ts but authenticated with Firebase.");
+     redirect('/login');
+  }
+
   return (
-    <AuthProvider user={initialUser}>
+    <AuthProvider user={user}>
       <DataProvider>
         <SidebarProvider>
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -87,7 +89,7 @@ export default function AppLayoutClient({
             </SidebarHeader>
             <SidebarContent>
                 <ScrollArea className="h-full">
-                    <MainNav userRole={initialUser.role} />
+                    <MainNav userRole={user.role} />
                 </ScrollArea>
             </SidebarContent>
             <SidebarFooter>
@@ -95,7 +97,7 @@ export default function AppLayoutClient({
             </SidebarFooter>
             </Sidebar>
             <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
-            <AppHeader />
+            <AppHeader user={user} />
             <main className="flex-1 overflow-auto p-4 sm:px-6 sm:py-0">
                 {children}
             </main>

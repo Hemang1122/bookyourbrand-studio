@@ -1,21 +1,20 @@
-import { getUser } from '@/lib/auth';
-import { redirect } from 'next/navigation';
+
 import AppLayoutClient from './layout-client';
 import { FirebaseClientProvider } from '@/firebase';
+import { getUser } from '@/lib/auth';
 
 export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // The old server-side check is removed.
+  // The new AppLayoutClient will handle auth state and redirects.
   const user = await getUser();
-  if (!user) {
-    redirect('/login');
-  }
 
   return (
     <FirebaseClientProvider>
-      <AppLayoutClient user={user}>{children}</AppLayoutClient>
+      <AppLayoutClient initialUser={user}>{children}</AppLayoutClient>
     </FirebaseClientProvider>
   );
 }
