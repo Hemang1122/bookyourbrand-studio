@@ -63,8 +63,8 @@ export type ProjectFile = {
   uploadedByName: string;
   uploadedByAvatar: string;
   uploadedAt: FieldValue | Date;
-  size: string;
-  type: string;
+  size?: string;
+  type?: string;
 };
 
 export type ScrumUpdate = {

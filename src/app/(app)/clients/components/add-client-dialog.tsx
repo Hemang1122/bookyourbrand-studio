@@ -27,15 +27,17 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
   const [company, setCompany] = useState('');
   const [email, setEmail] = useState('');
   const [founderDetails, setFounderDetails] = useState('');
+  const [agreementLink, setAgreementLink] = useState('');
+  const [idCardLink, setIdCardLink] = useState('');
   const { toast } = useToast();
 
   const handleAddClient = () => {
-    if (!name || !company || !email) {
-      toast({ title: 'Error', description: 'All fields except founder details are required.', variant: 'destructive' });
+    if (!name || !company || !email || !agreementLink || !idCardLink) {
+      toast({ title: 'Error', description: 'All fields are required.', variant: 'destructive' });
       return;
     }
     
-    // In a real app, you would handle file uploads here.
+    // In a real app, you would save these links.
     onClientAdd(name, company, email);
     toast({ title: 'Client Added', description: `"${name}" has been added.` });
     setOpen(false);
@@ -44,6 +46,8 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
     setCompany('');
     setEmail('');
     setFounderDetails('');
+    setAgreementLink('');
+    setIdCardLink('');
   };
 
   return (
@@ -72,12 +76,12 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
             <Textarea id="founder-details" value={founderDetails} onChange={(e) => setFounderDetails(e.target.value)} placeholder="Enter details about the founder(s)." />
           </div>
            <div className="space-y-2">
-            <Label htmlFor="agreement">Client Agreement (Required)</Label>
-            <Input id="agreement" type="file" required />
+            <Label htmlFor="agreement">Client Agreement Link (Required)</Label>
+            <Input id="agreement" value={agreementLink} onChange={e => setAgreementLink(e.target.value)} placeholder="https://link.to/agreement.pdf" required />
           </div>
            <div className="space-y-2">
-            <Label htmlFor="identity-card">Founder's Identity Card (Required)</Label>
-            <Input id="identity-card" type="file" required />
+            <Label htmlFor="identity-card">Founder's Identity Card Link (Required)</Label>
+            <Input id="identity-card" value={idCardLink} onChange={e => setIdCardLink(e.target.value)} placeholder="https://link.to/id-card.pdf" required />
           </div>
         </div>
         <DialogFooter>

@@ -24,11 +24,14 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [aadharLink, setAadharLink] = useState('');
+  const [panLink, setPanLink] = useState('');
+  const [joiningLetterLink, setJoiningLetterLink] = useState('');
   const { toast } = useToast();
 
   const handleAddMember = () => {
-    if (!name || !email) {
-      toast({ title: 'Error', description: 'Name and email are required.', variant: 'destructive' });
+    if (!name || !email || !aadharLink) {
+      toast({ title: 'Error', description: 'Name, email, and Aadhar link are required.', variant: 'destructive' });
       return;
     }
     
@@ -38,6 +41,9 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
     // Reset fields
     setName('');
     setEmail('');
+    setAadharLink('');
+    setPanLink('');
+    setJoiningLetterLink('');
   };
 
   return (
@@ -58,16 +64,16 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
             <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g., john.d@example.com" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="aadhar">Aadhar Card (Required)</Label>
-            <Input id="aadhar" type="file" required />
+            <Label htmlFor="aadhar">Aadhar Card Link (Required)</Label>
+            <Input id="aadhar" value={aadharLink} onChange={e => setAadharLink(e.target.value)} placeholder="https://link.to/aadhar.pdf" required />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="pan">PAN Card</Label>
-            <Input id="pan" type="file" />
+            <Label htmlFor="pan">PAN Card Link</Label>
+            <Input id="pan" value={panLink} onChange={e => setPanLink(e.target.value)} placeholder="https://link.to/pan.pdf" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="joining-letter">Joining Letter</Label>
-            <Input id="joining-letter" type="file" />
+            <Label htmlFor="joining-letter">Joining Letter Link</Label>
+            <Input id="joining-letter" value={joiningLetterLink} onChange={e => setJoiningLetterLink(e.target.value)} placeholder="https://link.to/letter.pdf" />
           </div>
         </div>
         <DialogFooter>
