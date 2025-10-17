@@ -13,6 +13,7 @@ import { useData } from '../data-provider';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { format } from 'date-fns';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function ScrumPage() {
   const { user } = useAuth();
@@ -101,49 +102,58 @@ export default function ScrumPage() {
           </CardContent>
         </Card>
 
-        <div className="space-y-6">
-            <h3 className="text-2xl font-bold tracking-tight">Team Updates</h3>
-            {updates.length > 0 ? (
-                <div className="space-y-4">
-                    {updates.map(update => {
-                        const author = users.find(u => u.id === update.userId);
-                        const avatar = PlaceHolderImages.find(img => img.id === author?.avatar);
-                        if (!author) return null;
+        <Card>
+            <CardHeader>
+                <CardTitle>Team Updates for Today</CardTitle>
+                <CardDescription>Review the daily updates from your team.</CardDescription>
+            </CardHeader>
+            <CardContent>
+               <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="w-[15%]">Team Member</TableHead>
+                            <TableHead className="w-[35%]">Yesterday's Accomplishments</TableHead>
+                            <TableHead className="w-[35%]">Today's Goals</TableHead>
+                            <TableHead className="w-[15%] text-right">Timestamp</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {updates.length > 0 ? (
+                            updates.map(update => {
+                                const author = users.find(u => u.id === update.userId);
+                                const avatar = PlaceHolderImages.find(img => img.id === author?.avatar);
+                                if (!author) return null;
 
-                        return (
-                            <Card key={update.id}>
-                                <CardHeader>
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                             <Avatar>
-                                                <AvatarImage src={avatar?.imageUrl} alt={author.name} data-ai-hint={avatar?.imageHint}/>
-                                                <AvatarFallback>{author.name.charAt(0)}</AvatarFallback>
-                                            </Avatar>
-                                            <div>
-                                                <CardTitle className="text-lg">{author.name}</CardTitle>
-                                                <p className="text-sm text-muted-foreground">{format(new Date(update.timestamp), 'PPP p')}</p>
+                                return (
+                                    <TableRow key={update.id}>
+                                        <TableCell>
+                                            <div className="flex items-center gap-3">
+                                                <Avatar className="h-9 w-9">
+                                                    <AvatarImage src={avatar?.imageUrl} alt={author.name} data-ai-hint={avatar?.imageHint}/>
+                                                    <AvatarFallback>{author.name.charAt(0)}</AvatarFallback>
+                                                </Avatar>
+                                                <span className="font-medium">{author.name}</span>
                                             </div>
-                                        </div>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                     <div>
-                                        <h4 className="font-semibold mb-2">Yesterday's Accomplishments</h4>
-                                        <p className="text-muted-foreground whitespace-pre-line">{update.yesterday}</p>
-                                     </div>
-                                      <div>
-                                        <h4 className="font-semibold mb-2">Today's Goals</h4>
-                                        <p className="text-muted-foreground whitespace-pre-line">{update.today}</p>
-                                     </div>
-                                </CardContent>
-                            </Card>
-                        )
-                    })}
-                </div>
-            ) : (
-                <p className="text-muted-foreground text-center py-8">No scrum updates have been submitted yet today.</p>
-            )}
-        </div>
+                                        </TableCell>
+                                        <TableCell className="whitespace-pre-line text-muted-foreground">{update.yesterday}</TableCell>
+                                        <TableCell className="whitespace-pre-line text-muted-foreground">{update.today}</TableCell>
+                                        <TableCell className="text-right text-muted-foreground">
+                                            {format(new Date(update.timestamp), 'p')}
+                                        </TableCell>
+                                    </TableRow>
+                                )
+                            })
+                        ) : (
+                             <TableRow>
+                                <TableCell colSpan={4} className="h-24 text-center">
+                                    No scrum updates have been submitted yet today.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
       </div>
     </div>
   );
