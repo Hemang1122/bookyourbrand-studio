@@ -99,11 +99,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           avatar: newUser.avatar,
         };
         
-        // Now that the auth user is created and we have the UID, save the profile document.
+        // IMPORTANT: Await the Firestore write operation to ensure data consistency
         const userDocRef = doc(firestore, "users", firebaseUser.uid);
         await setDoc(userDocRef, newUser);
         
-        // Update local state for immediate UI feedback
+        // Update local state only after successful database operations
         setUsers(prev => [...prev, newUser]);
         setClients(prev => [...prev, newClient]);
 
@@ -129,11 +129,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           username: name.toLowerCase().replace(/\s/g, ''),
         };
         
-        // Now that the auth user is created and we have the UID, save the profile document.
+        // IMPORTANT: Await the Firestore write operation to ensure data consistency
         const userDocRef = doc(firestore, "users", firebaseUser.uid);
         await setDoc(userDocRef, newMember);
         
-        // Update local state for immediate UI feedback
+        // Update local state only after successful database operations
         setUsers(prev => [...prev, newMember]);
 
     } catch (error: any) {
