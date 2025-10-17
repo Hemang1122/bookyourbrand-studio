@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { ChatMessage, User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -15,6 +15,7 @@ import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { AddChatAttachmentDialog } from './add-chat-attachment-dialog';
 import Link from 'next/link';
+import { useData } from '../../../data-provider';
 
 type ChatRoomProps = {
   projectId: string;
@@ -27,6 +28,8 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
   const firestore = useFirestore();
+  const { triggerNotification } = useData();
+  const prevMessagesCount = useRef(0);
 
   const messagesRef = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -39,6 +42,17 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   }, [messagesRef]);
 
   const { data: messages, isLoading } = useCollection<ChatMessage>(messagesQuery);
+  
+  useEffect(() => {
+    if (messages && messages.length > prevMessagesCount.current) {
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage.senderId !== currentUser?.id) {
+            triggerNotification();
+        }
+    }
+    prevMessagesCount.current = messages ? messages.length : 0;
+  }, [messages, currentUser, triggerNotification]);
+
 
   const sendMessage = (message: string, fileUrl?: string) => {
      if (!currentUser || !messagesRef) return;
@@ -149,4 +163,3 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     </div>
   );
 }
-

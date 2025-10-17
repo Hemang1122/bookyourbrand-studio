@@ -17,13 +17,14 @@ import { ModeToggle } from '@/components/mode-toggle';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MainNav } from '@/components/main-nav';
 import { AuthProvider } from '@/lib/auth-client';
-import { DataProvider } from './data-provider';
+import { DataProvider, useData } from './data-provider';
 import { Button } from '@/components/ui/button';
 import { BookOpenCheck } from 'lucide-react';
 import { DailyReportDialog } from './components/daily-report-dialog';
 import { useUser, useFirebase } from '@/firebase';
 import { redirect } from 'next/navigation';
 import { users } from '@/lib/data';
+import { NotificationSound } from '@/components/ui/notification-sound';
 
 function AppHeader({user}: {user: User}) {
     const { open, setOpen } = useSidebar();
@@ -45,8 +46,23 @@ function AppHeader({user}: {user: User}) {
     )
 }
 
-export default function AppLayoutClient({
+function AppLayoutContent({
   children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { playNotification, notificationPlayed } = useData();
+
+  return (
+    <>
+      {children}
+      <NotificationSound play={playNotification} onPlayed={notificationPlayed} />
+    </>
+  );
+}
+
+
+export default function AppLayoutClient({
   initialUser,
 }: {
   children: React.ReactNode;
@@ -99,7 +115,7 @@ export default function AppLayoutClient({
             <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
             <AppHeader user={user} />
             <main className="flex-1 overflow-auto p-4 sm:px-6 sm:py-0">
-                {children}
+                <AppLayoutContent>{children}</AppLayoutContent>
             </main>
             </div>
         </div>

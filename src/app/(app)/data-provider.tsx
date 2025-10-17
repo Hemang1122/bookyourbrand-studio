@@ -18,6 +18,9 @@ type DataContextType = {
   addClient: (name: string, company: string, email: string) => void;
   addTeamMember: (name: string, email: string) => void;
   addScrumUpdate: (update: Omit<ScrumUpdate, 'id'>) => void;
+  triggerNotification: () => void;
+  playNotification: boolean;
+  notificationPlayed: () => void;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -28,6 +31,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [clients, setClients] = useState<Client[]>(initialClients);
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [scrumUpdates, setScrumUpdates] = useState<ScrumUpdate[]>(initialScrumUpdates);
+  const [playNotification, setPlayNotification] = useState(false);
+
 
   const teamMembers = users.filter(u => u.role === 'admin' || u.role === 'team');
 
@@ -117,9 +122,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     // Update state from the single source of truth
     setScrumUpdates([...initialScrumUpdates]);
   };
+  
+  const triggerNotification = () => {
+    setPlayNotification(true);
+  };
+
+  const notificationPlayed = () => {
+    setPlayNotification(false);
+  };
+
 
   return (
-    <DataContext.Provider value={{ projects, tasks, clients, teamMembers, users, scrumUpdates, addProject, addTask, updateProjectTeam, addClient, addTeamMember, addScrumUpdate }}>
+    <DataContext.Provider value={{ projects, tasks, clients, teamMembers, users, scrumUpdates, addProject, addTask, updateProjectTeam, addClient, addTeamMember, addScrumUpdate, triggerNotification, playNotification, notificationPlayed }}>
       {children}
     </DataContext.Provider>
   );
