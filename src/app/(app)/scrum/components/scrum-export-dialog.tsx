@@ -13,11 +13,10 @@ import {
 } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Calendar as CalendarIcon, Download } from 'lucide-react';
+import { Loader2, Download } from 'lucide-react';
 import { format, isSameDay } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import type { ScrumUpdate, User } from '@/lib/types';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -38,29 +37,91 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
   const getUpdatesForDate = (date: Date | undefined) => {
     if (!date) return [];
     return updates.filter(u => isSameDay(new Date(u.timestamp), date));
-  }
+  };
 
   const handleDownloadPdf = () => {
-    if (reportContentRef.current) {
-        setIsLoading(true);
-      html2canvas(reportContentRef.current, { scale: 2 }).then((canvas) => {
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = canvas.width;
-        const imgHeight = canvas.height;
-        const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-        const imgX = (pdfWidth - imgWidth * ratio) / 2;
-        const imgY = 15;
-        pdf.setFontSize(20);
-        pdf.text(`Scrum Report - ${format(selectedDate || new Date(), 'PPP')}`, pdfWidth / 2, 10, { align: 'center' });
-        pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
-        pdf.save(`scrum_report_${format(selectedDate || new Date(), 'yyyy-MM-dd')}.pdf`);
-        setIsLoading(false);
-        setOpen(false);
-      });
+    const updatesForSelectedDate = getUpdatesForDate(selectedDate);
+    if (updatesForSelectedDate.length === 0 || !selectedDate) {
+      toast({ title: 'No updates to export', variant: 'destructive' });
+      return;
     }
+
+    setIsLoading(true);
+
+    const doc = new jsPDF('p', 'pt', 'a4');
+    const pageHeight = doc.internal.pageSize.height;
+    const pageWidth = doc.internal.pageSize.width;
+    const margin = 40;
+
+    updatesForSelectedDate.forEach((update, index) => {
+      const author = users.find(u => u.id === update.userId);
+      if (!author) return;
+
+      if (index > 0) {
+        doc.addPage();
+      }
+
+      // Header
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(40, 40, 40);
+      doc.text('BookYourBrands - Arpit Lalani', margin, margin);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Scrum Report: ${format(selectedDate, 'PPP')}`, margin, margin + 20);
+      doc.setDrawColor(230, 230, 230);
+      doc.line(margin, margin + 30, pageWidth - margin, margin + 30);
+
+      let y = margin + 70;
+
+      // Content
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(40, 40, 40);
+      doc.text(`Team Member: ${author.name}`, margin, y);
+      y += 30;
+
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text("Yesterday's Accomplishments:", margin, y);
+      y += 15;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(80, 80, 80);
+      const yesterdayLines = doc.splitTextToSize(update.yesterday, pageWidth - margin * 2);
+      doc.text(yesterdayLines, margin, y);
+      y += yesterdayLines.length * 14 + 20;
+
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text("Today's Goals:", margin, y);
+      y += 15;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(80, 80, 80);
+      const todayLines = doc.splitTextToSize(update.today, pageWidth - margin * 2);
+      doc.text(todayLines, margin, y);
+
+      // Footer
+      const footerY = pageHeight - margin - 40;
+      doc.setDrawColor(230, 230, 230);
+      doc.line(margin, footerY, pageWidth - margin, footerY);
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text('Shop No 14, Vishwakarma Nagar building. 03 60 feet road, Landmark:, opposite old swaminarayan temple, Vasai West, Vasai-Virar, Maharashtra 401202', margin, footerY + 15);
+      doc.text('bookyourbrands.com', margin, footerY + 25);
+      doc.setDrawColor(150, 150, 150);
+      doc.setLineDash([2, 2], 0);
+      doc.rect(pageWidth - margin - 100, footerY - 50, 80, 40); // Signature box
+      doc.text('Signed', pageWidth - margin - 60, footerY - 25);
+
+    });
+
+    doc.save(`scrum_report_${format(selectedDate, 'yyyy-MM-dd')}.pdf`);
+    
+    setIsLoading(false);
+    setOpen(false);
   };
 
   const handleClose = () => {
