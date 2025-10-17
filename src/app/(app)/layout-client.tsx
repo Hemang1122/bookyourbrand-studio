@@ -20,11 +20,7 @@ import { DataProvider, useData } from './data-provider';
 import { Button } from '@/components/ui/button';
 import { BookOpenCheck } from 'lucide-react';
 import { DailyReportDialog } from './components/daily-report-dialog';
-import { useUser, useFirestore, useDoc } from '@/firebase';
-import { redirect } from 'next/navigation';
 import { NotificationSound } from '@/components/ui/notification-sound';
-import { doc } from 'firebase/firestore';
-import React from 'react';
 
 function AppHeader({user}: {user: User}) {
     const { open, setOpen } = useSidebar();
@@ -63,58 +59,12 @@ function AppLayoutContent({
 
 
 export default function AppLayoutClient({
+  user,
   children,
 }: {
+  user: User;
   children: React.ReactNode;
 }) {
-  const { user: firebaseUser, isUserLoading: isAuthLoading } = useUser();
-  const firestore = useFirestore();
-
-  // Create a memoized reference to the user's document in Firestore.
-  const userDocRef = React.useMemo(() => {
-    if (!firestore || !firebaseUser) return null;
-    return doc(firestore, 'users', firebaseUser.uid);
-  }, [firestore, firebaseUser?.uid]);
-
-  // Use the useDoc hook to get the user profile data from Firestore.
-  const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userDocRef);
-  
-  // Memoize the user profile object to prevent re-renders
-  const user = React.useMemo(() => userProfile, [userProfile]);
-
-  const isLoading = isAuthLoading || isProfileLoading;
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen w-full items-center justify-center">
-        <p>Loading...</p>
-      </div>
-    );
-  }
-
-  if (!firebaseUser) {
-    // If Firebase has confirmed there's no user, redirect to login.
-    redirect('/login');
-  }
-  
-  if (firebaseUser && !user) {
-    // This can happen briefly while the user document is being created after sign-up.
-    // Or if the document failed to be created.
-    // We log an error and redirect to login to be safe.
-    console.error("User is authenticated with Firebase but profile not found in Firestore.");
-    redirect('/login');
-  }
-
-  // At this point, we should have a valid user object from Firestore.
-  if (!user) {
-     // This is our final fallback. Should not be reached if logic is correct.
-     return (
-       <div className="flex min-h-screen w-full items-center justify-center">
-        <p>Could not load user profile. Please try logging in again.</p>
-       </div>
-    );
-  }
-
   return (
     <AuthProvider user={user}>
       <DataProvider>

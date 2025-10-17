@@ -1,4 +1,6 @@
 
+import { getUser } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 import AppLayoutClient from './layout-client';
 
 export default async function AppLayout({
@@ -6,8 +8,11 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // The logic has been moved to AppLayoutClient to handle client-side auth state.
-  return (
-      <AppLayoutClient>{children}</AppLayoutClient>
-  );
+  const user = await getUser();
+
+  if (!user) {
+    redirect('/login');
+  }
+
+  return <AppLayoutClient user={user}>{children}</AppLayoutClient>;
 }

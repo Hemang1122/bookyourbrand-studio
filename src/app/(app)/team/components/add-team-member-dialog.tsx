@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 
 type AddTeamMemberDialogProps = {
-  onTeamMemberAdd: (name: string, email: string, password: string) => void;
+  onTeamMemberAdd: (name: string, email: string) => void;
   children: React.ReactNode;
 };
 
@@ -24,24 +24,22 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [aadharLink, setAadharLink] = useState('');
   const [panLink, setPanLink] = useState('');
   const [joiningLetterLink, setJoiningLetterLink] = useState('');
   const { toast } = useToast();
 
   const handleAddMember = () => {
-    if (!name || !email || !password) {
-      toast({ title: 'Error', description: 'Name, email, and password are required.', variant: 'destructive' });
+    if (!name || !email) {
+      toast({ title: 'Error', description: 'Name and email are required.', variant: 'destructive' });
       return;
     }
     
-    onTeamMemberAdd(name, email, password);
+    onTeamMemberAdd(name, email);
     setOpen(false);
     // Reset fields
     setName('');
     setEmail('');
-    setPassword('');
     setAadharLink('');
     setPanLink('');
     setJoiningLetterLink('');
@@ -63,10 +61,6 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g., john.d@example.com" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Set Password</Label>
-            <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Assign a secure password" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="aadhar">Aadhar Card Link</Label>
