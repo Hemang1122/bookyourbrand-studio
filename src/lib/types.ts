@@ -18,7 +18,7 @@ export type Client = {
   avatar: string;
 };
 
-export type ProjectStatus = 'Active' | 'On Hold' | 'Completed';
+export type ProjectStatus = 'Active' | 'On Hold' | 'Completed' | 'In Progress';
 
 export type Project = {
   id: string;
