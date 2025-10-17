@@ -9,22 +9,33 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { AddProjectDialog } from '../../projects/components/add-project-dialog';
 import { useData } from '../../data-provider';
+import { clients } from '@/lib/data';
 
 type ClientDashboardProps = {
   user: User;
 };
 
 export function ClientDashboard({ user }: ClientDashboardProps) {
-  const { projects, tasks, addProject } = useData();
+  const { projects, addProject } = useData();
+  const { tasks } = useData();
 
-  // Mock: assume user is linked to a client record. Find client based on email.
-  const myClientRecord = projects.map(p => p.client).find(c => c.email === user.email);
+  // Match logged-in user to a client record by name.
+  const myClientRecord = clients.find(c => c.name === user.name);
   
   if (!myClientRecord) {
       return (
         <div className="text-center py-12">
             <h2 className="text-2xl font-semibold">Welcome, {user.name}</h2>
             <p className="text-muted-foreground mt-2">There are no projects associated with your account yet.</p>
+            {/* Admins can add projects for this client */}
+             <div className="mt-4">
+                <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add First Project
+                    </Button>
+                </AddProjectDialog>
+             </div>
         </div>
       )
   }
