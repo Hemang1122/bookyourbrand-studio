@@ -8,6 +8,7 @@ import { useFirebase } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { doc, setDoc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 
 type DataContextType = {
@@ -99,9 +100,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           avatar: newUser.avatar,
         };
         
-        await setDoc(doc(firestore, "users", firebaseUser.uid), newUser);
-        // This should also write to a 'clients' collection in a real app
-        // For now, we update local state for simplicity of the prototype
+        const userDocRef = doc(firestore, "users", firebaseUser.uid);
+        setDocumentNonBlocking(userDocRef, newUser, { merge: false });
         
         setUsers(prev => [...prev, newUser]);
         setClients(prev => [...prev, newClient]);
@@ -127,7 +127,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           username: name.toLowerCase().replace(/\s/g, ''),
         };
         
-        await setDoc(doc(firestore, "users", firebaseUser.uid), newMember);
+        const userDocRef = doc(firestore, "users", firebaseUser.uid);
+        setDocumentNonBlocking(userDocRef, newMember, { merge: false });
         
         setUsers(prev => [...prev, newMember]);
 
