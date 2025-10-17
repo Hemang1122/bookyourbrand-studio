@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { AddTaskDialog } from './add-task-dialog';
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
 
 type TaskListProps = {
   initialTasks: Task[];
@@ -29,7 +31,12 @@ export function TaskList({ initialTasks, projectId }: TaskListProps) {
   return (
     <div className="space-y-4">
         <div className="flex justify-end">
-            <AddTaskDialog projectId={projectId} onTaskAdd={handleAddTask} />
+            <AddTaskDialog projectId={projectId} onTaskAdd={handleAddTask}>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Task
+              </Button>
+            </AddTaskDialog>
         </div>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         {Object.entries(columns).map(([status, tasksInColumn]) => (
