@@ -14,6 +14,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 type AddClientDialogProps = {
   onClientAdd: (name: string, company: string, email: string, username: string, password?: string) => void;
@@ -27,14 +28,16 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [founderDetails, setFounderDetails] = useState('');
   const { toast } = useToast();
 
   const handleAddClient = () => {
     if (!name || !company || !email || !username || !password) {
-      toast({ title: 'Error', description: 'All fields are required.', variant: 'destructive' });
+      toast({ title: 'Error', description: 'All fields except founder details are required.', variant: 'destructive' });
       return;
     }
     
+    // In a real app, you would handle file uploads here.
     onClientAdd(name, company, email, username, password);
     toast({ title: 'Client Added', description: `"${name}" has been added.` });
     setOpen(false);
@@ -44,6 +47,7 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
     setEmail('');
     setUsername('');
     setPassword('');
+    setFounderDetails('');
   };
 
   return (
@@ -74,6 +78,18 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter a secure password" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="founder-details">Founder Details</Label>
+            <Textarea id="founder-details" value={founderDetails} onChange={(e) => setFounderDetails(e.target.value)} placeholder="Enter details about the founder(s)." />
+          </div>
+           <div className="space-y-2">
+            <Label htmlFor="agreement">Client Agreement (Required)</Label>
+            <Input id="agreement" type="file" required />
+          </div>
+           <div className="space-y-2">
+            <Label htmlFor="identity-card">Founder's Identity Card (Required)</Label>
+            <Input id="identity-card" type="file" required />
           </div>
         </div>
         <DialogFooter>

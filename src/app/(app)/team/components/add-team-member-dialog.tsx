@@ -30,9 +30,12 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
 
   const handleAddMember = () => {
     if (!name || !email || !username || !password) {
-      toast({ title: 'Error', description: 'All fields are required.', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Name, email, username, and password are required.', variant: 'destructive' });
       return;
     }
+    
+    // In a real app, you would handle the file uploads here.
+    // For now, we're just adding the user data.
     
     onTeamMemberAdd(name, email, username, password);
     toast({ title: 'Team Member Added', description: `"${name}" has been added.` });
@@ -68,6 +71,18 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter a secure password" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="aadhar">Aadhar Card (Required)</Label>
+            <Input id="aadhar" type="file" required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="pan">PAN Card</Label>
+            <Input id="pan" type="file" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="joining-letter">Joining Letter</Label>
+            <Input id="joining-letter" type="file" />
           </div>
         </div>
         <DialogFooter>
