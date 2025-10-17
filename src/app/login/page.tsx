@@ -11,17 +11,18 @@ import {
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { LoginLogo } from '@/components/login-logo';
-import { useFirebase } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { redirect } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { auth, user } = useFirebase();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -31,11 +32,11 @@ export default function LoginPage() {
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // On successful login, the onAuthStateChanged listener in the layout
-      // will handle the user state and the redirect will happen automatically.
+      // On successful login, the useUser hook will update,
+      // and the useEffect below will handle the redirect.
     } catch (error: any) {
       let description = 'An unexpected error occurred during sign-in.';
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
@@ -47,14 +48,37 @@ export default function LoginPage() {
         variant: 'destructive',
       });
     } finally {
-        setIsLoading(false);
+        setIsSubmitting(false);
     }
   };
 
+  // This effect handles the redirect after a successful login.
+  // It waits until the user object is available and loading is complete.
+  useEffect(() => {
+    if (!isUserLoading && user) {
+      redirect('/dashboard');
+    }
+  }, [user, isUserLoading]);
 
-  if (user) {
-    redirect('/dashboard');
+
+  // Show a loading state while checking auth, but not if the user is already logged in and just waiting for redirect.
+  if (isUserLoading && !user) {
+    return (
+       <main className="flex min-h-screen w-full items-center justify-center bg-muted/40 p-4">
+        <p>Loading...</p>
+      </main>
+    );
   }
+
+  // If the user is already loaded, we don't need to show the login form, just wait for redirect.
+  if (user) {
+     return (
+       <main className="flex min-h-screen w-full items-center justify-center bg-muted/40 p-4">
+        <p>Signing in...</p>
+      </main>
+    );
+  }
+
 
   return (
     <main className="flex min-h-screen w-full items-center justify-center bg-muted/40 p-4">
@@ -79,7 +103,7 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
+                disabled={isSubmitting}
               />
             </div>
             <div className="space-y-2">
@@ -90,11 +114,11 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
+                disabled={isSubmitting}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Signing In...' : 'Sign In'}
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? 'Signing In...' : 'Sign In'}
             </Button>
           </form>
         </CardContent>
