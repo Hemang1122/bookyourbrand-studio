@@ -112,8 +112,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...updateData,
       id: `scrum-${Date.now()}`,
     };
+    // Add to the single source of truth
     initialScrumUpdates.unshift(newUpdate);
-    setScrumUpdates(prev => [newUpdate, ...prev]);
+    // Update state from the single source of truth
+    setScrumUpdates([...initialScrumUpdates]);
   };
 
   return (
