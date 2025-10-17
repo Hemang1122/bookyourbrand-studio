@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { users } from '@/lib/data';
 import type { Project } from '@/lib/types';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { useData } from '../../../data-provider';
@@ -25,10 +24,9 @@ type ManageTeamDialogProps = {
 export function ManageTeamDialog({ project, children }: ManageTeamDialogProps) {
   const [open, setOpen] = useState(false);
   const [team, setTeam] = useState<string[]>(project.team.map(t => t.id));
-  const { updateProjectTeam } = useData();
+  const { teamMembers, updateProjectTeam } = useData();
   const { toast } = useToast();
 
-  const teamMembers = users.filter(u => u.role === 'team');
   const teamMemberOptions = teamMembers.map(tm => ({ value: tm.id, label: tm.name }));
 
   const handleUpdateTeam = () => {

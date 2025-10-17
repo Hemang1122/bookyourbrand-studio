@@ -37,7 +37,6 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
     }
     
     onTeamMemberAdd(name, email, password);
-    toast({ title: 'Team Member Added', description: `"${name}" has been added.` });
     setOpen(false);
     // Reset fields
     setName('');

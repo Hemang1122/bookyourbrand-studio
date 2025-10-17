@@ -1,13 +1,13 @@
 
 'use client';
 
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useMemo } from 'react';
 import type { Project, Task, User, Client, ScrumUpdate } from '@/lib/types';
-import { projects as initialProjects, tasks as initialTasks, users as initialUsers, clients as initialClients, scrumUpdates as initialScrumUpdates } from '@/lib/data';
-import { useFirebase } from '@/firebase';
+import { projects as initialProjects, tasks as initialTasks, scrumUpdates as initialScrumUpdates } from '@/lib/data';
+import { useFirebase, useCollection } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, query, where } from 'firebase/firestore';
 
 
 type DataContextType = {
@@ -26,6 +26,7 @@ type DataContextType = {
   triggerNotification: () => void;
   playNotification: boolean;
   notificationPlayed: () => void;
+  isLoading: boolean;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -33,17 +34,23 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
-  const [clients, setClients] = useState<Client[]>(initialClients);
-  const [users, setUsers] = useState<User[]>(initialUsers);
   const [scrumUpdates, setScrumUpdates] = useState<ScrumUpdate[]>(initialScrumUpdates);
   const [playNotification, setPlayNotification] = useState(false);
+
   const { auth, firestore } = useFirebase();
   const { toast } = useToast();
 
+  // Make Firestore the single source of truth for users.
+  const usersCollectionRef = useMemo(() => firestore ? collection(firestore, 'users') : null, [firestore]);
+  const { data: users, isLoading: usersLoading } = useCollection<User>(usersCollectionRef);
 
-  const teamMembers = users.filter(u => u.role === 'admin' || u.role === 'team');
+  // Derive clients and team members from the live user data.
+  const clients = useMemo(() => (users || []).filter((u): u is User & Client => u.role === 'client').map(u => ({...u, company: u.company || '' })), [users]);
+  const teamMembers = useMemo(() => (users || []).filter(u => u.role === 'admin' || u.role === 'team'), [users]);
+
 
   const addProject = (projectData: Omit<Project, 'id' | 'coverImage'>) => {
+    if (!users) return;
     const newProject: Project = {
       ...projectData,
       id: `proj-${Date.now()}`,
@@ -53,9 +60,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addTask = (taskData: Omit<Task, 'id' | 'assignedTo' | 'status'>) => {
+    if (!users) return;
     // Find the project to assign a team member from that project
     const project = projects.find(p => p.id === taskData.projectId);
-    const assignedTo = project?.team[0] || initialProjects[0].team[0]; // Fallback
+    const assignedTo = project?.team[0] || users.find(u => u.role === 'team') || users[0];
 
     const newTask: Task = {
         ...taskData,
@@ -67,6 +75,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }
 
   const updateProjectTeam = (projectId: string, teamMemberIds: string[]) => {
+    if (!users) return;
     setProjects(prev => prev.map(p => {
       if (p.id === projectId) {
         const newTeam = users.filter(u => teamMemberIds.includes(u.id));
@@ -77,35 +86,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addClient = async (name: string, company: string, email: string, password: string) => {
-    if (!auth || !firestore) return;
+    if (!auth || !firestore || !users) return;
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const firebaseUser = userCredential.user;
 
-        const totalUsers = users.length;
-        const newUser: User = {
+        const newUser: User & Partial<Client> = {
           id: firebaseUser.uid,
           name: name,
           email: email,
-          avatar: `avatar-${(totalUsers % 6) + 1}`,
+          avatar: `avatar-${(users.length % 6) + 1}`,
           role: 'client',
           username: name.toLowerCase().replace(/\s/g, ''),
-        };
-        const newClient: Client = {
-          id: firebaseUser.uid, // Use firebase UID for client ID as well for consistency
-          name: name,
-          email: email,
-          company: company,
-          avatar: newUser.avatar,
+          company: company
         };
         
-        // IMPORTANT: Await the Firestore write operation to ensure data consistency
         const userDocRef = doc(firestore, "users", firebaseUser.uid);
+        // This is now the single point of writing. `useCollection` will update the state.
         await setDoc(userDocRef, newUser);
-        
-        // Update local state only after successful database operations
-        setUsers(prev => [...prev, newUser]);
-        setClients(prev => [...prev, newClient]);
+        toast({ title: 'Client Added', description: `A login has been created for ${name}.` });
 
     } catch (error: any) {
         console.error("Error creating client:", error);
@@ -114,27 +113,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }
 
   const addTeamMember = async (name: string, email: string, password: string) => {
-     if (!auth || !firestore) return;
+     if (!auth || !firestore || !users) return;
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const firebaseUser = userCredential.user;
 
-        const totalUsers = users.length;
         const newMember: User = {
           id: firebaseUser.uid,
           name: name,
           email: email,
-          avatar: `avatar-${(totalUsers % 6) + 1}`,
+          avatar: `avatar-${(users.length % 6) + 1}`,
           role: 'team',
           username: name.toLowerCase().replace(/\s/g, ''),
         };
         
-        // IMPORTANT: Await the Firestore write operation to ensure data consistency
         const userDocRef = doc(firestore, "users", firebaseUser.uid);
+        // This is now the single point of writing. `useCollection` will update the state.
         await setDoc(userDocRef, newMember);
-        
-        // Update local state only after successful database operations
-        setUsers(prev => [...prev, newMember]);
+        toast({ title: 'Team Member Added', description: `${name} can now log in.` });
 
     } catch (error: any) {
          console.error("Error creating team member:", error);
@@ -147,9 +143,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...updateData,
       id: `scrum-${Date.now()}`,
     };
-    // Add to the single source of truth
     initialScrumUpdates.unshift(newUpdate);
-    // Update state from the single source of truth
     setScrumUpdates([...initialScrumUpdates]);
   };
   
@@ -163,7 +157,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
 
   return (
-    <DataContext.Provider value={{ projects, tasks, clients, teamMembers, users, scrumUpdates, addProject, addTask, updateProjectTeam, addClient, addTeamMember, addScrumUpdate, triggerNotification, playNotification, notificationPlayed }}>
+    <DataContext.Provider value={{ 
+        projects, 
+        tasks, 
+        clients: clients || [], 
+        teamMembers: teamMembers || [], 
+        users: users || [], 
+        scrumUpdates, 
+        addProject, 
+        addTask, 
+        updateProjectTeam, 
+        addClient, 
+        addTeamMember, 
+        addScrumUpdate, 
+        triggerNotification, 
+        playNotification, 
+        notificationPlayed,
+        isLoading: usersLoading 
+    }}>
       {children}
     </DataContext.Provider>
   );

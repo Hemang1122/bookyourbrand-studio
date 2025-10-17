@@ -19,10 +19,10 @@ import { CalendarIcon } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { clients, users } from '@/lib/data';
 import type { Client, Project, User } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MultiSelect } from '@/components/ui/multi-select';
+import { useData } from '../../data-provider';
 
 type AddProjectDialogProps = {
   onProjectAdd: (project: Omit<Project, 'id' | 'coverImage'>) => void;
@@ -39,8 +39,8 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   const [client, setClient] = useState<string | undefined>(preselectedClient?.id);
   const [team, setTeam] = useState<string[]>([]);
   const { toast } = useToast();
+  const { teamMembers, clients, users } = useData();
 
-  const teamMembers = users.filter(u => u.role === 'team');
   const teamMemberOptions = teamMembers.map(tm => ({ value: tm.id, label: tm.name }));
 
   const handleAddProject = () => {

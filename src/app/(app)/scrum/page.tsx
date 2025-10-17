@@ -109,7 +109,7 @@ export default function ScrumPage() {
                         <CardDescription>Review the daily updates from your team.</CardDescription>
                     </div>
                     {user?.role === 'admin' && (
-                        <ScrumExportDialog updates={scrumUpdates} users={users}>
+                        <ScrumExportDialog updates={scrumUpdates} users={users || []}>
                             <Button variant="outline">
                                 <Download className="mr-2 h-4 w-4" />
                                 Export as PDF
