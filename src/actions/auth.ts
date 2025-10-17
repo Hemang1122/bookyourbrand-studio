@@ -5,10 +5,12 @@ import { redirect } from 'next/navigation';
 import { users } from '@/lib/data';
 
 export async function login(formData: FormData) {
-  const role = formData.get('role') as string;
+  const username = formData.get('username') as string;
+  const password = formData.get('password') as string;
   
-  // In a real app, you'd validate credentials. Here, we just find the first user with the selected role.
-  const user = users.find(u => u.role === role);
+  // In a real app, you'd validate credentials against a database with hashed passwords.
+  // Here, we just find a user with matching username and password.
+  const user = users.find(u => u.username === username && u.password === password);
 
   if (user) {
     cookies().set('user_id', user.id, {
@@ -19,8 +21,8 @@ export async function login(formData: FormData) {
     });
     redirect('/dashboard');
   } else {
-    // Handle case where no user for the role is found
-    redirect('/login?error=Invalid_role');
+    // Handle case where credentials are wrong
+    redirect('/login?error=Invalid_credentials');
   }
 }
 

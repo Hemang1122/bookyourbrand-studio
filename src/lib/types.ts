@@ -6,6 +6,8 @@ export type User = {
   email: string;
   avatar: string; // Corresponds to id in placeholder-images.json
   role: UserRole;
+  username: string;
+  password?: string; // Password should be handled securely on a real backend
 };
 
 export type Client = {

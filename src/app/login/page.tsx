@@ -7,13 +7,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { LoginLogo } from '@/components/login-logo';
 
 export default function LoginPage() {
@@ -26,21 +21,19 @@ export default function LoginPage() {
           </div>
           <CardTitle className="text-2xl font-bold">Welcome!</CardTitle>
           <CardDescription>
-            Select a role to sign in and experience the CRM.
+            Enter your credentials to sign in to your account.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form action={login} className="space-y-4">
-            <Select name="role" defaultValue="admin">
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="team">Team Member</SelectItem>
-                <SelectItem value="client">Client</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input id="username" name="username" required defaultValue="admin" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input id="password" name="password" type="password" required defaultValue="password" />
+            </div>
             <Button type="submit" className="w-full">
               Sign In
             </Button>

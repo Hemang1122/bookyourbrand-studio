@@ -13,8 +13,8 @@ type DataContextType = {
   addProject: (project: Omit<Project, 'id' | 'coverImage'>) => void;
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
-  addClient: (name: string, company: string, email: string) => void;
-  addTeamMember: (name: string, email: string) => void;
+  addClient: (name: string, company: string, email: string, username: string, password?: string) => void;
+  addTeamMember: (name: string, email: string, username: string, password?: string) => void;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -60,7 +60,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }));
   };
 
-  const addClient = (name: string, company: string, email: string) => {
+  const addClient = (name: string, company: string, email: string, username: string, password?: string) => {
     const totalUsers = users.length;
     const newUser: User = {
       id: `user-${totalUsers + 1}`,
@@ -68,6 +68,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       email: email,
       avatar: `avatar-${(totalUsers % 6) + 1}`,
       role: 'client',
+      username,
+      password: password || 'password'
     };
     const newClient: Client = {
       id: `client-${clients.length + 1}`,
@@ -80,7 +82,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setClients(prev => [...prev, newClient]);
   }
 
-  const addTeamMember = (name: string, email: string) => {
+  const addTeamMember = (name: string, email: string, username: string, password?: string) => {
     const totalUsers = users.length;
     const newMember: User = {
       id: `user-${totalUsers + 1}`,
@@ -88,6 +90,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       email: email,
       avatar: `avatar-${(totalUsers % 6) + 1}`,
       role: 'team',
+      username,
+      password: password || 'password'
     };
     setUsers(prev => [...prev, newMember]);
   }

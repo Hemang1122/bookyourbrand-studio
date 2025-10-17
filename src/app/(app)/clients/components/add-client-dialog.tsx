@@ -14,10 +14,9 @@ import {
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
-import type { Client, User } from '@/lib/types';
 
 type AddClientDialogProps = {
-  onClientAdd: (name: string, company: string, email: string) => void;
+  onClientAdd: (name: string, company: string, email: string, username: string, password?: string) => void;
   children: React.ReactNode;
 };
 
@@ -26,21 +25,25 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const { toast } = useToast();
 
   const handleAddClient = () => {
-    if (!name || !company || !email) {
+    if (!name || !company || !email || !username || !password) {
       toast({ title: 'Error', description: 'All fields are required.', variant: 'destructive' });
       return;
     }
     
-    onClientAdd(name, company, email);
+    onClientAdd(name, company, email, username, password);
     toast({ title: 'Client Added', description: `"${name}" has been added.` });
     setOpen(false);
     // Reset fields
     setName('');
     setCompany('');
     setEmail('');
+    setUsername('');
+    setPassword('');
   };
 
   return (
@@ -63,6 +66,14 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
           <div className="space-y-2">
             <Label htmlFor="email">Client Email</Label>
             <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g., contact@acme.com" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="username">Username</Label>
+            <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g., acme_user" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter a secure password" />
           </div>
         </div>
         <DialogFooter>
