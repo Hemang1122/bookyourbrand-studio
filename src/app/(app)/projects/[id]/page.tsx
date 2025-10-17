@@ -1,5 +1,8 @@
-import { projects, tasks, chatMessages, projectFiles } from '@/lib/data';
-import { notFound } from 'next/navigation';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { projects as initialProjects, tasks as initialTasks, chatMessages, projectFiles } from '@/lib/data';
+import { notFound, useParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TaskList } from './components/task-list';
 import { ChatRoom } from './components/chat-room';
@@ -7,15 +10,52 @@ import { FileManager } from './components/file-manager';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ListTodo, MessageSquare, Files } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
-export default function ProjectDetailPage({ params }: { params: { id: string } }) {
-  const project = projects.find((p) => p.id === params.id);
+export default function ProjectDetailPage() {
+  const params = useParams();
+  const id = params.id as string;
+  
+  const [project, setProject] = useState(() => initialProjects.find((p) => p.id === id));
+  const [tasks, setTasks] = useState(() => initialTasks.filter((t) => t.projectId === id));
+  const [loading, setLoading] = useState(true);
 
-  if (!project) {
-    notFound();
+  useEffect(() => {
+    // In a real app, you'd fetch project data here.
+    // We are simulating a fetch with the static data.
+    const foundProject = initialProjects.find((p) => p.id === id);
+    if (foundProject) {
+        setProject(foundProject);
+        setTasks(initialTasks.filter((t) => t.projectId === id))
+    }
+    setLoading(false);
+  }, [id]);
+
+  if (loading) {
+    return (
+        <div className="space-y-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <Skeleton className="h-9 w-64" />
+                    <Skeleton className="h-5 w-48 mt-2" />
+                </div>
+                <div>
+                    <Skeleton className="h-10 w-28" />
+                </div>
+            </div>
+            <Card>
+                <CardContent className="p-6">
+                    <Skeleton className="h-96 w-full" />
+                </CardContent>
+            </Card>
+        </div>
+    )
   }
 
-  const projectTasks = tasks.filter((t) => t.projectId === project.id);
+  if (!project) {
+    return notFound();
+  }
+
   const messages = chatMessages[project.id] || [];
   const files = projectFiles[project.id] || [];
 
@@ -46,7 +86,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
               <CardDescription>Manage and track all tasks for this project.</CardDescription>
             </CardHeader>
             <CardContent>
-              <TaskList initialTasks={projectTasks} projectId={project.id} />
+              <TaskList initialTasks={tasks} projectId={project.id} />
             </CardContent>
           </Card>
         </TabsContent>

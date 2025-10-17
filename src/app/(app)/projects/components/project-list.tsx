@@ -1,3 +1,5 @@
+'use client';
+
 import type { Project } from '@/lib/types';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -57,6 +59,11 @@ export function ProjectList({ projects }: ProjectListProps) {
           </Link>
         );
       })}
+       {projects.length === 0 && (
+          <div className="md:col-span-2 lg:col-span-3 text-center text-muted-foreground py-12">
+              No projects found.
+          </div>
+      )}
     </div>
   );
 }

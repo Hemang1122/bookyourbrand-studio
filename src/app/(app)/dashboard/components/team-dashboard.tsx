@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ListTodo, Clock, CheckCircle2 } from 'lucide-react';
 import type { Project, Task, User } from '@/lib/types';
@@ -19,7 +22,9 @@ type TeamDashboardProps = {
   tasks: Task[];
 };
 
-export function TeamDashboard({ user, projects, tasks }: TeamDashboardProps) {
+export function TeamDashboard({ user, projects: initialProjects, tasks: initialTasks }: TeamDashboardProps) {
+  const [projects, setProjects] = useState(initialProjects);
+  const [tasks, setTasks] = useState(initialTasks);
   const myTasks = tasks.filter(t => t.assignedTo.id === user.id);
   const pendingTasks = myTasks.filter(t => t.status === 'Pending').length;
   const inProgressTasks = myTasks.filter(t => t.status === 'In Progress').length;

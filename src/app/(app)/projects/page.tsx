@@ -1,19 +1,21 @@
-import { projects } from '@/lib/data';
+'use client';
+
+import { useState } from 'react';
+import { projects as initialProjects } from '@/lib/data';
 import { ProjectList } from './components/project-list';
 import { AddProjectDialog } from './components/add-project-dialog';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
-import { getUser } from '@/lib/auth';
+import { useAuth } from '@/lib/auth-client';
+import type { Project } from '@/lib/types';
 
-export default async function ProjectsPage() {
-  const user = await getUser();
-  // In a real app, you would fetch projects based on user role
-  const allProjects = projects;
 
-  const handleProjectAdd = async (project: any) => {
-    'use server';
-    // This is a mock implementation. In a real app, you'd save this to a database.
-    console.log('New project added:', project);
+export default function ProjectsPage() {
+  const { user } = useAuth();
+  const [projects, setProjects] = useState(initialProjects);
+
+  const handleProjectAdd = (newProject: Project) => {
+    setProjects(prev => [...prev, newProject]);
   }
 
   return (
@@ -29,7 +31,7 @@ export default async function ProjectsPage() {
           </AddProjectDialog>
         )}
       </div>
-      <ProjectList projects={allProjects} />
+      <ProjectList projects={projects} />
     </div>
   );
 }
