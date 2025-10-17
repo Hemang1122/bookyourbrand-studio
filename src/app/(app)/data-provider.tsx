@@ -8,7 +8,6 @@ import { useFirebase } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { doc, setDoc } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 
 type DataContextType = {
@@ -100,13 +99,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           avatar: newUser.avatar,
         };
         
+        // Now that the auth user is created and we have the UID, save the profile document.
         const userDocRef = doc(firestore, "users", firebaseUser.uid);
-        setDocumentNonBlocking(userDocRef, newUser, { merge: false });
+        await setDoc(userDocRef, newUser);
         
+        // Update local state for immediate UI feedback
         setUsers(prev => [...prev, newUser]);
         setClients(prev => [...prev, newClient]);
 
     } catch (error: any) {
+        console.error("Error creating client:", error);
         toast({ title: 'Error creating client', description: error.message, variant: 'destructive' });
     }
   }
@@ -127,12 +129,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           username: name.toLowerCase().replace(/\s/g, ''),
         };
         
+        // Now that the auth user is created and we have the UID, save the profile document.
         const userDocRef = doc(firestore, "users", firebaseUser.uid);
-        setDocumentNonBlocking(userDocRef, newMember, { merge: false });
+        await setDoc(userDocRef, newMember);
         
+        // Update local state for immediate UI feedback
         setUsers(prev => [...prev, newMember]);
 
     } catch (error: any) {
+         console.error("Error creating team member:", error);
          toast({ title: 'Error creating team member', description: error.message, variant: 'destructive' });
     }
   }
