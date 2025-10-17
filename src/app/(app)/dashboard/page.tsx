@@ -5,7 +5,6 @@ import { useAuth } from '@/lib/auth-client';
 import { AdminDashboard } from './components/admin-dashboard';
 import { TeamDashboard } from './components/team-dashboard';
 import { ClientDashboard } from './components/client-dashboard';
-import { clients } from '@/lib/data';
 import { useData } from '../data-provider';
 
 
@@ -30,7 +29,7 @@ export default function DashboardPage() {
       )}
       {user.role === 'admin' && <AdminDashboard clients={clients} />}
       {user.role === 'team' && <TeamDashboard user={user} />}
-      {user.role === 'client' && <ClientDashboard user={user} />}
+      {user.role === 'client' && <ClientDashboard />}
     </div>
   );
 }

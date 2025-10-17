@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,25 +10,25 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { AddProjectDialog } from '../../projects/components/add-project-dialog';
 import { useData } from '../../data-provider';
-import { clients } from '@/lib/data';
+import { useAuth } from '@/lib/auth-client';
 
-type ClientDashboardProps = {
-  user: User;
-};
+export function ClientDashboard() {
+  const { user: authUser } = useAuth();
+  const { projects, clients, tasks, addProject } = useData();
 
-export function ClientDashboard({ user }: ClientDashboardProps) {
-  const { projects, addProject } = useData();
-  const { tasks } = useData();
+  if (!authUser) {
+    return null; // Or a loading state
+  }
 
-  // Match logged-in user to a client record by name.
-  const myClientRecord = clients.find(c => c.name === user.name);
-  
+  // Find the client record that corresponds to the logged-in user
+  const myClientRecord = clients.find(c => c.email === authUser.email);
+  const myProjects = myClientRecord ? projects.filter(p => p.client.id === myClientRecord.id) : [];
+
   if (!myClientRecord) {
       return (
         <div className="text-center py-12">
-            <h2 className="text-2xl font-semibold">Welcome, {user.name}</h2>
+            <h2 className="text-2xl font-semibold">Welcome, {authUser.name}</h2>
             <p className="text-muted-foreground mt-2">There are no projects associated with your account yet.</p>
-            {/* Admins can add projects for this client */}
              <div className="mt-4">
                 <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
                     <Button>
@@ -40,7 +41,6 @@ export function ClientDashboard({ user }: ClientDashboardProps) {
       )
   }
 
-  const myProjects = projects.filter(p => p.client.id === myClientRecord.id);
   const activeProjects = myProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;
   const completedProjects = myProjects.filter(p => p.status === 'Completed').length;
 
