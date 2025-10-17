@@ -10,6 +10,7 @@ type DataContextType = {
   tasks: Task[];
   clients: Client[];
   teamMembers: User[];
+  users: User[];
   addProject: (project: Omit<Project, 'id' | 'coverImage'>) => void;
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
@@ -97,7 +98,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <DataContext.Provider value={{ projects, tasks, clients, teamMembers, addProject, addTask, updateProjectTeam, addClient, addTeamMember }}>
+    <DataContext.Provider value={{ projects, tasks, clients, teamMembers, users, addProject, addTask, updateProjectTeam, addClient, addTeamMember }}>
       {children}
     </DataContext.Provider>
   );

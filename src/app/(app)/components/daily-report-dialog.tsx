@@ -17,6 +17,7 @@ import { Bot, Loader2, Calendar as CalendarIcon } from 'lucide-react';
 import { useData } from '../data-provider';
 import { format } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { users as allUsers } from '@/lib/data';
 
 type DailyReportDialogProps = {
   children: React.ReactNode;
@@ -28,7 +29,7 @@ export function DailyReportDialog({ children }: DailyReportDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const { toast } = useToast();
-  const { projects, tasks, users } = useData();
+  const { projects, tasks } = useData();
 
   const handleGenerateReport = async () => {
     if (!selectedDate) {
@@ -42,7 +43,7 @@ export function DailyReportDialog({ children }: DailyReportDialogProps) {
         date: format(selectedDate, 'yyyy-MM-dd'),
         projects,
         tasks,
-        users,
+        users: allUsers,
       };
       const result = await generateActivityReport(input);
       setReport(result.report);
