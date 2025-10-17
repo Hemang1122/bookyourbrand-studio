@@ -3,9 +3,10 @@
 import { type ColumnDef } from "@tanstack/react-table"
 import type { Client } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { ArrowUpDown } from "lucide-react"
+import { ArrowUpDown, Eye } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
+import { ViewClientDetailsDialog } from "./view-client-details-dialog"
 
 export const columns: ColumnDef<Client>[] = [
   {
@@ -42,5 +43,20 @@ export const columns: ColumnDef<Client>[] = [
   {
     accessorKey: "email",
     header: "Email",
+  },
+  {
+    id: "actions",
+    cell: ({ row }) => {
+      const client = row.original
+ 
+      return (
+        <ViewClientDetailsDialog client={client}>
+            <Button variant="outline" size="sm">
+                <Eye className="mr-2 h-4 w-4" />
+                View
+            </Button>
+        </ViewClientDetailsDialog>
+      )
+    },
   },
 ]

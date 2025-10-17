@@ -3,10 +3,11 @@
 import { type ColumnDef } from "@tanstack/react-table"
 import type { User } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { ArrowUpDown } from "lucide-react"
+import { ArrowUpDown, Eye } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
 import { Badge } from "@/components/ui/badge"
+import { ViewTeamMemberDetailsDialog } from "./view-team-member-details-dialog"
 
 export const columns: ColumnDef<User>[] = [
   {
@@ -47,5 +48,20 @@ export const columns: ColumnDef<User>[] = [
         const user = row.original;
         return <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>{user.role}</Badge>;
     }
+  },
+  {
+    id: "actions",
+    cell: ({ row }) => {
+      const teamMember = row.original
+ 
+      return (
+        <ViewTeamMemberDetailsDialog teamMember={teamMember}>
+            <Button variant="outline" size="sm">
+                <Eye className="mr-2 h-4 w-4" />
+                View
+            </Button>
+        </ViewTeamMemberDetailsDialog>
+      )
+    },
   },
 ]
