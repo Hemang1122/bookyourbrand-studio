@@ -6,6 +6,7 @@ import type { Client } from '@/lib/types';
 import { OverviewChart } from './overview-chart';
 import { RecentActivity } from './recent-activity';
 import { useData } from '../../data-provider';
+import { DailyStandupCard } from './daily-standup-card';
 
 type AdminDashboardProps = {
   clients: Client[];
@@ -61,22 +62,27 @@ export function AdminDashboard({ clients }: AdminDashboardProps) {
         </Card>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>Task Progress</CardTitle>
-          </CardHeader>
-          <CardContent className="pl-2">
-            <OverviewChart tasks={tasks} />
-          </CardContent>
-        </Card>
-        <Card className="col-span-4 lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <RecentActivity tasks={tasks} projects={projects} />
-          </CardContent>
-        </Card>
+        <div className="col-span-4 space-y-4">
+            <Card>
+            <CardHeader>
+                <CardTitle>Task Progress</CardTitle>
+            </CardHeader>
+            <CardContent className="pl-2">
+                <OverviewChart tasks={tasks} />
+            </CardContent>
+            </Card>
+        </div>
+        <div className="col-span-4 lg:col-span-3 space-y-4">
+            <DailyStandupCard />
+            <Card>
+                <CardHeader>
+                    <CardTitle>Recent Activity</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <RecentActivity tasks={tasks} projects={projects} />
+                </CardContent>
+            </Card>
+        </div>
       </div>
     </div>
   );

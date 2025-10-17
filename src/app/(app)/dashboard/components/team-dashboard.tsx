@@ -15,6 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useData } from '../../data-provider';
+import { DailyStandupCard } from './daily-standup-card';
 
 type TeamDashboardProps = {
   user: User;
@@ -29,7 +30,10 @@ export function TeamDashboard({ user }: TeamDashboardProps) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+       <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold tracking-tight">My Dashboard</h2>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
@@ -60,6 +64,9 @@ export function TeamDashboard({ user }: TeamDashboardProps) {
             <p className="text-xs text-muted-foreground">Finished this month.</p>
           </CardContent>
         </Card>
+        <div className="lg:col-span-1">
+            <DailyStandupCard />
+        </div>
       </div>
       <Card>
         <CardHeader>
