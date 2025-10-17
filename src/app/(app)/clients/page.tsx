@@ -10,6 +10,8 @@ export default async function ClientsPage() {
     redirect('/dashboard');
   }
 
+  const data = clients;
+
   return (
     <div className="container mx-auto py-10">
       <div className="space-y-2 mb-6">
@@ -18,7 +20,7 @@ export default async function ClientsPage() {
           View and manage all client accounts in the system.
         </p>
       </div>
-      <DataTable columns={columns} data={clients} />
+      <DataTable columns={columns} data={data} />
     </div>
   );
 }

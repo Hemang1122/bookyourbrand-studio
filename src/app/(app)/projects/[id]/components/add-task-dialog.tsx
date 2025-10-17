@@ -21,7 +21,7 @@ import { Input } from '@/components/ui/input';
 
 type AddTaskDialogProps = {
   projectId: string;
-  onTaskAdd: (task: Task) => void;
+  onTaskAdd: (task: Omit<Task, 'id' | 'assignedTo' | 'status'>) => void;
   children: React.ReactNode;
 };
 
@@ -50,13 +50,10 @@ export function AddTaskDialog({ projectId, onTaskAdd, children }: AddTaskDialogP
   };
 
   const handleAddTask = (title: string, description: string) => {
-    const newTask: Task = {
-        id: `task-${Date.now()}`,
+    const newTask = {
         projectId: projectId,
         title,
         description,
-        assignedTo: users.find(u => u.role === 'team')!, // Mock assignment
-        status: 'Pending',
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 1 week from now
     };
     onTaskAdd(newTask);

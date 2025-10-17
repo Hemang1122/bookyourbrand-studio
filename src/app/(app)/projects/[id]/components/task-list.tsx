@@ -9,29 +9,27 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { AddTaskDialog } from './add-task-dialog';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
+import { useData } from '../../../data-provider';
 
 type TaskListProps = {
-  initialTasks: Task[];
   projectId: string;
 };
 
-export function TaskList({ initialTasks, projectId }: TaskListProps) {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+export function TaskList({ projectId }: TaskListProps) {
+  const { tasks, addTask } = useData();
+  const projectTasks = tasks.filter((t) => t.projectId === projectId);
+
 
   const columns = {
-    Pending: tasks.filter((t) => t.status === 'Pending'),
-    'In Progress': tasks.filter((t) => t.status === 'In Progress'),
-    Completed: tasks.filter((t) => t.status === 'Completed'),
+    Pending: projectTasks.filter((t) => t.status === 'Pending'),
+    'In Progress': projectTasks.filter((t) => t.status === 'In Progress'),
+    Completed: projectTasks.filter((t) => t.status === 'Completed'),
   };
-
-  const handleAddTask = (newTask: Task) => {
-    setTasks(prev => [...prev, newTask])
-  }
 
   return (
     <div className="space-y-4">
         <div className="flex justify-end">
-            <AddTaskDialog projectId={projectId} onTaskAdd={handleAddTask}>
+            <AddTaskDialog projectId={projectId} onTaskAdd={addTask}>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Task

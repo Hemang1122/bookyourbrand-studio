@@ -1,38 +1,43 @@
 'use client';
 
-import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { FolderKanban, Clock, CheckCircle2, Plus } from 'lucide-react';
-import type { Project, Task, User } from '@/lib/types';
+import type { Project, User } from '@/lib/types';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { AddProjectDialog } from '../../projects/components/add-project-dialog';
+import { useData } from '../../data-provider';
 
 type ClientDashboardProps = {
   user: User;
-  projects: Project[];
-  tasks: Task[];
 };
 
-export function ClientDashboard({ user, projects: initialProjects, tasks: initialTasks }: ClientDashboardProps) {
-  const [projects, setProjects] = useState(initialProjects);
-  const myClientRecord = projects[0].client; // Mock: assume user is linked to a client record
+export function ClientDashboard({ user }: ClientDashboardProps) {
+  const { projects, tasks, addProject } = useData();
+
+  // Mock: assume user is linked to a client record. Find client based on email.
+  const myClientRecord = projects.map(p => p.client).find(c => c.email === user.email);
+  
+  if (!myClientRecord) {
+      return (
+        <div className="text-center py-12">
+            <h2 className="text-2xl font-semibold">Welcome, {user.name}</h2>
+            <p className="text-muted-foreground mt-2">There are no projects associated with your account yet.</p>
+        </div>
+      )
+  }
+
   const myProjects = projects.filter(p => p.client.id === myClientRecord.id);
   const activeProjects = myProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;
   const completedProjects = myProjects.filter(p => p.status === 'Completed').length;
-  const [tasks, setTasks] = useState(initialTasks);
-
-  const handleProjectAdd = (newProject: Project) => {
-    setProjects(prev => [...prev, newProject]);
-  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-         <AddProjectDialog onProjectAdd={handleProjectAdd} client={myClientRecord}>
+         <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
               Add Project

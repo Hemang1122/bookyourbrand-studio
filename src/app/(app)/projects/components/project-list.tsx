@@ -8,12 +8,10 @@ import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { useData } from '../../data-provider';
 
-type ProjectListProps = {
-  projects: Project[];
-};
-
-export function ProjectList({ projects }: ProjectListProps) {
+export function ProjectList() {
+  const { projects } = useData();
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {projects.map((project) => {

@@ -1,23 +1,21 @@
 'use client';
 
-import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, Users, FolderKanban, CheckCircle2 } from 'lucide-react';
-import type { Project, Task, Client } from '@/lib/types';
+import type { Client } from '@/lib/types';
 import { OverviewChart } from './overview-chart';
 import { RecentActivity } from './recent-activity';
+import { useData } from '../../data-provider';
 
 type AdminDashboardProps = {
-  projects: Project[];
-  tasks: Task[];
   clients: Client[];
 };
 
-export function AdminDashboard({ projects: initialProjects, tasks: initialTasks, clients }: AdminDashboardProps) {
-    const [projects, setProjects] = useState(initialProjects);
-    const [tasks, setTasks] = useState(initialTasks);
+export function AdminDashboard({ clients }: AdminDashboardProps) {
+    const { projects, tasks } = useData();
     
     const completedTasks = tasks.filter(t => t.status === 'Completed').length;
+
   return (
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

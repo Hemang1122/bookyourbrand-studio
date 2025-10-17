@@ -16,6 +16,7 @@ import { ModeToggle } from '@/components/mode-toggle';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MainNav } from '@/components/main-nav';
 import { AuthProvider } from '@/lib/auth-client';
+import { DataProvider } from './data-provider';
 
 function AppHeader({ user }: { user: User }) {
     const { open, setOpen } = useSidebar();
@@ -39,6 +40,7 @@ export default function AppLayoutClient({
 
   return (
     <AuthProvider user={user}>
+      <DataProvider>
         <SidebarProvider>
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
             <Sidebar>
@@ -62,6 +64,7 @@ export default function AppLayoutClient({
             </div>
         </div>
         </SidebarProvider>
+      </DataProvider>
     </AuthProvider>
   );
 }

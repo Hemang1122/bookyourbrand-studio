@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { projects as initialProjects, tasks as initialTasks, chatMessages, projectFiles } from '@/lib/data';
+import { useEffect, useState } from 'react';
 import { notFound, useParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TaskList } from './components/task-list';
@@ -11,25 +10,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { ListTodo, MessageSquare, Files } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { chatMessages, projectFiles } from '@/lib/data';
+import { useData } from '../../data-provider';
+import type { Project } from '@/lib/types';
+
 
 export default function ProjectDetailPage() {
   const params = useParams();
   const id = params.id as string;
-  
-  const [project, setProject] = useState(() => initialProjects.find((p) => p.id === id));
-  const [tasks, setTasks] = useState(() => initialTasks.filter((t) => t.projectId === id));
+  const { projects } = useData();
+
+  const [project, setProject] = useState<Project | undefined | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // In a real app, you'd fetch project data here.
-    // We are simulating a fetch with the static data.
-    const foundProject = initialProjects.find((p) => p.id === id);
-    if (foundProject) {
-        setProject(foundProject);
-        setTasks(initialTasks.filter((t) => t.projectId === id))
-    }
+    // We find the project from the context now.
+    const foundProject = projects.find((p) => p.id === id);
+    setProject(foundProject);
     setLoading(false);
-  }, [id]);
+  }, [id, projects]);
+
 
   if (loading) {
     return (
@@ -53,9 +53,11 @@ export default function ProjectDetailPage() {
   }
 
   if (!project) {
+    // This will be called if the project is not found after loading.
     return notFound();
   }
 
+  // Mock data for chat and files still used for simplicity
   const messages = chatMessages[project.id] || [];
   const files = projectFiles[project.id] || [];
 
@@ -86,7 +88,7 @@ export default function ProjectDetailPage() {
               <CardDescription>Manage and track all tasks for this project.</CardDescription>
             </CardHeader>
             <CardContent>
-              <TaskList initialTasks={tasks} projectId={project.id} />
+              <TaskList projectId={project.id} />
             </CardContent>
           </Card>
         </TabsContent>

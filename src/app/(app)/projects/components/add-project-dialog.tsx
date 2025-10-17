@@ -24,7 +24,7 @@ import type { Client, Project } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type AddProjectDialogProps = {
-  onProjectAdd: (project: any) => void;
+  onProjectAdd: (project: Omit<Project, 'id' | 'team' | 'coverImage'>) => void;
   children: React.ReactNode;
   client?: Client;
 };
@@ -47,15 +47,12 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
         toast({ title: 'Error', description: 'Selected client not found.', variant: 'destructive' });
         return;
     }
-    const newProject: Project = {
-      id: `proj-${Date.now()}`,
+    const newProject = {
       name,
       description,
       deadline: format(deadline, 'yyyy-MM-dd'),
       client: selectedClient,
       status: 'Active',
-      team: [users.find(u => u.role === 'team')!], // Mock team assignment
-      coverImage: `project-${Math.ceil(Math.random() * 3)}`
     };
     onProjectAdd(newProject);
     toast({ title: 'Project Added', description: `"${name}" has been created.` });
