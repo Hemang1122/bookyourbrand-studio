@@ -21,7 +21,7 @@ import { DataProvider, useData } from './data-provider';
 import { Button } from '@/components/ui/button';
 import { BookOpenCheck } from 'lucide-react';
 import { DailyReportDialog } from './components/daily-report-dialog';
-import { useUser, useFirebase } from '@/firebase';
+import { useUser } from '@/firebase';
 import { redirect } from 'next/navigation';
 import { users } from '@/lib/data';
 import { NotificationSound } from '@/components/ui/notification-sound';
@@ -63,6 +63,7 @@ function AppLayoutContent({
 
 
 export default function AppLayoutClient({
+  children,
   initialUser,
 }: {
   children: React.ReactNode;
