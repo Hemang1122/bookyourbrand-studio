@@ -26,6 +26,7 @@ import { redirect } from 'next/navigation';
 import {
   createUserWithEmailAndPassword as createUser,
 } from 'firebase/auth';
+import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
   const admins = users.filter(u => u.role === 'admin');
@@ -33,31 +34,38 @@ export default function LoginPage() {
   const clients = users.filter(u => u.role === 'client');
   const [selectedUser, setSelectedUser] = useState<string>('');
   const { auth, user } = useFirebase();
+  const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const userToLogin = users.find(u => u.id === selectedUser);
     if (userToLogin && auth) {
       try {
-        // First, try to sign in.
+        // We will use a hardcoded password for this prototype.
         await signInWithEmailAndPassword(auth, userToLogin.email, 'password');
         // Redirect is handled by the layout now
       } catch (error: any) {
-        // If sign-in fails (e.g., user not found or wrong password), try to create the user.
-        // This is a robust way to handle users in this prototype environment.
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+         if (error.code === 'auth/user-not-found') {
+          // If the user doesn't exist, create them. This is a common scenario in this prototype.
           try {
             await createUser(auth, userToLogin.email, 'password');
-            // After creation, sign-in should succeed.
             await signInWithEmailAndPassword(auth, userToLogin.email, 'password');
           } catch (createUserError: any) {
-             // If creating the user also fails (e.g., email already exists with a different credential),
-             // it's a state we can't automatically recover from in this prototype.
-             console.error("Failed to create or sign in user:", createUserError);
+            console.error("Failed to create user after 'not-found' error:", createUserError);
+            toast({
+                title: 'Login Error',
+                description: `Could not create or sign in user: ${createUserError.message}`,
+                variant: 'destructive',
+            });
           }
         } else {
-          // Handle other unexpected errors
+          // For any other login error (like invalid-credential), just show an error.
           console.error("An unexpected error occurred during sign-in:", error);
+          toast({
+            title: 'Login Failed',
+            description: 'Please check the credentials or try again. If the user is new, their account might still be provisioning.',
+            variant: 'destructive',
+          });
         }
       }
     }
