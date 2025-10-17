@@ -9,12 +9,24 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useData } from '../../data-provider';
+import { useAuth } from '@/lib/auth-client';
+import { useMemo } from 'react';
 
 export function ProjectList() {
   const { projects } = useData();
+  const { user } = useAuth();
+
+  const filteredProjects = useMemo(() => {
+    if (!user) return [];
+    if (user.role === 'client') {
+      return projects.filter(p => p.client.id === user.id);
+    }
+    return projects; // Admins and team members see all projects
+  }, [projects, user]);
+
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {projects.map((project) => {
+      {filteredProjects.map((project) => {
         const coverImage = PlaceHolderImages.find(img => img.id === project.coverImage);
         return (
           <Link href={`/projects/${project.id}`} key={project.id}>
@@ -57,7 +69,7 @@ export function ProjectList() {
           </Link>
         );
       })}
-       {projects.length === 0 && (
+       {filteredProjects.length === 0 && (
           <div className="md:col-span-2 lg:col-span-3 text-center text-muted-foreground py-12">
               No projects found.
           </div>
