@@ -26,6 +26,7 @@ export type Project = {
   deadline: string;
   team: User[];
   description: string;
+  guidelines?: string;
   coverImage: string;
 };
 

@@ -8,7 +8,7 @@ import { ChatRoom } from './components/chat-room';
 import { FileManager } from './components/file-manager';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ListTodo, MessageSquare, Files } from 'lucide-react';
+import { ListTodo, MessageSquare, Files, Info } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { chatMessages, projectFiles } from '@/lib/data';
 import { useData } from '../../data-provider';
@@ -75,6 +75,20 @@ export default function ProjectDetailPage() {
         </div>
       </div>
       
+      {project.guidelines && (
+        <Card>
+          <CardHeader className='pb-2'>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Info className="h-5 w-5" />
+              Project Guidelines
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">{project.guidelines}</p>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="tasks" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="tasks"><ListTodo className="mr-2 h-4 w-4" />Tasks</TabsTrigger>

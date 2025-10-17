@@ -20,11 +20,12 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { clients, users } from '@/lib/data';
-import type { Client, Project } from '@/lib/types';
+import type { Client, Project, User } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MultiSelect } from '@/components/ui/multi-select';
 
 type AddProjectDialogProps = {
-  onProjectAdd: (project: Omit<Project, 'id' | 'team' | 'coverImage'>) => void;
+  onProjectAdd: (project: Omit<Project, 'id' | 'coverImage'>) => void;
   children: React.ReactNode;
   client?: Client;
 };
@@ -33,13 +34,18 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [guidelines, setGuidelines] = useState('');
   const [deadline, setDeadline] = useState<Date>();
   const [client, setClient] = useState<string | undefined>(preselectedClient?.id);
+  const [team, setTeam] = useState<string[]>([]);
   const { toast } = useToast();
 
+  const teamMembers = users.filter(u => u.role === 'team');
+  const teamMemberOptions = teamMembers.map(tm => ({ value: tm.id, label: tm.name }));
+
   const handleAddProject = () => {
-    if (!name || !description || !deadline || !client) {
-      toast({ title: 'Error', description: 'All fields are required.', variant: 'destructive' });
+    if (!name || !description || !deadline || !client || team.length === 0) {
+      toast({ title: 'Error', description: 'All fields, including team members, are required.', variant: 'destructive' });
       return;
     }
     const selectedClient = clients.find(c => c.id === client);
@@ -47,11 +53,15 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
         toast({ title: 'Error', description: 'Selected client not found.', variant: 'destructive' });
         return;
     }
+    const selectedTeam = users.filter(u => team.includes(u.id));
+
     const newProject = {
       name,
       description,
+      guidelines,
       deadline: format(deadline, 'yyyy-MM-dd'),
       client: selectedClient,
+      team: selectedTeam,
       status: 'Active',
     };
     onProjectAdd(newProject);
@@ -60,14 +70,16 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
     // Reset fields
     setName('');
     setDescription('');
+    setGuidelines('');
     setDeadline(undefined);
     setClient(preselectedClient?.id);
+    setTeam([]);
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle>Add New Project</DialogTitle>
           <DialogDescription>Fill in the details for the new project.</DialogDescription>
@@ -80,6 +92,10 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Provide a brief description of the project." />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="guidelines">Project Guidelines</Label>
+            <Textarea id="guidelines" value={guidelines} onChange={(e) => setGuidelines(e.target.value)} placeholder="Provide specific instructions or guidelines for the team." />
           </div>
           {!preselectedClient && (
             <div className="space-y-2">
@@ -94,6 +110,15 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
                 </Select>
             </div>
           )}
+          <div className="space-y-2">
+            <Label>Assign Team Members</Label>
+            <MultiSelect
+              options={teamMemberOptions}
+              selected={team}
+              onChange={setTeam}
+              placeholder="Select team members..."
+            />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="deadline">Deadline</Label>
             <Popover>
