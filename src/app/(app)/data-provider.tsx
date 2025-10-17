@@ -1,14 +1,15 @@
 'use client';
 
 import { createContext, useContext, useState } from 'react';
-import type { Project, Task } from '@/lib/types';
-import { projects as initialProjects, tasks as initialTasks } from '@/lib/data';
+import type { Project, Task, User } from '@/lib/types';
+import { projects as initialProjects, tasks as initialTasks, users } from '@/lib/data';
 
 type DataContextType = {
   projects: Project[];
   tasks: Task[];
   addProject: (project: Omit<Project, 'id' | 'coverImage'>) => void;
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status'>) => void;
+  updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -40,8 +41,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setTasks(prev => [...prev, newTask]);
   }
 
+  const updateProjectTeam = (projectId: string, teamMemberIds: string[]) => {
+    setProjects(prev => prev.map(p => {
+      if (p.id === projectId) {
+        const newTeam = users.filter(u => teamMemberIds.includes(u.id));
+        return { ...p, team: newTeam };
+      }
+      return p;
+    }));
+  };
+
   return (
-    <DataContext.Provider value={{ projects, tasks, addProject, addTask }}>
+    <DataContext.Provider value={{ projects, tasks, addProject, addTask, updateProjectTeam }}>
       {children}
     </DataContext.Provider>
   );

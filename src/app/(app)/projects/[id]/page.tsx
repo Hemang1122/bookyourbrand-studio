@@ -8,16 +8,22 @@ import { ChatRoom } from './components/chat-room';
 import { FileManager } from './components/file-manager';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ListTodo, MessageSquare, Files, Info } from 'lucide-react';
+import { ListTodo, MessageSquare, Files, Info, Users, Edit } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { chatMessages, projectFiles } from '@/lib/data';
 import { useData } from '../../data-provider';
-import type { Project } from '@/lib/types';
+import type { Project, User } from '@/lib/types';
+import { useAuth } from '@/lib/auth-client';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { Button } from '@/components/ui/button';
+import { ManageTeamDialog } from './components/manage-team-dialog';
 
 
 export default function ProjectDetailPage() {
   const params = useParams();
   const id = params.id as string;
+  const { user } = useAuth();
   const { projects } = useData();
 
   const [project, setProject] = useState<Project | undefined | null>(null);
@@ -75,19 +81,55 @@ export default function ProjectDetailPage() {
         </div>
       </div>
       
-      {project.guidelines && (
+      <div className="grid gap-6 md:grid-cols-3">
+        {project.guidelines && (
+          <Card className="md:col-span-2">
+            <CardHeader className='pb-2'>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Info className="h-5 w-5" />
+                Project Guidelines
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">{project.guidelines}</p>
+            </CardContent>
+          </Card>
+        )}
         <Card>
-          <CardHeader className='pb-2'>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Info className="h-5 w-5" />
-              Project Guidelines
-            </CardTitle>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Project Team
+                </CardTitle>
+                {user?.role === 'admin' && (
+                    <ManageTeamDialog project={project}>
+                        <Button variant="outline" size="sm">
+                            <Edit className="mr-2 h-4 w-4" /> Manage
+                        </Button>
+                    </ManageTeamDialog>
+                )}
+            </div>
           </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">{project.guidelines}</p>
+          <CardContent className="flex flex-wrap gap-4">
+            {project.team.map(member => {
+                const avatar = PlaceHolderImages.find(img => img.id === member.avatar);
+                return (
+                    <div key={member.id} className="flex items-center gap-2">
+                        <Avatar className="h-9 w-9">
+                            <AvatarImage src={avatar?.imageUrl} alt={member.name} data-ai-hint={avatar?.imageHint} />
+                            <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <p className="font-semibold text-sm">{member.name}</p>
+                            <p className="text-xs text-muted-foreground">{member.email}</p>
+                        </div>
+                    </div>
+                )
+            })}
           </CardContent>
         </Card>
-      )}
+      </div>
 
       <Tabs defaultValue="tasks" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
