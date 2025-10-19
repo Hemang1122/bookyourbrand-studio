@@ -1,10 +1,7 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import type { ChatMessage } from '@/lib/types';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Send, Paperclip, Link as LinkIcon, FileText } from 'lucide-react';
@@ -90,10 +87,6 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
   return (
     <div className="flex h-full flex-col">
        <CardHeader className="flex-row items-center border-b">
-         <Avatar className="h-9 w-9">
-            <AvatarImage src={PlaceHolderImages.find(p => p.id === chatPartner.avatar)?.imageUrl} alt={chatPartner.name} />
-            <AvatarFallback>{chatPartner.name.charAt(0)}</AvatarFallback>
-         </Avatar>
          <div className="ml-4">
             <CardTitle className="text-base">{chatPartner.name}</CardTitle>
          </div>
@@ -108,7 +101,6 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
           )}
           {messages.map((msg) => {
             const sender = users.find(u => u.id === msg.senderId);
-            const userAvatar = PlaceHolderImages.find(img => img.id === sender?.avatar);
             const isCurrentUser = msg.senderId === currentUser.id;
             const messageDate = new Date();
 
@@ -118,10 +110,7 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
                 className={`flex items-start gap-3 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
               >
                 {!isCurrentUser && (
-                   <Avatar className="h-8 w-8">
-                     <AvatarImage src={userAvatar?.imageUrl} alt={sender?.name} data-ai-hint={userAvatar?.imageHint} />
-                     <AvatarFallback>{sender?.name.charAt(0)}</AvatarFallback>
-                   </Avatar>
+                   <div className="h-8 w-8" />
                 )}
                 <div className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                     {!isCurrentUser && <span className="text-xs text-muted-foreground">{sender?.name}</span>}
@@ -147,10 +136,7 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
                     </p>
                 </div>
                  {isCurrentUser && (
-                    <Avatar className="h-8 w-8">
-                        <AvatarImage src={PlaceHolderImages.find(img => img.id === currentUser.avatar)?.imageUrl} alt={currentUser.name} />
-                        <AvatarFallback>{currentUser.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
+                    <div className="h-8 w-8" />
                 )}
               </div>
             );

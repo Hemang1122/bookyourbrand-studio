@@ -1,12 +1,9 @@
-
 "use client"
 
 import { type ColumnDef } from "@tanstack/react-table"
 import type { User } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { ArrowUpDown, Eye } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { PlaceHolderImages } from "@/lib/placeholder-images"
 import { Badge } from "@/components/ui/badge"
 import { ViewTeamMemberDetailsDialog } from "./view-team-member-details-dialog"
 
@@ -26,13 +23,8 @@ export const columns: ColumnDef<User>[] = [
     },
     cell: ({ row }) => {
       const user = row.original;
-      const avatar = PlaceHolderImages.find(img => img.id === user.avatar);
       return (
         <div className="flex items-center gap-3">
-          <Avatar>
-            <AvatarImage src={avatar?.imageUrl} alt={user.name} data-ai-hint={avatar?.imageHint}/>
-            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-          </Avatar>
           <span className="font-medium">{user.name}</span>
         </div>
       )

@@ -13,8 +13,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
 import type { Project } from '@/lib/types';
 import { useAuth } from '@/lib/auth-client';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Button } from '@/components/ui/button';
 import { ManageTeamDialog } from './components/manage-team-dialog';
 import { EditProjectDialog } from './components/edit-project-dialog';
@@ -118,13 +116,8 @@ export default function ProjectDetailPage() {
           </CardHeader>
           <CardContent className="flex flex-wrap gap-4">
             {project.team.map(member => {
-                const avatar = PlaceHolderImages.find(img => img.id === member.avatar);
                 return (
                     <div key={member.id} className="flex items-center gap-2">
-                        <Avatar className="h-9 w-9">
-                            <AvatarImage src={avatar?.imageUrl} alt={member.name} data-ai-hint={avatar?.imageHint} />
-                            <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
                         <div>
                             <p className="font-semibold text-sm">{member.name}</p>
                             <p className="text-xs text-muted-foreground">{member.email}</p>

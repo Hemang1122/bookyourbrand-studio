@@ -1,12 +1,9 @@
-
 'use client';
 
 import { useState } from 'react';
 import type { Task, TaskStatus } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { AddTaskDialog } from './add-task-dialog';
 import { Button } from '@/components/ui/button';
 import { Plus, Wand2, CheckCircle, Play, History, MoreHorizontal } from 'lucide-react';
@@ -40,7 +37,6 @@ type TaskCardProps = {
 
 const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
   const { user } = useAuth();
-  const userAvatar = PlaceHolderImages.find(img => img.id === task.assignedTo.avatar);
 
   const canUpdateStatus = (user?.role === 'admin' || (user?.role === 'team' && user.id === task.assignedTo.id));
 
@@ -109,10 +105,7 @@ const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={userAvatar?.imageUrl} alt={task.assignedTo.name} data-ai-hint={userAvatar?.imageHint} />
-                  <AvatarFallback>{task.assignedTo.name.charAt(0)}</AvatarFallback>
-                </Avatar>
+                <span className="text-xs text-muted-foreground">{task.assignedTo.name}</span>
               </TooltipTrigger>
               <TooltipContent>
                 <p>Assigned to {task.assignedTo.name}</p>

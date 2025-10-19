@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -6,8 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { SupportChatRoom } from './components/support-chat-room';
 import { useAuth } from '@/lib/auth-client';
 import { useData } from '../data-provider';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -40,7 +37,6 @@ export default function SupportPage() {
                              <ScrollArea className="h-[calc(75vh-80px)]">
                                 <div className="space-y-1 p-2">
                                     {clients.map(client => {
-                                        const avatar = PlaceHolderImages.find(img => img.id === client.avatar);
                                         return (
                                             <button
                                                 key={client.id}
@@ -50,10 +46,6 @@ export default function SupportPage() {
                                                     selectedClientId === client.id ? "bg-accent text-accent-foreground" : "hover:bg-muted"
                                                 )}
                                             >
-                                                <Avatar className="h-9 w-9">
-                                                    <AvatarImage src={avatar?.imageUrl} alt={client.name} data-ai-hint={avatar?.imageHint} />
-                                                    <AvatarFallback>{client.name.charAt(0)}</AvatarFallback>
-                                                </Avatar>
                                                 <div className="flex-1">
                                                     <p className="font-semibold text-sm">{client.name}</p>
                                                     <p className="text-xs text-muted-foreground">{client.company}</p>

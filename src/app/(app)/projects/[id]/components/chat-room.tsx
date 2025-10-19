@@ -1,10 +1,7 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import type { ChatMessage, User } from '@/lib/types';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Send, Paperclip, Link as LinkIcon, FileText } from 'lucide-react';
@@ -108,7 +105,6 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
           {messages.map((msg) => {
-            const userAvatar = PlaceHolderImages.find(img => img.id === msg.senderAvatar);
             const isCurrentUser = msg.senderId === currentUser.id;
             const messageDate = new Date(); // Simplified for mock
 
@@ -118,10 +114,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                 className={`flex items-start gap-3 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
               >
                 {!isCurrentUser && (
-                   <Avatar className="h-8 w-8">
-                     <AvatarImage src={userAvatar?.imageUrl} alt={msg.senderName} data-ai-hint={userAvatar?.imageHint} />
-                     <AvatarFallback>{msg.senderName?.charAt(0)}</AvatarFallback>
-                   </Avatar>
+                   <div className="h-8 w-8" />
                 )}
                 <div className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                     <span className="text-xs text-muted-foreground">{msg.senderName}</span>
@@ -147,10 +140,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                     </p>
                 </div>
                  {isCurrentUser && (
-                   <Avatar className="h-8 w-8">
-                     <AvatarImage src={userAvatar?.imageUrl} alt={msg.senderName} data-ai-hint={userAvatar?.imageHint} />
-                     <AvatarFallback>{currentUser.name.charAt(0)}</AvatarFallback>
-                   </Avatar>
+                   <div className="h-8 w-8" />
                 )}
               </div>
             );
@@ -181,5 +171,3 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     </div>
   );
 }
-
-    

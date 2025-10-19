@@ -1,6 +1,4 @@
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { Task, Project } from '@/lib/types';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { compareDesc, parseISO } from 'date-fns';
 
 type RecentActivityProps = {
@@ -19,13 +17,8 @@ export function RecentActivity({ tasks, projects }: RecentActivityProps) {
       {recentCompletedTasks.length > 0 ? (
         recentCompletedTasks.map((task) => {
             const project = projects.find(p => p.id === task.projectId);
-            const userAvatar = PlaceHolderImages.find(img => img.id === task.assignedTo.avatar);
             return (
                 <div key={task.id} className="flex items-center">
-                    <Avatar className="h-9 w-9">
-                    <AvatarImage src={userAvatar?.imageUrl} alt={task.assignedTo.name} data-ai-hint={userAvatar?.imageHint} />
-                    <AvatarFallback>{task.assignedTo.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
                     <div className="ml-4 space-y-1">
                     <p className="text-sm font-medium leading-none">
                         <span className="font-semibold">{task.assignedTo.name}</span> completed a task.

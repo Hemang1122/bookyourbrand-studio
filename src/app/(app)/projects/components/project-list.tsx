@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useData } from '../../data-provider';
 import { useAuth } from '@/lib/auth-client';
@@ -56,16 +55,10 @@ export function ProjectList() {
               </CardContent>
               <CardFooter className="flex justify-between p-4 pt-0">
                  <div className="flex -space-x-2 overflow-hidden">
-                    {project.team.map(member => {
-                        const avatar = PlaceHolderImages.find(img => img.id === member.avatar);
-                        return (
-                            <Avatar key={member.id} className="h-8 w-8 border-2 border-background">
-                                <AvatarImage src={avatar?.imageUrl} alt={member.name} data-ai-hint={avatar?.imageHint} />
-                                <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                        )
-                    })}
-                </div>
+                    {project.team.map(member => (
+                        <div key={member.id} className="h-8 w-8" />
+                    ))}
+                 </div>
                 <Button variant="link">View Project</Button>
               </CardFooter>
             </Card>

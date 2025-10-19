@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -10,8 +9,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-client';
 import type { ScrumUpdate } from '@/lib/types';
 import { useData } from '../data-provider';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { format, isToday } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Download } from 'lucide-react';
@@ -143,17 +140,12 @@ export default function ScrumPage() {
                             {updatesForToday.length > 0 ? (
                                 updatesForToday.map(update => {
                                     const author = users.find(u => u.id === update.userId);
-                                    const avatar = PlaceHolderImages.find(img => img.id === author?.avatar);
                                     if (!author) return null;
 
                                     return (
                                         <TableRow key={update.id}>
                                             <TableCell>
                                                 <div className="flex items-center gap-3">
-                                                    <Avatar className="h-9 w-9">
-                                                        <AvatarImage src={avatar?.imageUrl} alt={author.name} data-ai-hint={avatar?.imageHint}/>
-                                                        <AvatarFallback>{author.name.charAt(0)}</AvatarFallback>
-                                                    </Avatar>
                                                     <span className="font-medium">{author.name}</span>
                                                 </div>
                                             </TableCell>
@@ -181,5 +173,3 @@ export default function ScrumPage() {
     </div>
   );
 }
-
-    
