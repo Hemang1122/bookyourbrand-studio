@@ -73,17 +73,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       return projectsCollection;
     }
     if (currentUser.role === 'client') {
-      return query(projectsCollection, where('client.id', '==', currentUser.id));
+      const clientRecord = clients.find(c => c.email === currentUser.email);
+      if (!clientRecord) return null; // Wait until client data is loaded
+      return query(projectsCollection, where('client.id', '==', clientRecord.id));
     }
     // For team members, we'll have to filter client-side for now
     // A more robust solution would involve a 'teamMembers' array in the project document.
     return projectsCollection;
-  }, [firestore, currentUser]);
+  }, [firestore, currentUser, clients]);
 
   const { data: firestoreProjects, isLoading: isLoadingProjects } = useCollection<Project>(projectsQuery);
 
-  const allTasksCollection = useMemoFirebase(() => collection(firestore, 'tasks'), [firestore]);
-  const { data: allTasks, isLoading: isLoadingTasks } = useCollection<Task>(allTasksCollection);
+  const allTasksCollection = useMemoFirebase(() => {
+      if (!firestore || !currentUser) return null;
+      // Admin can see all tasks.
+      if (currentUser.role === 'admin') {
+        return collection(firestore, 'tasks');
+      }
+      // For clients and team members, we don't fetch all tasks directly.
+      // They are loaded with the projects.
+      return null;
+  }, [firestore, currentUser]);
+
+  const { data: firestoreTasks, isLoading: isLoadingTasks } = useCollection<Task>(allTasksCollection);
 
   useEffect(() => {
     if (firestoreProjects) {
@@ -96,10 +108,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [firestoreProjects, currentUser]);
   
   useEffect(() => {
-    if(allTasks) {
-        setTasks(allTasks);
+    if(firestoreTasks) {
+        setTasks(firestoreTasks);
     }
-  }, [allTasks])
+  }, [firestoreTasks])
 
 
   const teamMembers = useMemo(() => users.filter(u => u.role === 'admin' || u.role === 'team'), [users]);
@@ -132,6 +144,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     };
     addDocumentNonBlocking(collection(firestore, 'tasks'), newTask);
      // Local state will be updated by the firestore listener
+     if (currentUser?.role === 'admin' || currentUser?.role === 'team') {
+       setTasks(prev => [...prev, newTask]);
+     }
     addNotification(`New task "${newTask.title}" added to project "${project?.name}".`, newTask.projectId);
   }
 
@@ -313,3 +328,5 @@ export function useData() {
   }
   return context;
 }
+
+    
