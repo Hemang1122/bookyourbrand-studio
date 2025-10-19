@@ -11,7 +11,6 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { Logo } from '@/components/logo';
 import { UserNavClient } from '@/components/user-nav-client';
 import { ModeToggle } from '@/components/mode-toggle';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -75,7 +74,6 @@ export default function AppLayoutClient({
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
             <Sidebar>
             <SidebarHeader>
-                <Logo />
             </SidebarHeader>
             <SidebarContent>
                 <ScrollArea className="h-full">
