@@ -1,3 +1,4 @@
+
 'use client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -47,22 +48,28 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   const isClientUser = user?.role === 'client';
 
   const handleAddProject = () => {
-    const finalClientId = isClientUser ? user?.id : client;
+    let selectedClient: Client | undefined;
 
+    if (isClientUser) {
+      selectedClient = clients.find(c => c.email === user?.email);
+    } else {
+      selectedClient = clients.find(c => c.id === client);
+    }
+
+    if (!selectedClient) {
+      toast({ title: 'Error', description: 'Selected client not found.', variant: 'destructive' });
+      return;
+    }
+    
     // Admin validation
     if (!isClientUser && team.length === 0) {
       toast({ title: 'Error', description: 'Please assign at least one team member.', variant: 'destructive' });
       return;
     }
     // Universal validation
-    if (!name || !description || !deadline || !finalClientId) {
-      toast({ title: 'Error', description: 'Project name, description, client and deadline are required.', variant: 'destructive' });
+    if (!name || !description || !deadline) {
+      toast({ title: 'Error', description: 'Project name, description, and deadline are required.', variant: 'destructive' });
       return;
-    }
-    const selectedClient = clients.find(c => c.id === finalClientId);
-    if (!selectedClient) {
-        toast({ title: 'Error', description: 'Selected client not found.', variant: 'destructive' });
-        return;
     }
     
     // Admins assign team, clients submit with their own team (which is empty initially)
