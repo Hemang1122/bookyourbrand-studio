@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -28,8 +29,8 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
 
   const chatPartner = useMemo(() => users.find(u => u.id === chatPartnerId), [users, chatPartnerId]);
 
-  // Path to the chat messages in the current user's own document.
-  // e.g., /users/{currentUserId}/chats/{chatPartnerId}/messages
+  // CORRECTED: The path now correctly uses the CURRENT user's ID for the query,
+  // ensuring we only ever try to read from a location the user has access to.
   const messagesCollectionRef = useMemo(() => {
     if (!firestore || !currentUser) return null;
     return collection(firestore, 'users', currentUser.id, 'chats', chatPartnerId, 'messages');
