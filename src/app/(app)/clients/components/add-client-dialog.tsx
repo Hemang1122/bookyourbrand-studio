@@ -62,11 +62,20 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
       let agreementUrl: string | undefined;
       let idCardUrl: string | undefined;
 
+      const totalFiles = (agreementFile ? 1 : 0) + (idCardFile ? 1 : 0);
+      let filesUploaded = 0;
+
       if (agreementFile) {
-        agreementUrl = await uploadFile(agreementFile, `documents/clients/${name}`, (p) => setUploadProgress(p * 0.5));
+        agreementUrl = await uploadFile(agreementFile, `documents/clients/${name}`, (p) => {
+           setUploadProgress((filesUploaded * 100 + p) / totalFiles)
+        });
+        filesUploaded++;
       }
       if (idCardFile) {
-        idCardUrl = await uploadFile(idCardFile, `documents/clients/${name}`, (p) => setUploadProgress(50 + p * 0.5));
+        idCardUrl = await uploadFile(idCardFile, `documents/clients/${name}`, (p) => {
+          setUploadProgress((filesUploaded * 100 + p) / totalFiles)
+        });
+        filesUploaded++;
       }
 
       onClientAdd({ name, company, email, founderDetails, agreementUrl, idCardUrl });
@@ -80,6 +89,7 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
       setAgreementFile(null);
       setIdCardFile(null);
     } catch (error) {
+        console.error(error);
         toast({ title: 'Upload Error', description: 'Could not upload files.', variant: 'destructive'});
     } finally {
         setIsUploading(false);
