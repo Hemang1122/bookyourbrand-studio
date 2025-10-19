@@ -1,4 +1,3 @@
-
 'use client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -56,13 +55,13 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
       let aadharUrl, panUrl, joiningLetterUrl;
 
       if (aadharFile) {
-        aadharUrl = await uploadFile(aadharFile, `documents/team/${name}`, () => {});
+        aadharUrl = await uploadFile(aadharFile, `documents/team/${name}`);
       }
       if (panFile) {
-        panUrl = await uploadFile(panFile, `documents/team/${name}`, () => {});
+        panUrl = await uploadFile(panFile, `documents/team/${name}`);
       }
       if (joiningLetterFile) {
-        joiningLetterUrl = await uploadFile(joiningLetterFile, `documents/team/${name}`, () => {});
+        joiningLetterUrl = await uploadFile(joiningLetterFile, `documents/team/${name}`);
       }
 
       onTeamMemberAdd({ name, email, aadharUrl, panUrl, joiningLetterUrl });

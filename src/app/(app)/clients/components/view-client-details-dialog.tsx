@@ -1,4 +1,3 @@
-
 'use client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -35,7 +34,7 @@ export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsD
   const handleFileUpload = async (file: File, type: 'agreement' | 'idCard') => {
     setIsUploading(type);
     try {
-      const url = await uploadFile(file, `documents/clients/${client.id}`, () => {});
+      const url = await uploadFile(file, `documents/clients/${client.id}`);
       const fieldToUpdate = type === 'agreement' ? 'agreementUrl' : 'idCardUrl';
       
       updateClient(client.id, { [fieldToUpdate]: url });
