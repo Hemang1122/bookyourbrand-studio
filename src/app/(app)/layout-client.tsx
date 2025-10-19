@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { User } from '@/lib/types';
@@ -21,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { BookOpenCheck } from 'lucide-react';
 import { DailyReportDialog } from './components/daily-report-dialog';
 import { NotificationSound } from '@/components/ui/notification-sound';
+import { NotificationBell } from './components/notification-bell';
 
 function AppHeader({user}: {user: User}) {
     const { open, setOpen } = useSidebar();
@@ -36,6 +38,7 @@ function AppHeader({user}: {user: User}) {
                 </Button>
               </DailyReportDialog>
             )}
+            <NotificationBell />
             <ModeToggle />
             <UserNavClient user={user} />
         </header>

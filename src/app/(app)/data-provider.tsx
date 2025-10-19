@@ -2,7 +2,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, TaskRemark } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, TaskRemark, Notification } from '@/lib/types';
 import { projects as initialProjects, tasks as initialTasks, users as initialUsers, clients as initialClients } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-client';
@@ -14,6 +14,7 @@ type DataContextType = {
   teamMembers: User[];
   users: User[];
   scrumUpdates: ScrumUpdate[];
+  notifications: Notification[];
   addProject: (project: Omit<Project, 'id' | 'coverImage'>) => void;
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
@@ -21,6 +22,8 @@ type DataContextType = {
   addClient: (name: string, company: string, email: string) => void;
   addTeamMember: (name: string, email: string) => void;
   addScrumUpdate: (update: Omit<ScrumUpdate, 'id'>) => void;
+  addNotification: (message: string, projectId: string) => void;
+  markNotificationsAsRead: (projectId?: string) => void;
   triggerNotification: () => void;
   playNotification: boolean;
   notificationPlayed: () => void;
@@ -35,6 +38,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [clients, setClients] = useState<Client[]>(initialClients);
   const [scrumUpdates, setScrumUpdates] = useState<ScrumUpdate[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [playNotification, setPlayNotification] = useState(false);
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
@@ -50,6 +54,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       coverImage: `project-${Math.ceil(Math.random() * 3)}`,
     };
     setProjects(prev => [...prev, newProject]);
+    addNotification(`New project "${newProject.name}" was created.`, newProject.id);
   };
 
   const addTask = (taskData: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks'>) => {
@@ -65,12 +70,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         remarks: [],
     };
     setTasks(prev => [...prev, newTask]);
+    addNotification(`New task "${newTask.title}" added to project "${project?.name}".`, newTask.projectId);
   }
 
   const updateProjectTeam = (projectId: string, teamMemberIds: string[]) => {
     setProjects(prev => prev.map(p => {
       if (p.id === projectId) {
         const newTeam = users.filter(u => teamMemberIds.includes(u.id));
+        addNotification(`The team for project "${p.name}" has been updated.`, projectId);
         return { ...p, team: newTeam };
       }
       return p;
@@ -92,6 +99,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         };
         
         const updatedRemarks = t.remarks ? [...t.remarks, newRemark] : [newRemark];
+        const project = projects.find(p => p.id === t.projectId);
+        addNotification(`Task "${t.title}" in project "${project?.name}" was updated to "${status}".`, t.projectId);
         
         return { ...t, status: status, remarks: updatedRemarks };
       }
@@ -145,6 +154,27 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setScrumUpdates(prev => [...prev, newUpdate]);
   };
 
+  const addNotification = (message: string, projectId: string) => {
+    if (!currentUser) return;
+    const notification: Notification = {
+      id: `notif-${Date.now()}`,
+      message: `${currentUser.name} ${message}`,
+      timestamp: new Date().toISOString(),
+      projectId: projectId,
+      read: false,
+    };
+    setNotifications(prev => [notification, ...prev]);
+    triggerNotification();
+  };
+
+  const markNotificationsAsRead = (projectId?: string) => {
+    setNotifications(prev => prev.map(n => {
+      if (!projectId || n.projectId === projectId) {
+        return { ...n, read: true };
+      }
+      return n;
+    }));
+  };
 
   return (
     <DataContext.Provider value={{ 
@@ -154,6 +184,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         teamMembers, 
         users, 
         scrumUpdates,
+        notifications,
         addProject, 
         addTask, 
         updateProjectTeam, 
@@ -161,6 +192,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         addClient, 
         addTeamMember, 
         addScrumUpdate,
+        addNotification,
+        markNotificationsAsRead,
         triggerNotification, 
         playNotification, 
         notificationPlayed,

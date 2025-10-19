@@ -52,7 +52,7 @@ export type Task = {
   assignedTo: User;
   status: TaskStatus;
   dueDate: string;
-  remarks?: TaskRemark[];
+  remarks: TaskRemark[];
 };
 
 export type ChatMessage = {
@@ -84,4 +84,12 @@ export type ScrumUpdate = {
   yesterday: string;
   today: string;
   timestamp: string;
+};
+
+export type Notification = {
+  id: string;
+  message: string;
+  timestamp: string;
+  projectId: string;
+  read: boolean;
 };

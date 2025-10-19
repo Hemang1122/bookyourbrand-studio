@@ -23,6 +23,7 @@ import { collection, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { AddFileLinkDialog } from './add-file-link-dialog';
+import { useData } from '../../../data-provider';
 
 type FileManagerProps = {
   projectId: string;
@@ -32,6 +33,8 @@ export function FileManager({ projectId }: FileManagerProps) {
   const { user } = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { addNotification, projects } = useData();
+  const project = projects.find(p => p.id === projectId);
 
   const filesCollectionRef = useMemo(() => {
     if (!firestore) return null;
@@ -41,7 +44,7 @@ export function FileManager({ projectId }: FileManagerProps) {
   const { data: files, isLoading } = useCollection<ProjectFile>(filesCollectionRef);
 
   const handleAddFileLink = (name: string, url: string) => {
-    if (!user || !filesCollectionRef) return;
+    if (!user || !filesCollectionRef || !project) return;
 
     const fileData: Omit<ProjectFile, 'id'> = {
       name: name,
@@ -54,6 +57,7 @@ export function FileManager({ projectId }: FileManagerProps) {
     };
 
     addDocumentNonBlocking(filesCollectionRef, fileData);
+    addNotification(`added a new file link "${name}" to project "${project.name}".`, projectId);
 
     toast({ title: 'File Link Added', description: `${name} has been added to the project.` });
   };

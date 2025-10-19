@@ -28,8 +28,9 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
   const firestore = useFirestore();
-  const { triggerNotification } = useData();
+  const { triggerNotification, addNotification, projects } = useData();
   const prevMessagesCount = useRef(0);
+  const project = projects.find(p => p.id === projectId);
 
   const messagesRef = useMemo(() => {
     if (!firestore) return null;
@@ -55,7 +56,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
 
 
   const sendMessage = (message: string, fileUrl?: string) => {
-     if (!currentUser || !messagesRef) return;
+     if (!currentUser || !messagesRef || !project) return;
      
      const messagePayload = {
       senderId: currentUser.id,
@@ -67,6 +68,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     };
     
     addDocumentNonBlocking(messagesRef, messagePayload);
+    addNotification(`sent a new message in project "${project.name}".`, projectId);
   }
 
 
@@ -78,7 +80,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   };
 
   const handleAddAttachment = (url: string, message: string) => {
-    sendMessage(message || url, url);
+    sendMessage(message || "shared a file", url);
   }
   
   if (!currentUser) return null;
