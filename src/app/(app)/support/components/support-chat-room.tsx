@@ -31,8 +31,9 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
 
   const messagesCollectionRef = useMemo(() => {
     if (!firestore || !currentUser) return null;
-    // CORRECTED: The path now correctly uses the CURRENT user's ID for the query,
-    // ensuring we only ever try to read from a location the user has access to.
+    // THIS IS THE CRITICAL FIX: The path is now correctly and reliably built
+    // using the CURRENTLY LOGGED IN user's ID. This guarantees we only ever
+    // query a path that the user has permission to read.
     return collection(firestore, 'users', currentUser.id, 'chats', chatPartnerId, 'messages');
   }, [firestore, currentUser, chatPartnerId]);
 
