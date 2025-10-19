@@ -83,5 +83,7 @@ export const chatMessages: { [key: string]: any[] } = {
   'proj-2': []
 };
 
-export const projectFiles: { [key
-    
+export const projectFiles: { [key: string]: any[] } = {
+  'proj-1': [],
+  'proj-2': []
+};
