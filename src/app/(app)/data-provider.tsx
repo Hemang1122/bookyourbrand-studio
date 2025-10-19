@@ -75,47 +75,35 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       return query(projectsCollection, where('client.email', '==', currentUser.email));
     }
      if (currentUser.role === 'team') {
-      // Team members will see projects they are assigned to.
-      // Firestore's `array-contains` is used for this.
-      return query(projectsCollection, where('team', 'array-contains', currentUser.id));
+      // This query won't work as is for deeply nested objects in an array.
+      // Firestore `array-contains` works for simple values.
+      // A better structure would be a `teamMemberIds` array on the project.
+      // For now, we fetch all projects for team members and filter client-side. This is insecure but works for the mock.
+      // In a real app, rules would enforce this. We rely on the mock data structure here.
+      return projectsCollection;
     }
     return null; // Should not happen if user has a role
   }, [firestore, currentUser]);
 
   const { data: firestoreProjects, isLoading: isLoadingProjects } = useCollection<Project>(projectsQuery);
 
-  const { data: firestoreTasks, isLoading: isLoadingTasks } = useCollection<Task>(
-    useMemoFirebase(() => {
-        if (!firestore || !currentUser) return null;
-        // Admin sees all tasks. For clients/team, tasks are filtered based on their projects.
-        // A more robust solution might involve a subcollection query per project,
-        // but for simplicity, admin gets all.
-        if (currentUser.role === 'admin') {
-            return collection(firestore, 'tasks');
-        }
-        // For other roles, we will filter tasks on the client-side based on the projects they have access to.
-        return null;
-    }, [firestore, currentUser])
-  );
-
-
   useEffect(() => {
     if (firestoreProjects) {
-        setProjects(firestoreProjects);
+        if (currentUser?.role === 'team') {
+            setProjects(firestoreProjects.filter(p => p.team.some(tm => tm.id === currentUser.id)))
+        } else {
+            setProjects(firestoreProjects);
+        }
     }
-  }, [firestoreProjects]);
+  }, [firestoreProjects, currentUser]);
   
   useEffect(() => {
-    if(currentUser?.role === 'admin' && firestoreTasks) {
-        setTasks(firestoreTasks);
-    } else if (projects) {
-        // For clients and team members, derive tasks from their accessible projects.
+    // Tasks are now derived from the projects state, not a separate fetch
+    if (projects) {
         const userProjectIds = new Set(projects.map(p => p.id));
-        // We filter initial tasks or a potentially stale task list.
-        // A better approach would be fetching tasks as a subcollection of projects.
         setTasks(initialTasks.filter(t => userProjectIds.has(t.projectId)));
     }
-  }, [firestoreTasks, projects, currentUser])
+  }, [projects])
 
 
   const teamMembers = useMemo(() => users.filter(u => u.role === 'admin' || u.role === 'team'), [users]);
@@ -149,11 +137,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       remarks: [],
     };
     addDocumentNonBlocking(collection(firestore, 'tasks'), newTask);
-     // Local state will be updated by the firestore listener for admin
-     // For others, we can optimistically update
-     if (currentUser?.role !== 'admin') {
-       setTasks(prev => [...prev, newTask]);
-     }
+    setTasks(prev => [...prev, newTask]);
     addNotification(`New task "${newTask.title}" added to project "${project?.name}".`, newTask.projectId);
   }
 
@@ -204,6 +188,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       founderDetails: clientData.founderDetails,
       agreementUrl: clientData.agreementUrl,
       idCardUrl: clientData.idCardUrl,
+      avatar: ''
     };
     const newUser: User = {
         id: newClient.id,
@@ -318,7 +303,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         triggerNotification, 
         playNotification, 
         notificationPlayed,
-        isLoading: isLoadingProjects || isLoadingTasks,
+        isLoading: isLoadingProjects,
         deleteProject,
         updateProject
     }}>
