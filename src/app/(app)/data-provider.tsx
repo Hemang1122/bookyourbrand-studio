@@ -2,10 +2,11 @@
 'use client';
 
 import { createContext, useContext, useState, useMemo } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, TaskRemark, Notification } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, TaskRemark, Notification, ProjectStatus } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-client';
+import { useRouter } from 'next/navigation';
 
 type DataContextType = {
   projects: Project[];
@@ -28,6 +29,8 @@ type DataContextType = {
   playNotification: boolean;
   notificationPlayed: () => void;
   isLoading: boolean;
+  deleteProject: (projectId: string) => void;
+  updateProject: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team' | 'coverImage'>>) => void;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -42,6 +45,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
   const [playNotification, setPlayNotification] = useState(false);
+  const router = useRouter();
+
 
   const teamMembers = useMemo(() => users.filter(u => u.role === 'admin' || u.role === 'team'), [users]);
 
@@ -179,6 +184,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }));
   };
 
+  const deleteProject = (projectId: string) => {
+    setProjects(prev => prev.filter(p => p.id !== projectId));
+    setTasks(prev => prev.filter(t => t.projectId !== projectId));
+    toast({ title: 'Project Deleted', description: 'The project and all its tasks have been removed.' });
+    router.push('/projects');
+  };
+
+  const updateProject = (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team' | 'coverImage'>>) => {
+    setProjects(prev => prev.map(p => {
+        if (p.id === projectId) {
+            const updatedProject = { ...p, ...projectData };
+            addNotification(`Project "${updatedProject.name}" has been updated.`, projectId);
+            return updatedProject;
+        }
+        return p;
+    }));
+  };
+
   return (
     <DataContext.Provider value={{ 
         projects, 
@@ -200,7 +223,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         triggerNotification, 
         playNotification, 
         notificationPlayed,
-        isLoading: false
+        isLoading: false,
+        deleteProject,
+        updateProject
     }}>
       {children}
     </DataContext.Provider>

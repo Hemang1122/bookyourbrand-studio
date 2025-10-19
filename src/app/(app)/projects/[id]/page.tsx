@@ -8,7 +8,7 @@ import { ChatRoom } from './components/chat-room';
 import { FileManager } from './components/file-manager';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ListTodo, MessageSquare, Files, Info, Users, Edit } from 'lucide-react';
+import { ListTodo, MessageSquare, Files, Info, Users, Edit, Trash2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
 import type { Project } from '@/lib/types';
@@ -17,13 +17,15 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Button } from '@/components/ui/button';
 import { ManageTeamDialog } from './components/manage-team-dialog';
+import { EditProjectDialog } from './components/edit-project-dialog';
+import { DeleteProjectDialog } from './components/delete-project-dialog';
 
 
 export default function ProjectDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const { user } = useAuth();
-  const { projects, isLoading } = useData();
+  const { projects, isLoading, deleteProject, updateProject } = useData();
 
   const project = useMemo(() => {
     return projects.find((p) => p.id === id);
@@ -58,12 +60,26 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="space-y-6">
-       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex-1">
           <h2 className="text-3xl font-bold tracking-tight">{project.name}</h2>
           <p className="text-muted-foreground">For client: {project.client.name}</p>
         </div>
-        <div>
+        <div className="flex items-center gap-2">
+            {user?.role === 'admin' && (
+              <>
+                <EditProjectDialog project={project} onProjectUpdate={updateProject}>
+                  <Button variant="outline">
+                    <Edit className="mr-2 h-4 w-4" /> Edit Project
+                  </Button>
+                </EditProjectDialog>
+                <DeleteProjectDialog project={project} onProjectDelete={deleteProject}>
+                   <Button variant="destructive">
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                  </Button>
+                </DeleteProjectDialog>
+              </>
+            )}
             <Badge variant={project.status === 'Completed' ? 'secondary' : 'default'} className="text-base px-4 py-2">
                 {project.status}
             </Badge>
