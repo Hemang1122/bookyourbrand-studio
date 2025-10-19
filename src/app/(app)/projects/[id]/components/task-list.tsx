@@ -75,20 +75,20 @@ const TaskCard = ({ task }: { task: Task }) => {
             </Popover>
           )}
           {canUpdateStatus && nextStatus && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                   <UpdateTaskStatusDialog task={task} newStatus={nextStatus}>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 group">
-                        {nextActionIcon}
-                      </Button>
-                   </UpdateTaskStatusDialog>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{nextActionText}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+             <UpdateTaskStatusDialog task={task} newStatus={nextStatus}>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 group">
+                                {nextActionIcon}
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>{nextActionText}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            </UpdateTaskStatusDialog>
           )}
         </div>
       </CardHeader>
