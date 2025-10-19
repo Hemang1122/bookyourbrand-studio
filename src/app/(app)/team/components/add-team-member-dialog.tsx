@@ -16,7 +16,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Loader2, Upload } from 'lucide-react';
 import { uploadFile } from '@/lib/storage';
-import { Progress } from '@/components/ui/progress';
 
 type AddTeamMemberDialogProps = {
   onTeamMemberAdd: (memberData: {
@@ -38,7 +37,6 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
   const [joiningLetterFile, setJoiningLetterFile] = useState<File | null>(null);
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setFile: React.Dispatch<React.SetStateAction<File | null>>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -53,24 +51,18 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
     }
     
     setIsUploading(true);
-    setUploadProgress(0);
 
     try {
       let aadharUrl, panUrl, joiningLetterUrl;
-      const totalFiles = (aadharFile ? 1 : 0) + (panFile ? 1 : 0) + (joiningLetterFile ? 1 : 0);
-      let filesUploaded = 0;
 
       if (aadharFile) {
-        aadharUrl = await uploadFile(aadharFile, `documents/team/${name}`, p => setUploadProgress((filesUploaded * 100 + p) / totalFiles));
-        filesUploaded++;
+        aadharUrl = await uploadFile(aadharFile, `documents/team/${name}`, () => {});
       }
       if (panFile) {
-        panUrl = await uploadFile(panFile, `documents/team/${name}`, p => setUploadProgress((filesUploaded * 100 + p) / totalFiles));
-        filesUploaded++;
+        panUrl = await uploadFile(panFile, `documents/team/${name}`, () => {});
       }
       if (joiningLetterFile) {
-        joiningLetterUrl = await uploadFile(joiningLetterFile, `documents/team/${name}`, p => setUploadProgress((filesUploaded * 100 + p) / totalFiles));
-        filesUploaded++;
+        joiningLetterUrl = await uploadFile(joiningLetterFile, `documents/team/${name}`, () => {});
       }
 
       onTeamMemberAdd({ name, email, aadharUrl, panUrl, joiningLetterUrl });
@@ -148,15 +140,6 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
                 {joiningLetterFile && <span className="text-sm text-muted-foreground truncate">{joiningLetterFile.name}</span>}
             </div>
           </div>
-
-          {isUploading && (
-            <div className="space-y-2">
-              <Label>Upload Progress</Label>
-              <Progress value={uploadProgress} />
-              <p className="text-sm text-muted-foreground">{Math.round(uploadProgress)}%</p>
-            </div>
-          )}
-
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isUploading}>Cancel</Button>

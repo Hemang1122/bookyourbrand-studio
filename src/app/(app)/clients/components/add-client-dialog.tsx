@@ -41,7 +41,6 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
   const [idCardFile, setIdCardFile] = useState<File | null>(null);
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setFile: React.Dispatch<React.SetStateAction<File | null>>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -56,26 +55,16 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
     }
     
     setIsUploading(true);
-    setUploadProgress(0);
 
     try {
       let agreementUrl: string | undefined;
       let idCardUrl: string | undefined;
 
-      const totalFiles = (agreementFile ? 1 : 0) + (idCardFile ? 1 : 0);
-      let filesUploaded = 0;
-
       if (agreementFile) {
-        agreementUrl = await uploadFile(agreementFile, `documents/clients/${name}`, (p) => {
-           setUploadProgress((filesUploaded * 100 + p) / totalFiles)
-        });
-        filesUploaded++;
+        agreementUrl = await uploadFile(agreementFile, `documents/clients/${name}`, () => {});
       }
       if (idCardFile) {
-        idCardUrl = await uploadFile(idCardFile, `documents/clients/${name}`, (p) => {
-          setUploadProgress((filesUploaded * 100 + p) / totalFiles)
-        });
-        filesUploaded++;
+        idCardUrl = await uploadFile(idCardFile, `documents/clients/${name}`, () => {});
       }
 
       onClientAdd({ name, company, email, founderDetails, agreementUrl, idCardUrl });
@@ -145,19 +134,12 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
                 {idCardFile && <span className="text-sm text-muted-foreground truncate">{idCardFile.name}</span>}
             </div>
           </div>
-          {isUploading && (
-            <div className="space-y-2">
-              <Label>Upload Progress</Label>
-              <Progress value={uploadProgress} />
-              <p className="text-sm text-muted-foreground">{Math.round(uploadProgress)}%</p>
-            </div>
-          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isUploading}>Cancel</Button>
           <Button onClick={handleAddClient} disabled={isUploading}>
             {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isUploading ? 'Adding Client...' : 'Add Client'}
+            {isUploading ? 'Uploading...' : 'Add Client'}
             </Button>
         </DialogFooter>
       </DialogContent>
