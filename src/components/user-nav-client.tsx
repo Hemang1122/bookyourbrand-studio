@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -15,10 +16,19 @@ import Link from 'next/link';
 import { CreditCard, LogOut, Settings, User as UserIcon } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import type { User } from '@/lib/types';
-import { logout } from '@/actions/auth';
+import { useAuth } from '@/firebase';
+import { useRouter } from 'next/navigation';
+
 
 export function UserNavClient({ user }: { user: User }) {
   const userAvatar = PlaceHolderImages.find(img => img.id === user.avatar);
+  const auth = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await auth.signOut();
+    router.push('/login');
+  };
   
   return (
     <DropdownMenu>
@@ -61,14 +71,10 @@ export function UserNavClient({ user }: { user: User }) {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <form action={logout}>
-            <button type="submit" className="w-full">
-                <DropdownMenuItem className="cursor-pointer">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
-                </DropdownMenuItem>
-            </button>
-        </form>
+        <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>Log out</span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
