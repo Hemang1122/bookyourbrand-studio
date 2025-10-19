@@ -17,7 +17,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Upload } from 'lucide-react';
 import { uploadFile } from '@/lib/storage';
-import { Progress } from '@/components/ui/progress';
 
 type AddClientDialogProps = {
   onClientAdd: (clientData: {
@@ -139,7 +138,7 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isUploading}>Cancel</Button>
           <Button onClick={handleAddClient} disabled={isUploading}>
             {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isUploading ? 'Uploading...' : 'Add Client'}
+            {isUploading ? 'Adding Client...' : 'Add Client'}
             </Button>
         </DialogFooter>
       </DialogContent>

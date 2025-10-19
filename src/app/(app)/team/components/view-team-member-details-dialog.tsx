@@ -17,7 +17,6 @@ import { Input } from '@/components/ui/input';
 import { useData } from '../../data-provider';
 import { useToast } from '@/hooks/use-toast';
 import { uploadFile } from '@/lib/storage';
-import { Progress } from '@/components/ui/progress';
 
 type ViewTeamMemberDetailsDialogProps = {
   teamMember: User;
@@ -29,7 +28,6 @@ export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMe
   const { toast } = useToast();
   const { updateTeamMember } = useData();
   const [isUploading, setIsUploading] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleDownload = (url: string) => {
     window.open(url, '_blank');
@@ -37,9 +35,8 @@ export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMe
 
   const handleFileUpload = async (file: File, type: 'aadhar' | 'pan' | 'joiningLetter') => {
     setIsUploading(type);
-    setUploadProgress(0);
     try {
-      const url = await uploadFile(file, `documents/team/${teamMember.id}`, setUploadProgress);
+      const url = await uploadFile(file, `documents/team/${teamMember.id}`, () => {});
       const fieldToUpdate = `${type}Url` as const;
       
       updateTeamMember(teamMember.id, { [fieldToUpdate]: url });
@@ -79,7 +76,7 @@ export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMe
             <p>{teamMember.email}</p>
           </div>
            <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">Role</p>
+            <div className="text-sm font-medium text-muted-foreground">Role</div>
             <div><Badge variant={teamMember.role === 'admin' ? 'default' : 'secondary'}>{teamMember.role}</Badge></div>
           </div>
           <div className="space-y-2">
@@ -142,12 +139,6 @@ export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMe
                         </Button>
                     )}
                 </div>
-                {isUploading && (
-                    <div className="space-y-2 mt-2">
-                        <Progress value={uploadProgress} />
-                        <p className="text-sm text-muted-foreground text-center">Uploading... {Math.round(uploadProgress)}%</p>
-                    </div>
-                )}
             </div>
           </div>
         </div>

@@ -16,7 +16,6 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { uploadFile } from '@/lib/storage';
 import { useData } from '../../data-provider';
-import { Progress } from '@/components/ui/progress';
 
 type ViewClientDetailsDialogProps = {
   client: Client;
@@ -28,7 +27,6 @@ export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsD
   const { toast } = useToast();
   const { updateClient } = useData();
   const [isUploading, setIsUploading] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleDownload = (url: string) => {
     window.open(url, '_blank');
@@ -36,9 +34,8 @@ export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsD
 
   const handleFileUpload = async (file: File, type: 'agreement' | 'idCard') => {
     setIsUploading(type);
-    setUploadProgress(0);
     try {
-      const url = await uploadFile(file, `documents/clients/${client.id}`, setUploadProgress);
+      const url = await uploadFile(file, `documents/clients/${client.id}`, () => {});
       const fieldToUpdate = type === 'agreement' ? 'agreementUrl' : 'idCardUrl';
       
       updateClient(client.id, { [fieldToUpdate]: url });
@@ -130,12 +127,6 @@ export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsD
                         </Button>
                      )}
                 </div>
-                 {isUploading && (
-                    <div className="space-y-2 mt-2">
-                        <Progress value={uploadProgress} />
-                        <p className="text-sm text-muted-foreground text-center">Uploading... {Math.round(uploadProgress)}%</p>
-                    </div>
-                )}
             </div>
           </div>
         </div>
