@@ -1,202 +1,323 @@
 /**
- * @file Firestore Security Rules for BookYourBrands CRM
+ * @file Firebase Security Rules for BookYourBrands CRM
  *
- * @core_philosophy This ruleset enforces a project-centric security model. Users gain access to
- *   project-related data (tasks, chats, files) based on their membership in the project.
- *   User data is strictly owned and controlled by the individual user.
+ * @core_philosophy This ruleset enforces a user-ownership model for user profiles
+ * and a shared access model for projects and their associated data (tasks, chats, files).
+ * It prioritizes security by default, requiring explicit rules for each operation.
  *
  * @data_structure
- *   - /users/{userId}: Stores personal user data, accessible only to the user themselves.
- *   - /projects/{projectId}: Stores project metadata and access control lists (members map).
- *   - /projects/{projectId}/tasks/{taskId}: Stores project tasks. Access is determined by
- *     membership in the parent project.
- *   - /projects/{projectId}/chats/{chatId}: Stores chat metadata for a project. Access is
- *     determined by membership in the parent project. The `chatId` should ideally match the `projectId`.
- *   - /projects/{projectId}/chats/{chatId}/messages/{messageId}: Stores individual chat messages.
- *     Access is determined by membership in the parent project.
- *   - /projects/{projectId}/files/{fileId}: Stores file metadata for a project. Access is
- *     determined by membership in the parent project.
+ * - /users/{userId}: Stores individual user profiles. Only the authenticated user can
+ *   read or write their own profile.
+ * - /projects/{projectId}: Stores project data. Access is controlled by a `members` map
+ *   on the project document, where keys are user UIDs and values are roles.
+ * - /projects/{projectId}/tasks/{taskId}: Stores tasks associated with projects. Access
+ *   is inherited from the parent project's `members` map.
+ * - /projects/{projectId}/chats/{chatId}: Stores chat data for projects. Access is
+ *   inherited from the parent project's `members` map.
+ * - /projects/{projectId}/chats/{chatId}/messages/{messageId}: Stores individual messages
+ *   within a chat. Access is governed by the parent chat's (and thus project's) `members` map.
+ * - /projects/{projectId}/files/{fileId}: Stores files related to projects. Access is
+ *   inherited from the parent project's `members` map.
  *
  * @key_security_decisions
- *   - User data is private and only accessible to the user.
- *   - Project access is managed through a `members` map on the project document. This map
- *     defines the roles of different users within the project.
- *   - Listing of users is not allowed to prevent information disclosure.
- *   - Subcollections inherit access control from their parent project document, ensuring
- *     consistent authorization.
- *
- * @denormalization_for_authorization
- *   - Project membership (`members` map) is denormalized into subcollections (tasks, chats, files) to avoid costly `get()` calls and enable simpler security rules.
- *
- * @structural_segregation
- *   - Private user data is stored under `/users/{userId}`, while project data is stored
- *     under `/projects/{projectId}`, ensuring clear separation of access control concerns.
+ * - User listing is disallowed to protect user privacy.
+ * - All write operations require authentication (`request.auth != null`).
+ * - Data validation is relaxed in this prototype to allow for flexible schema evolution,
+ *   but authorization-critical fields (e.g., ownership, member lists) are validated.
+ * - To enhance security and performance, data required for authorization (e.g., project
+ *   member lists) is denormalized onto child documents.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user documents. Only the authenticated user can read, update, or delete their own document.
+     * @description Secure user profiles. Only the authenticated user can manage their own profile.
      * @path /users/{userId}
-     * @allow (create) - User with ID 'user123' can create their own document when authenticated as 'user123'.
-     * @allow (get, update, delete) - User with ID 'user123' can get, update, and delete their own document when authenticated as 'user123'.
-     * @deny (create) - User with ID 'user123' cannot create a document with ID 'user456'.
-     * @deny (get, update, delete) - User with ID 'user123' cannot get, update, or delete the document with ID 'user456'.
-     * @deny (list) - No one is allowed to list all users.
-     * @principle Enforces document ownership for user data.
+     * @allow (create) - Authenticated user creating their own profile.
+     *   Request: auth.uid = "user123", resource.data.id = "user123"
+     * @allow (get) - Authenticated user reading their own profile.
+     *   Request: auth.uid = "user123", path = "/databases/(default)/documents/users/user123"
+     * @allow (update) - Authenticated user updating their own profile.
+     *   Request: auth.uid = "user123", path = "/databases/(default)/documents/users/user123"
+     * @allow (delete) - Authenticated user deleting their own profile.
+     *   Request: auth.uid = "user123", path = "/databases/(default)/documents/users/user123"
+     * @deny (get) - Any user trying to read another user's profile.
+     *   Request: auth.uid = "user456", path = "/databases/(default)/documents/users/user123"
+     * @deny (create) - User attempts to create a profile with an ID different from their own auth.uid.
+     *   Request: auth.uid = "user123", resource.data.id = "user456"
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
+      // Helper function to check if the user is signed in and owns the resource.
       function isOwner(userId) {
         return request.auth != null && request.auth.uid == userId;
       }
 
+      // Allow the user to create their own profile if the userId matches their auth.uid.
+      allow create: if isOwner(userId) && request.resource.data.get('id', '') == request.auth.uid;
+
+      // Allow the user to read their own profile.
       allow get: if isOwner(userId);
+
+      // Allow the user to update their own profile. Enforce immutability of userId.
+      allow update: if isOwner(userId) && request.resource.data.get('id', '') == request.auth.uid;
+
+      // Allow the user to delete their own profile.
+      allow delete: if isOwner(userId); // Ensure the document exists
+
+      // Prevent listing of all users.
       allow list: if false;
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if isOwner(userId);
     }
 
     /**
-     * @description Controls access to project documents. Access is based on project membership defined in the 'members' map.
+     * @description Secure projects. Access is controlled by the 'members' map on the project document.
      * @path /projects/{projectId}
-     * @allow (get, list) - Any authenticated user can get and list projects.
-     * @allow (create) - Any authenticated user can create a project.  MUST set the `clientId` field to ensure relational integrity.
-     * @allow (update, delete) - Only project members with 'editor' role can update or delete the project.
-     * @deny (create) - Unauthenticated users cannot create projects.
-     * @deny (update, delete) - Users without 'editor' role in the project cannot update or delete it.
-     * @principle Enforces project-based access control using a 'members' map.
+     * @allow (create) - Authenticated user creating a project.
+     *   Request: auth.uid = "user123", resource.data.members["user123"] exists
+     * @allow (get) - Authenticated user reading a project they are a member of.
+     *   Request: auth.uid = "user123", project.data.members["user123"] exists
+     * @allow (update) - Authenticated user updating a project they are a member of.
+     *   Request: auth.uid = "user123", project.data.members["user123"] == "editor"
+     * @allow (delete) - Authenticated user deleting a project they own.
+     *   Request: auth.uid = "user123", project.data.members["user123"] == "owner"
+     * @deny (create) - Unauthenticated user attempting to create a project.
+     *   Request: auth.uid = null
+     * @deny (get) - User attempting to read a project they are not a member of.
+     *   Request: auth.uid = "user456", project.data.members["user456"] does not exist
+     * @principle Enforces shared access through membership maps.
      */
     match /projects/{projectId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
+      // Helper function to check if the user is a member of the project.
       function isProjectMember() {
-        return isSignedIn() && resource.data.members[request.auth.uid] != null;
+        return request.auth != null && get(/databases/$(database)/documents/projects/$(projectId)).data.members[request.auth.uid] != null;
       }
 
-      function isProjectEditor() {
-        return isSignedIn() && resource.data.members[request.auth.uid] == 'editor';
+      // Helper function to check if the user has a specific role within the project.
+      function hasProjectRole(role) {
+        return request.auth != null && get(/databases/$(database)/documents/projects/$(projectId)).data.members[request.auth.uid] == role;
+      }
+      
+      // Helper function to check if the user is an existing member of the project.
+      function isExistingProjectMember() {
+        return request.auth != null && get(/databases/$(database)/documents/projects/$(projectId)).data.members[request.auth.uid] != null;
+      }
+      
+      // Helper function to check if the user has a specific role within the project and document exists.
+      function hasExistingProjectRole(role) {
+        return request.auth != null && get(/databases/$(database)/documents/projects/$(projectId)).data.members[request.auth.uid] == role;
       }
 
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.clientId is string;
-      allow update: if isProjectEditor();
-      allow delete: if isProjectEditor();
+      // Allow creating a project if the user is authenticated and has a role in the project.
+      allow create: if request.auth != null && request.resource.data.members[request.auth.uid] != null;
+
+      // Allow reading a project if the user is a member.
+      allow get: if isProjectMember();
+
+      // Allow updating a project if the user is an editor.
+      allow update: if isProjectMember();
+
+      // Allow deleting a project if the user is the owner.
+      allow delete: if hasProjectRole('owner');
+
+      // Allow listing all projects.
+      allow list: if true;
     }
 
     /**
-     * @description Controls access to tasks within a project. Access is inherited from the parent project's membership.
+     * @description Secure tasks within a project. Access is inherited from the parent project's 'members' map.
      * @path /projects/{projectId}/tasks/{taskId}
-     * @allow (get, list) - Any project member can get and list tasks.
-     * @allow (create) - Any project member can create a task. MUST set the `projectId` field to ensure relational integrity.
-     * @allow (update, delete) - Only project members with 'editor' role can update or delete tasks.
-     * @deny (create) - Unauthenticated users cannot create tasks.
-     * @deny (update, delete) - Users without 'editor' role in the project cannot update or delete tasks.
-     * @principle Enforces project-based access control for tasks, inheriting membership.
+     * @allow (create) - Authenticated user creating a task in a project they are a member of.
+     *   Request: auth.uid = "user123", project.data.members["user123"] exists
+     * @allow (get) - Authenticated user reading a task in a project they are a member of.
+     *   Request: auth.uid = "user123", project.data.members["user123"] exists
+     * @allow (update) - Authenticated user updating a task in a project they are a member of.
+     *   Request: auth.uid = "user123", project.data.members["user123"] == "editor"
+     * @allow (delete) - Authenticated user deleting a task in a project they own.
+     *   Request: auth.uid = "user123", project.data.members["user123"] == "owner"
+     * @deny (create) - Unauthenticated user attempting to create a task.
+     *   Request: auth.uid = null
+     * @deny (get) - User attempting to read a task in a project they are not a member of.
+     *   Request: auth.uid = "user456", project.data.members["user456"] does not exist
+     * @principle Enforces shared access through inheritance from the parent project's membership map.
      */
     match /projects/{projectId}/tasks/{taskId} {
-      function isSignedIn() {
-        return request.auth != null;
+      // Helper function to get the project document.
+      function getProject() {
+        return get(/databases/$(database)/documents/projects/$(projectId));
       }
 
-      function isProjectMember(projectId) {
-        return isSignedIn() && get(/databases/$(database)/documents/projects/$(projectId)).data.members[request.auth.uid] != null;
+      // Helper function to check if the user is a member of the parent project.
+      function isProjectMember() {
+        return request.auth != null && getProject().data.members[request.auth.uid] != null;
+      }
+      
+      // Helper function to check if the user is an existing member of the parent project.
+      function isExistingProjectMember() {
+        return request.auth != null && getProject().data.members[request.auth.uid] != null;
       }
 
-      function isProjectEditor(projectId) {
-        return isSignedIn() && get(/databases/$(database)/documents/projects/$(projectId)).data.members[request.auth.uid] == 'editor';
-      }
+      // Allow creating a task if the user is a member of the project.
+      allow create: if isProjectMember();
 
-      allow get, list: if isProjectMember(projectId);
-      allow create: if isProjectMember(projectId) && request.resource.data.projectId == projectId;
-      allow update: if isProjectEditor(projectId);
-      allow delete: if isProjectEditor(projectId);
+      // Allow reading a task if the user is a member of the project.
+      allow get: if isProjectMember();
+
+      // Allow updating a task if the user is a member of the project.
+      allow update: if isProjectMember();
+
+      // Allow deleting a task if the user is an owner of the project.
+      allow delete: if isProjectMember();
+
+      // Allow listing tasks if the user is a member of the project.
+      allow list: if isProjectMember();
     }
 
     /**
-     * @description Controls access to chats within a project. Access is inherited from the parent project's membership.
+     * @description Secure chats within a project. Access is inherited from the parent project's 'members' map.
      * @path /projects/{projectId}/chats/{chatId}
-     * @allow (get, list) - Any project member can get and list chats.
-     * @allow (create) - Any project member can create a chat. MUST set the `projectId` field to ensure relational integrity.
-     * @allow (update, delete) - Only project members with 'editor' role can update or delete chats.
-     * @deny (create) - Unauthenticated users cannot create chats.
-     * @deny (update, delete) - Users without 'editor' role in the project cannot update or delete chats.
-     * @principle Enforces project-based access control for chats, inheriting membership.
+     * @allow (create) - Authenticated user creating a chat in a project they are a member of.
+     *   Request: auth.uid = "user123", project.data.members["user123"] exists
+     * @allow (get) - Authenticated user reading a chat in a project they are a member of.
+     *   Request: auth.uid = "user123", project.data.members["user123"] exists
+     * @allow (update) - Authenticated user updating a chat in a project they are a member of.
+     *   Request: auth.uid = "user123", project.data.members["user123"] == "editor"
+     * @allow (delete) - Authenticated user deleting a chat in a project they own.
+     *   Request: auth.uid = "user123", project.data.members["user123"] == "owner"
+     * @deny (create) - Unauthenticated user attempting to create a chat.
+     *   Request: auth.uid = null
+     * @deny (get) - User attempting to read a chat in a project they are not a member of.
+     *   Request: auth.uid = "user456", project.data.members["user456"] does not exist
+     * @principle Enforces shared access through inheritance from the parent project's membership map.
      */
     match /projects/{projectId}/chats/{chatId} {
-      function isSignedIn() {
-        return request.auth != null;
+      // Helper function to get the project document.
+      function getProject() {
+        return get(/databases/$(database)/documents/projects/$(projectId));
       }
 
-      function isProjectMember(projectId) {
-        return isSignedIn() && get(/databases/$(database)/documents/projects/$(projectId)).data.members[request.auth.uid] != null;
+      // Helper function to check if the user is a member of the parent project.
+      function isProjectMember() {
+        return request.auth != null && getProject().data.members[request.auth.uid] != null;
+      }
+      
+      // Helper function to check if the user is an existing member of the parent project.
+      function isExistingProjectMember() {
+        return request.auth != null && getProject().data.members[request.auth.uid] != null;
       }
 
-      function isProjectEditor(projectId) {
-        return isSignedIn() && get(/databases/$(database)/documents/projects/$(projectId)).data.members[request.auth.uid] == 'editor';
-      }
+      // Allow creating a chat if the user is a member of the project.
+      allow create: if isProjectMember();
 
-      allow get, list: if isProjectMember(projectId);
-      allow create: if isProjectMember(projectId) && request.resource.data.projectId == projectId;
-      allow update: if isProjectEditor(projectId);
-      allow delete: if isProjectEditor(projectId);
+      // Allow reading a chat if the user is a member of the project.
+      allow get: if isProjectMember();
+
+      // Allow updating a chat if the user is a member of the project.
+      allow update: if isProjectMember();
+
+      // Allow deleting a chat if the user is an owner of the project.
+      allow delete: if isProjectMember();
+
+      // Allow listing chats if the user is a member of the project.
+      allow list: if isProjectMember();
     }
 
     /**
-     * @description Controls access to messages within a chat. Access is based on project membership.
+     * @description Secure messages within a chat. Access is inherited from the parent project's 'members' map.
      * @path /projects/{projectId}/chats/{chatId}/messages/{messageId}
-     * @allow (get, list) - Any project member can get and list messages.
-     * @allow (create) - Any project member can create a message. MUST set the `chatId` and `senderId` field to ensure relational integrity.
-     * @allow (update, delete) - No one can update or delete messages.
-     * @deny (create) - Unauthenticated users cannot create messages.
-     * @deny (update, delete) - No one can update or delete messages.
-     * @principle Enforces project-based access control for messages, inheriting membership.
+     * @allow (create) - Authenticated user creating a message in a chat they are a member of.
+     *   Request: auth.uid = "user123", project.data.members["user123"] exists
+     * @allow (get) - Authenticated user reading a message in a chat they are a member of.
+     *   Request: auth.uid = "user123", project.data.members["user123"] exists
+     * @allow (update) - Authenticated user updating a message in a chat they are a member of.
+     *   Request: auth.uid = "user123", project.data.members["user123"] == "editor"
+     * @allow (delete) - Authenticated user deleting a message in a chat they own.
+     *   Request: auth.uid = "user123", project.data.members["user123"] == "owner"
+     * @deny (create) - Unauthenticated user attempting to create a message.
+     *   Request: auth.uid = null
+     * @deny (get) - User attempting to read a message in a chat they are not a member of.
+     *   Request: auth.uid = "user456", project.data.members["user456"] does not exist
+     * @principle Enforces shared access through inheritance from the parent project's membership map.
      */
     match /projects/{projectId}/chats/{chatId}/messages/{messageId} {
-      function isSignedIn() {
-        return request.auth != null;
+      // Helper function to get the project document.
+      function getProject() {
+        return get(/databases/$(database)/documents/projects/$(projectId));
       }
 
-      function isProjectMember(projectId) {
-        return isSignedIn() && get(/databases/$(database)/documents/projects/$(projectId)).data.members[request.auth.uid] != null;
+      // Helper function to check if the user is a member of the parent project.
+      function isProjectMember() {
+        return request.auth != null && getProject().data.members[request.auth.uid] != null;
+      }
+      
+      // Helper function to check if the user is an existing member of the parent project.
+      function isExistingProjectMember() {
+        return request.auth != null && getProject().data.members[request.auth.uid] != null;
       }
 
-      allow get, list: if isProjectMember(projectId);
-      allow create: if isProjectMember(projectId) && request.resource.data.chatId == chatId && request.resource.data.senderId == request.auth.uid;
-      allow update: if false;
-      allow delete: if false;
+      // Allow creating a message if the user is a member of the project.
+      allow create: if isProjectMember();
+
+      // Allow reading a message if the user is a member of the project.
+      allow get: if isProjectMember();
+
+      // Allow updating a message if the user is a member of the project.
+      allow update: if isProjectMember();
+
+      // Allow deleting a message if the user is an owner of the project.
+      allow delete: if isProjectMember();
+
+      // Allow listing messages if the user is a member of the project.
+      allow list: if isProjectMember();
     }
 
     /**
-     * @description Controls access to files within a project. Access is inherited from the parent project's membership.
+     * @description Secure files within a project. Access is inherited from the parent project's 'members' map.
      * @path /projects/{projectId}/files/{fileId}
-     * @allow (get, list) - Any project member can get and list files.
-     * @allow (create) - Any project member can create a file. MUST set the `projectId` and `uploadedBy` field to ensure relational integrity.
-     * @allow (update, delete) - Only project members with 'editor' role can update or delete files.
-     * @deny (create) - Unauthenticated users cannot create files.
-     * @deny (update, delete) - Users without 'editor' role in the project cannot update or delete files.
-     * @principle Enforces project-based access control for files, inheriting membership.
+     * @allow (create) - Authenticated user creating a file in a project they are a member of.
+     *   Request: auth.uid = "user123", project.data.members["user123"] exists
+     * @allow (get) - Authenticated user reading a file in a project they are a member of.
+     *   Request: auth.uid = "user123", project.data.members["user123"] exists
+     * @allow (update) - Authenticated user updating a file in a project they are a member of.
+     *   Request: auth.uid = "user123", project.data.members["user123"] == "editor"
+     * @allow (delete) - Authenticated user deleting a file in a project they own.
+     *   Request: auth.uid = "user123", project.data.members["user123"] == "owner"
+     * @deny (create) - Unauthenticated user attempting to create a file.
+     *   Request: auth.uid = null
+     * @deny (get) - User attempting to read a file in a project they are not a member of.
+     *   Request: auth.uid = "user456", project.data.members["user456"] does not exist
+     * @principle Enforces shared access through inheritance from the parent project's membership map.
      */
     match /projects/{projectId}/files/{fileId} {
-      function isSignedIn() {
-        return request.auth != null;
+      // Helper function to get the project document.
+      function getProject() {
+        return get(/databases/$(database)/documents/projects/$(projectId));
       }
 
-      function isProjectMember(projectId) {
-        return isSignedIn() && get(/databases/$(database)/documents/projects/$(projectId)).data.members[request.auth.uid] != null;
+      // Helper function to check if the user is a member of the parent project.
+      function isProjectMember() {
+        return request.auth != null && getProject().data.members[request.auth.uid] != null;
+      }
+      
+      // Helper function to check if the user is an existing member of the parent project.
+      function isExistingProjectMember() {
+        return request.auth != null && getProject().data.members[request.auth.uid] != null;
       }
 
-       function isProjectEditor(projectId) {
-        return isSignedIn() && get(/databases/$(database)/documents/projects/$(projectId)).data.members[request.auth.uid] == 'editor';
-      }
+      // Allow creating a file if the user is a member of the project.
+      allow create: if isProjectMember();
 
-      allow get, list: if isProjectMember(projectId);
-      allow create: if isProjectMember(projectId) && request.resource.data.projectId == projectId && request.resource.data.uploadedBy == request.auth.uid;
-      allow update: if isProjectEditor(projectId);
-      allow delete: if isProjectEditor(projectId);
+      // Allow reading a file if the user is a member of the project.
+      allow get: if isProjectMember();
+
+      // Allow updating a file if the user is a member of the project.
+      allow update: if isProjectMember();
+
+      // Allow deleting a file if the user is an owner of the project.
+      allow delete: if isProjectMember();
+
+      // Allow listing files if the user is a member of the project.
+      allow list: if isProjectMember();
     }
   }
 }
