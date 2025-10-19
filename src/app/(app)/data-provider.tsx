@@ -6,8 +6,8 @@ import { users as initialUsers, clients as initialClients, projects as initialPr
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, doc } from 'firebase/firestore';
+import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
 
 type DataContextType = {
   projects: Project[];
@@ -63,75 +63,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [playNotification, setPlayNotification] = useState(false);
   const router = useRouter();
   const firestore = useFirestore();
+  const [isLoading, setIsLoading] = useState(true); // Start with loading true
 
-  // Firestore listeners
-  const projectsQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUser) return null;
-    const projectsCollection = collection(firestore, 'projects');
-    if (currentUser.role === 'admin') {
-      return projectsCollection;
-    }
-    if (currentUser.role === 'client') {
-      return query(projectsCollection, where('client.email', '==', currentUser.email));
-    }
-     if (currentUser.role === 'team') {
-       // This is not perfectly secure, as a team member could guess other user IDs.
-       // In a real production app, this would be backed by more robust security rules
-       // and possibly a backend function to resolve projects for a user.
-      return query(projectsCollection, where('team', 'array-contains', { id: currentUser.id, name: currentUser.name, email: currentUser.email, avatar: currentUser.avatar, role: currentUser.role, username: currentUser.username }));
-    }
-    return null;
-  }, [firestore, currentUser]);
-  
-  const tasksQuery = useMemoFirebase(() => {
-      if (!firestore || !currentUser) return null;
-      const tasksCollection = collection(firestore, 'tasks');
-      if (currentUser.role === 'admin') {
-          return tasksCollection;
-      }
-      if (currentUser.role === 'team') {
-          return query(tasksCollection, where('assignedTo.id', '==', currentUser.id));
-      }
-      // Clients should not query the tasks collection directly. They get tasks through projects.
-      return null;
-  }, [firestore, currentUser]);
-
-  const { data: firestoreProjects, isLoading: isLoadingProjects } = useCollection<Project>(projectsQuery);
-  const { data: firestoreTasks, isLoading: isLoadingTasks } = useCollection<Task>(tasksQuery);
-  const { data: firestoreUsers, isLoading: isLoadingUsers } = useCollection<User>(useMemoFirebase(() => (firestore && currentUser?.role === 'admin') ? collection(firestore, 'users') : null, [firestore, currentUser]));
-  const { data: firestoreClients, isLoading: isLoadingClients } = useCollection<Client>(useMemoFirebase(() => (firestore && currentUser?.role === 'admin') ? collection(firestore, 'clients') : null, [firestore, currentUser]));
-  const { data: firestoreScrumUpdates, isLoading: isLoadingScrumUpdates } = useCollection<ScrumUpdate>(useMemoFirebase(() => firestore ? collection(firestore, 'scrum-updates') : null, [firestore]));
-
-
+  // Simulate initial data load. In a real app this might fetch initial data securely.
   useEffect(() => {
-    if (firestoreProjects) {
-        setProjects(firestoreProjects);
-    } else {
-        setProjects([]);
-    }
-  }, [firestoreProjects]);
-  
-  useEffect(() => {
-    if (firestoreTasks) {
-        setTasks(firestoreTasks);
-    } else {
-        setTasks([]);
-    }
-  }, [firestoreTasks]);
-  
-  useEffect(() => {
-    if (firestoreUsers) setUsers(firestoreUsers);
-  }, [firestoreUsers]);
-
-  useEffect(() => {
-    if (firestoreClients) setClients(firestoreClients);
-  }, [firestoreClients]);
-
-  useEffect(() => {
-    if (firestoreScrumUpdates) setScrumUpdates(firestoreScrumUpdates);
-  }, [firestoreScrumUpdates]);
-
-  const isLoading = isLoadingProjects || isLoadingTasks || isLoadingUsers || isLoadingClients || isLoadingScrumUpdates;
+    setProjects(initialProjects);
+    setTasks(initialTasks);
+    setClients(initialClients);
+    setUsers(initialUsers);
+    // Add any other initial data loading here
+    setIsLoading(false); // Set loading to false after initial data is set
+  }, []);
 
 
   const teamMembers = useMemo(() => users.filter(u => u.role === 'admin' || u.role === 'team'), [users]);
@@ -175,10 +117,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const updateProjectTeam = (projectId: string, teamMemberIds: string[]) => {
     const project = projects.find(p => p.id === projectId);
-    if (!project || !firestore) return;
-
-    const newTeam = users.filter(u => teamMemberIds.includes(u.id));
+    if (!project) return;
     
+    const newTeam = users.filter(u => teamMemberIds.includes(u.id));
+
+    setProjects(prev => prev.map(p => p.id === projectId ? {...p, team: newTeam} : p));
+    
+    if (!firestore) return;
     const projectRef = doc(firestore, 'projects', projectId);
     updateDocumentNonBlocking(projectRef, { team: newTeam });
 
@@ -186,7 +131,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateTaskStatus = (taskId: string, status: TaskStatus, remark: string) => {
-    if (!currentUser || !firestore) return;
+    if (!currentUser) return;
 
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
@@ -200,17 +145,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       toStatus: status,
     };
     
-    const updatedTask = { ...task, status, remarks: [...task.remarks, newRemark] };
-    
+    setTasks(prev => prev.map(t => t.id === taskId ? {...t, status, remarks: [...t.remarks, newRemark]} : t));
+
+    if (!firestore) return;
     const taskRef = doc(firestore, 'tasks', taskId);
     updateDocumentNonBlocking(taskRef, {
-      status: updatedTask.status,
-      remarks: updatedTask.remarks
+      status: status,
+      remarks: [...task.remarks, newRemark]
     });
 
-    const project = projects.find(p => p.id === updatedTask.projectId);
+    const project = projects.find(p => p.id === task.projectId);
     if(project) {
-        addNotification(`Task "${updatedTask.title}" in project "${project.name}" was updated to "${status}".`, updatedTask.projectId);
+        addNotification(`Task "${task.title}" in project "${project.name}" was updated to "${status}".`, task.projectId);
     }
     toast({ title: 'Task Updated', description: `Task status changed to "${status}".` });
   }
@@ -234,6 +180,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         username: clientData.name.toLowerCase().replace(/\s/g, ''),
         avatar: ''
     }
+    setClients(prev => [...prev, newClient]);
+    setUsers(prev => [...prev, newUser]);
     if (firestore) {
         addDocumentNonBlocking(collection(firestore, 'clients'), newClient);
         addDocumentNonBlocking(collection(firestore, 'users'), newUser);
@@ -241,6 +189,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }
   
   const updateClient = (clientId: string, clientData: Partial<Client>) => {
+    setClients(prev => prev.map(c => c.id === clientId ? { ...c, ...clientData } : c));
     if (!firestore) return;
     const clientRef = doc(firestore, 'clients', clientId);
     updateDocumentNonBlocking(clientRef, clientData);
@@ -258,12 +207,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         username: memberData.name.toLowerCase().replace(/\s/g, ''),
         avatar: ''
      };
+     setUsers(prev => [...prev, newMember]);
      if (firestore) {
         addDocumentNonBlocking(collection(firestore, 'users'), newMember);
      }
   }
 
   const updateTeamMember = (userId: string, memberData: Partial<User>) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...memberData } : u));
     if (!firestore) return;
     const userRef = doc(firestore, 'users', userId);
     updateDocumentNonBlocking(userRef, memberData);
@@ -279,6 +230,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const addScrumUpdate = (update: Omit<ScrumUpdate, 'id'>) => {
     const newUpdate: ScrumUpdate = { ...update, id: `scrum-${Date.now()}`, timestamp: new Date().toISOString() };
+    setScrumUpdates(prev => [...prev, newUpdate]);
     if (firestore) {
         addDocumentNonBlocking(collection(firestore, 'scrum-updates'), newUpdate);
     }
@@ -307,6 +259,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteProject = (projectId: string) => {
+    setProjects(prev => prev.filter(p => p.id !== projectId));
     if (!firestore) return;
     const projectRef = doc(firestore, 'projects', projectId);
     deleteDocumentNonBlocking(projectRef);
@@ -315,6 +268,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateProject = (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team' | 'coverImage'>>) => {
+    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ...projectData } : p));
     if (!firestore) return;
     const projectRef = doc(firestore, 'projects', projectId);
     updateDocumentNonBlocking(projectRef, projectData);
