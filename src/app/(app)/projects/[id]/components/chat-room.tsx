@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -43,7 +44,6 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
           id: `msg-${Date.now()}`,
           senderId: otherParticipant.id,
           senderName: otherParticipant.name,
-          senderAvatar: otherParticipant.avatar,
           message: `This is a simulated message about project ${project.name}.`,
           timestamp: new Date() as unknown as FieldValue,
           fileUrl: null,
@@ -75,7 +75,6 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
       id: `msg-${Date.now()}`,
       senderId: currentUser.id,
       senderName: currentUser.name,
-      senderAvatar: currentUser.avatar,
       message: message,
       timestamp: new Date() as unknown as FieldValue,
       fileUrl: fileUrl || null,
@@ -113,9 +112,6 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                 key={msg.id}
                 className={`flex items-start gap-3 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
               >
-                {!isCurrentUser && (
-                   <div className="h-8 w-8" />
-                )}
                 <div className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                     <span className="text-xs text-muted-foreground">{msg.senderName}</span>
                     <div className={`rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
@@ -139,9 +135,6 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                         {messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                 </div>
-                 {isCurrentUser && (
-                   <div className="h-8 w-8" />
-                )}
               </div>
             );
           })}

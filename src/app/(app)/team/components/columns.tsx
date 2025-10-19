@@ -1,3 +1,4 @@
+
 "use client"
 
 import { type ColumnDef } from "@tanstack/react-table"
@@ -24,9 +25,7 @@ export const columns: ColumnDef<User>[] = [
     cell: ({ row }) => {
       const user = row.original;
       return (
-        <div className="flex items-center gap-3">
-          <span className="font-medium">{user.name}</span>
-        </div>
+        <div className="font-medium">{user.name}</div>
       )
     },
   },

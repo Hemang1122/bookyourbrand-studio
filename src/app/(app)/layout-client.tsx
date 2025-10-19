@@ -22,6 +22,7 @@ import { BookOpenCheck } from 'lucide-react';
 import { DailyReportDialog } from './components/daily-report-dialog';
 import { NotificationSound } from '@/components/ui/notification-sound';
 import { NotificationBell } from './components/notification-bell';
+import { Logo } from '@/components/logo';
 
 function AppHeader({user}: {user: User}) {
     const { open, setOpen } = useSidebar();
@@ -74,6 +75,7 @@ export default function AppLayoutClient({
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
             <Sidebar>
             <SidebarHeader>
+              <Logo />
             </SidebarHeader>
             <SidebarContent>
                 <ScrollArea className="h-full">

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -114,14 +115,12 @@ export default function ProjectDetailPage() {
                 )}
             </div>
           </CardHeader>
-          <CardContent className="flex flex-wrap gap-4">
+          <CardContent className="flex flex-col gap-4">
             {project.team.map(member => {
                 return (
-                    <div key={member.id} className="flex items-center gap-2">
-                        <div>
-                            <p className="font-semibold text-sm">{member.name}</p>
-                            <p className="text-xs text-muted-foreground">{member.email}</p>
-                        </div>
+                    <div key={member.id}>
+                        <p className="font-semibold text-sm">{member.name}</p>
+                        <p className="text-xs text-muted-foreground">{member.email}</p>
                     </div>
                 )
             })}

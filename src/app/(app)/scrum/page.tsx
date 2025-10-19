@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -145,9 +146,7 @@ export default function ScrumPage() {
                                     return (
                                         <TableRow key={update.id}>
                                             <TableCell>
-                                                <div className="flex items-center gap-3">
-                                                    <span className="font-medium">{author.name}</span>
-                                                </div>
+                                                <div className="font-medium">{author.name}</div>
                                             </TableCell>
                                             <TableCell className="whitespace-pre-line text-muted-foreground">{update.yesterday}</TableCell>
                                             <TableCell className="whitespace-pre-line text-muted-foreground">{update.today}</TableCell>

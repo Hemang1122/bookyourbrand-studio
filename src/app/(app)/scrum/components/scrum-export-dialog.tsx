@@ -161,15 +161,10 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
                     <div className="space-y-6">
                         {updatesForSelectedDate.map(update => {
                             const author = users.find(u => u.id === update.userId);
-                            const avatar = PlaceHolderImages.find(img => img.id === author?.avatar);
                             if (!author) return null;
 
                             return (
-                                <div key={update.id} className="grid grid-cols-[auto_1fr] gap-x-4">
-                                    <Avatar>
-                                        <AvatarImage src={avatar?.imageUrl} alt={author.name} data-ai-hint={avatar?.imageHint} />
-                                        <AvatarFallback>{author.name.charAt(0)}</AvatarFallback>
-                                    </Avatar>
+                                <div key={update.id} className="flex gap-4">
                                     <div className='space-y-2'>
                                         <p className="font-bold text-sm">{author.name}</p>
                                         <div>

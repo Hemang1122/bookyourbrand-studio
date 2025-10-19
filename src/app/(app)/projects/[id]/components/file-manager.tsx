@@ -12,9 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Link, Download, FileText, Plus } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { Link, Download, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth-client';
 import { useToast } from '@/hooks/use-toast';
@@ -81,7 +79,6 @@ export function FileManager({ projectId }: FileManagerProps) {
           </TableHeader>
           <TableBody>
             {files.map((file) => {
-              const userAvatar = PlaceHolderImages.find(img => img.id === file.uploadedByAvatar);
               const uploadedAtDate = new Date();
               return (
                 <TableRow key={file.id}>
@@ -94,10 +91,6 @@ export function FileManager({ projectId }: FileManagerProps) {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage src={userAvatar?.imageUrl} alt={file.uploadedByName} data-ai-hint={userAvatar?.imageHint} />
-                        <AvatarFallback>{file.uploadedByName.charAt(0)}</AvatarFallback>
-                      </Avatar>
                       <span>{file.uploadedByName}</span>
                     </div>
                   </TableCell>

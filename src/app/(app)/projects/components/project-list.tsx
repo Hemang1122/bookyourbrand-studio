@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Project } from '@/lib/types';
@@ -56,7 +57,9 @@ export function ProjectList() {
               <CardFooter className="flex justify-between p-4 pt-0">
                  <div className="flex -space-x-2 overflow-hidden">
                     {project.team.map(member => (
-                        <div key={member.id} className="h-8 w-8" />
+                        <div key={member.id} className="text-xs text-muted-foreground pr-2">
+                          {member.name}
+                        </div>
                     ))}
                  </div>
                 <Button variant="link">View Project</Button>

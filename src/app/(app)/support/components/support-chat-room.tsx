@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -62,7 +63,6 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
       id: `support-msg-${Date.now()}`,
       senderId: currentUser.id,
       senderName: currentUser.name,
-      senderAvatar: currentUser.avatar,
       message: message,
       timestamp: new Date() as unknown as FieldValue,
       fileUrl: fileUrl || null,
@@ -109,9 +109,6 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
                 key={msg.id}
                 className={`flex items-start gap-3 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
               >
-                {!isCurrentUser && (
-                   <div className="h-8 w-8" />
-                )}
                 <div className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                     {!isCurrentUser && <span className="text-xs text-muted-foreground">{sender?.name}</span>}
                     <div className={`rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
@@ -135,9 +132,6 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
                         {messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                 </div>
-                 {isCurrentUser && (
-                    <div className="h-8 w-8" />
-                )}
               </div>
             );
           })}
