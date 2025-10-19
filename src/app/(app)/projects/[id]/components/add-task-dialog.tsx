@@ -19,7 +19,7 @@ import type { Task } from '@/lib/types';
 
 type AddTaskDialogProps = {
   projectId: string;
-  onTaskAdd: (task: Omit<Task, 'id' | 'assignedTo' | 'status'>) => void;
+  onTaskAdd: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks'>) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };

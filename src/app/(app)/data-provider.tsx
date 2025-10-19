@@ -15,7 +15,7 @@ type DataContextType = {
   users: User[];
   scrumUpdates: ScrumUpdate[];
   addProject: (project: Omit<Project, 'id' | 'coverImage'>) => void;
-  addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status'>) => void;
+  addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
   updateTaskStatus: (taskId: string, status: TaskStatus, remark: string) => void;
   addClient: (name: string, company: string, email: string) => void;
@@ -52,7 +52,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setProjects(prev => [...prev, newProject]);
   };
 
-  const addTask = (taskData: Omit<Task, 'id' | 'assignedTo' | 'status'>) => {
+  const addTask = (taskData: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks'>) => {
     // Find the project to assign a team member from that project
     const project = projects.find(p => p.id === taskData.projectId);
     const assignedTo = project?.team[0] || users.find(u => u.role === 'team') || users[0];
@@ -62,6 +62,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         id: `task-${Date.now()}`,
         assignedTo: assignedTo,
         status: 'Pending',
+        remarks: [],
     };
     setTasks(prev => [...prev, newTask]);
   }

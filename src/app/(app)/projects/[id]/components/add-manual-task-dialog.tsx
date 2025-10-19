@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 
 type AddManualTaskDialogProps = {
   projectId: string;
-  onTaskAdd: (task: Omit<Task, 'id' | 'assignedTo' | 'status'>) => void;
+  onTaskAdd: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks'>) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
