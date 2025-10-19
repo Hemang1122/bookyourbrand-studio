@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { AddTaskDialog } from './add-task-dialog';
 import { Button } from '@/components/ui/button';
-import { Plus, Wand2, CheckCircle, Play, History } from 'lucide-react';
+import { Plus, Wand2, CheckCircle, Play, History, MoreHorizontal } from 'lucide-react';
 import { useData } from '../../../data-provider';
 import { useAuth } from '@/lib/auth-client';
 import {
@@ -22,7 +22,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
+import { AddManualTaskDialog } from './add-manual-task-dialog';
 
 type TaskListProps = {
   projectId: string;
@@ -36,7 +43,7 @@ const TaskCard = ({ task }: { task: Task }) => {
 
   const nextStatus: TaskStatus | null = task.status === 'Pending' ? 'In Progress' : task.status === 'In Progress' ? 'Completed' : null;
   const nextActionText = task.status === 'Pending' ? 'Start Progress' : 'Mark as Complete';
-  const nextActionIcon = task.status === 'Pending' ? <Play className="h-5 w-5 text-muted-foreground group-hover:text-blue-500" /> : <CheckCircle className="h-5 w-5 text-muted-foreground group-hover:text-green-500" />;
+  const nextActionIcon = task.status === 'Pending' ? <Play className="mr-2 h-4 w-4" /> : <CheckCircle className="mr-2 h-4 w-4" />;
 
   return (
     <Card className="bg-background">
@@ -75,20 +82,21 @@ const TaskCard = ({ task }: { task: Task }) => {
             </Popover>
           )}
           {canUpdateStatus && nextStatus && (
-             <UpdateTaskStatusDialog task={task} newStatus={nextStatus}>
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 group">
-                                {nextActionIcon}
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>{nextActionText}</p>
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
-            </UpdateTaskStatusDialog>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <UpdateTaskStatusDialog task={task} newStatus={nextStatus}>
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                            {nextActionIcon}
+                            <span>{nextActionText}</span>
+                        </DropdownMenuItem>
+                    </UpdateTaskStatusDialog>
+                </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </CardHeader>
@@ -125,16 +133,22 @@ export function TaskList({ projectId }: TaskListProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        {user?.role === 'admin' && (
-          <AddTaskDialog projectId={projectId} onTaskAdd={addTask}>
-            <Button>
-              <Wand2 className="mr-2 h-4 w-4" />
-              Generate Tasks with AI
-            </Button>
-          </AddTaskDialog>
-        )}
-      </div>
+       {user?.role === 'admin' && (
+        <div className="flex justify-end gap-2">
+            <AddManualTaskDialog projectId={projectId} onTaskAdd={addTask}>
+              <Button variant="outline">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Task
+              </Button>
+            </AddManualTaskDialog>
+            <AddTaskDialog projectId={projectId} onTaskAdd={addTask}>
+                <Button>
+                <Wand2 className="mr-2 h-4 w-4" />
+                Generate with AI
+                </Button>
+            </AddTaskDialog>
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         {(Object.keys(columns) as Array<keyof typeof columns>).map((status) => (
           <div key={status} className="flex flex-col gap-4">
