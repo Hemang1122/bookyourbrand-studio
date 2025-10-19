@@ -36,13 +36,17 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   
   // After loading, if there's still no user profile, redirect.
   // This handles the case where the user exists in Auth but not in our 'users' collection.
-  if (!appUser) {
-     if(!isUserLoading && firebaseUser) {
-        console.warn("Authenticated user not found in 'users' collection. Redirecting to login.");
-        redirect('/login');
-     }
-    // If there's no firebaseUser and we're not loading, the useEffect above will handle the redirect.
-    // We can show a loader here as a fallback before the redirect kicks in.
+  if (firebaseUser && !appUser) {
+     console.warn("Authenticated user not found in 'users' collection. Redirecting to login.");
+     // We must also sign the user out to prevent a loop if they try to come back
+      import('firebase/auth').then(({getAuth}) => getAuth().signOut());
+      redirect('/login');
+      return null;
+  }
+  
+  if (!firebaseUser || !appUser) {
+    // This is the main redirect path if user is not authenticated after loading.
+    // The useEffect above will also catch this, but this is a safeguard.
     return (
        <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
