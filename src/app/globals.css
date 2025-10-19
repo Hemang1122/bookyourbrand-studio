@@ -85,27 +85,11 @@
 }
 
 @layer utilities {
-  .animated-aurora {
-    background: radial-gradient(ellipse at 25% 25%, hsl(var(--primary)/0.3) 0%, transparent 50%),
-                radial-gradient(ellipse at 75% 25%, hsl(var(--accent)/0.3) 0%, transparent 50%),
-                radial-gradient(ellipse at 25% 75%, hsl(50, 100%, 70%)/0.3) 0%, transparent 50%),
-                radial-gradient(ellipse at 75% 75%, hsl(var(--primary)/0.3) 0%, transparent 50%);
-    background-size: 200% 200%;
-    animation: aurora 15s ease infinite;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-  }
-
   .button-pulse:hover {
     animation: pulse 1.5s infinite;
   }
 }
 
-@keyframes aurora {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
 
 @keyframes pulse {
   0% {

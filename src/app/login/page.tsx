@@ -13,10 +13,38 @@ import { Suspense } from 'react';
 
 export default function LoginPage() {
   return (
-    <main className="relative flex min-h-screen w-full flex-col items-center justify-center p-4 lg:grid lg:grid-cols-2">
-      <div className="absolute inset-0 bg-background animated-aurora"></div>
+    <main className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-background p-4 lg:grid lg:grid-cols-2">
+      <div
+        className="absolute inset-0 z-0 h-full w-full"
+        style={{
+          backgroundImage: `
+            radial-gradient(ellipse at 25% 25%, hsl(var(--primary)/0.3) 0%, transparent 50%),
+            radial-gradient(ellipse at 75% 25%, hsl(var(--accent)/0.3) 0%, transparent 50%),
+            radial-gradient(ellipse at 25% 75%, hsl(50 100% 70% / 0.3) 0%, transparent 50%),
+            radial-gradient(ellipse at 75% 75%, hsl(var(--primary)/0.3) 0%, transparent 50%)
+          `,
+          backgroundSize: '200% 200%',
+          animation: 'aurora 15s ease infinite',
+          filter: 'blur(20px)',
+        }}
+      >
+        <style jsx>{`
+          @keyframes aurora {
+            0% {
+              background-position: 0% 50%;
+            }
+            50% {
+              background-position: 100% 50%;
+            }
+            100% {
+              background-position: 0% 50%;
+            }
+          }
+        `}</style>
+      </div>
 
-      <div className="relative hidden flex-col items-center justify-center text-center lg:flex">
+
+      <div className="relative z-10 hidden flex-col items-center justify-center text-center lg:flex">
         <LoginLogo className="text-5xl mb-4" />
         <p className="text-xl font-medium text-foreground">
           Your All-in-One Agency CRM.
