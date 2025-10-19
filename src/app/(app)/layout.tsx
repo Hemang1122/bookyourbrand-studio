@@ -5,6 +5,7 @@ import AppLayoutClient from './layout-client';
 import { useEffect, useState } from 'react';
 import type { User } from '@/lib/types';
 import { redirect } from 'next/navigation';
+import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export default function AppLayout({
   children,
@@ -51,5 +52,9 @@ export default function AppLayout({
     return null;
   }
 
-  return <AppLayoutClient user={user}>{children}</AppLayoutClient>;
+  return (
+    <FirebaseClientProvider>
+        <AppLayoutClient user={user}>{children}</AppLayoutClient>
+    </FirebaseClientProvider>
+  );
 }
