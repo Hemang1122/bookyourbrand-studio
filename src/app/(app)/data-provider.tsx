@@ -6,8 +6,8 @@ import { users as initialUsers, clients as initialClients, projects as initialPr
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, doc } from 'firebase/firestore';
 
 type DataContextType = {
   projects: Project[];
@@ -142,40 +142,49 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }
 
   const updateProjectTeam = (projectId: string, teamMemberIds: string[]) => {
-    setProjects(prev => prev.map(p => {
-      if (p.id === projectId) {
-        const newTeam = users.filter(u => teamMemberIds.includes(u.id));
-        return { ...p, team: newTeam };
-      }
-      return p;
-    }));
     const project = projects.find(p => p.id === projectId);
-    if(project) {
-        addNotification(`The team for project "${project.name}" has been updated.`, projectId);
-    }
+    if (!project || !firestore) return;
+
+    const newTeam = users.filter(u => teamMemberIds.includes(u.id));
+    const updatedProject = { ...project, team: newTeam };
+
+    setProjects(prev => prev.map(p => p.id === projectId ? updatedProject : p));
+    
+    const projectRef = doc(firestore, 'projects', projectId);
+    updateDocumentNonBlocking(projectRef, { team: newTeam });
+
+    addNotification(`The team for project "${project.name}" has been updated.`, projectId);
   };
 
   const updateTaskStatus = (taskId: string, status: TaskStatus, remark: string) => {
-    if (!currentUser) return;
-    setTasks(prev => prev.map(t => {
-      if (t.id === taskId) {
-        const newRemark: TaskRemark = {
-          userId: currentUser.id,
-          userName: currentUser.name,
-          remark,
-          timestamp: new Date().toISOString(),
-          fromStatus: t.status,
-          toStatus: status,
-        };
-        const updatedTask = { ...t, status, remarks: [...t.remarks, newRemark] };
-        const project = projects.find(p => p.id === updatedTask.projectId);
-        if(project) {
-            addNotification(`Task "${updatedTask.title}" in project "${project.name}" was updated to "${status}".`, updatedTask.projectId);
-        }
-        return updatedTask;
-      }
-      return t;
-    }));
+    if (!currentUser || !firestore) return;
+
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const newRemark: TaskRemark = {
+      userId: currentUser.id,
+      userName: currentUser.name,
+      remark,
+      timestamp: new Date().toISOString(),
+      fromStatus: task.status,
+      toStatus: status,
+    };
+    
+    const updatedTask = { ...task, status, remarks: [...task.remarks, newRemark] };
+    
+    setTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
+
+    const taskRef = doc(firestore, 'tasks', taskId);
+    updateDocumentNonBlocking(taskRef, {
+      status: updatedTask.status,
+      remarks: updatedTask.remarks
+    });
+
+    const project = projects.find(p => p.id === updatedTask.projectId);
+    if(project) {
+        addNotification(`Task "${updatedTask.title}" in project "${project.name}" was updated to "${status}".`, updatedTask.projectId);
+    }
     toast({ title: 'Task Updated', description: `Task status changed to "${status}".` });
   }
 
@@ -204,7 +213,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }
   
   const updateClient = (clientId: string, clientData: Partial<Client>) => {
+    if (!firestore) return;
     setClients(prev => prev.map(c => c.id === clientId ? { ...c, ...clientData } : c));
+    const clientRef = doc(firestore, 'clients', clientId);
+    updateDocumentNonBlocking(clientRef, clientData);
   }
 
   const addTeamMember = (memberData: { name: string, email: string, aadharUrl?: string, panUrl?: string, joiningLetterUrl?: string }) => {
@@ -224,7 +236,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }
 
   const updateTeamMember = (userId: string, memberData: Partial<User>) => {
+    if (!firestore) return;
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...memberData } : u));
+    const userRef = doc(firestore, 'users', userId);
+    updateDocumentNonBlocking(userRef, memberData);
   }
   
   const triggerNotification = () => {
@@ -237,6 +252,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const addScrumUpdate = (update: Omit<ScrumUpdate, 'id'>) => {
     const newUpdate: ScrumUpdate = { ...update, id: `scrum-${Date.now()}`, timestamp: new Date().toISOString() };
+    addDocumentNonBlocking(collection(firestore, 'scrum-updates'), newUpdate);
     setScrumUpdates(prev => [...prev, newUpdate]);
   };
 
@@ -263,13 +279,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteProject = (projectId: string) => {
+    if (!firestore) return;
     setProjects(prev => prev.filter(p => p.id !== projectId));
     setTasks(prev => prev.filter(t => t.projectId !== projectId));
+    const projectRef = doc(firestore, 'projects', projectId);
+    deleteDocumentNonBlocking(projectRef);
     toast({ title: 'Project Deleted', description: 'The project and all its tasks have been removed.' });
     router.push('/projects');
   };
 
   const updateProject = (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team' | 'coverImage'>>) => {
+    if (!firestore) return;
     setProjects(prev => prev.map(p => {
         if (p.id === projectId) {
             const updatedProject = { ...p, ...projectData };
@@ -278,6 +298,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
         return p;
     }));
+    const projectRef = doc(firestore, 'projects', projectId);
+    updateDocumentNonBlocking(projectRef, projectData);
   };
 
   return (
@@ -319,3 +341,5 @@ export function useData() {
   }
   return context;
 }
+
+    
