@@ -16,6 +16,9 @@ import { format, isToday } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Download } from 'lucide-react';
 import { ScrumExportDialog } from './components/scrum-export-dialog';
+import { useFirestore } from '@/firebase';
+import { addDocumentNonBlocking } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 export default function ScrumPage() {
   const { user } = useAuth();
@@ -24,6 +27,7 @@ export default function ScrumPage() {
   const [yesterday, setYesterday] = useState('');
   const [today, setToday] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const firestore = useFirestore();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +43,12 @@ export default function ScrumPage() {
 
     // Simulate API call
     setTimeout(() => {
+      addDocumentNonBlocking(collection(firestore, 'scrum-updates'), {
+        userId: user.id,
+        yesterday,
+        today,
+        timestamp: new Date().toISOString(),
+      });
       addScrumUpdate({
         userId: user.id,
         yesterday,
@@ -171,3 +181,5 @@ export default function ScrumPage() {
     </div>
   );
 }
+
+    

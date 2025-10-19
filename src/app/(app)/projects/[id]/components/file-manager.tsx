@@ -22,6 +22,9 @@ import { format } from 'date-fns';
 import { AddFileLinkDialog } from './add-file-link-dialog';
 import { useData } from '../../../data-provider';
 import { FieldValue } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
+import { addDocumentNonBlocking } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 type FileManagerProps = {
   projectId: string;
@@ -33,6 +36,7 @@ export function FileManager({ projectId }: FileManagerProps) {
   const { addNotification, projects } = useData();
   const project = projects.find(p => p.id === projectId);
   const [files, setFiles] = useState<ProjectFile[]>([]);
+  const firestore = useFirestore();
 
   const handleAddFileLink = (name: string, url: string) => {
     if (!user || !project) return;
@@ -47,6 +51,7 @@ export function FileManager({ projectId }: FileManagerProps) {
       uploadedAt: new Date() as unknown as FieldValue,
       type: 'link',
     };
+    addDocumentNonBlocking(collection(firestore, 'files'), fileData);
     setFiles(prev => [...prev, fileData]);
     addNotification(`added a new file link "${name}" to project "${project.name}".`, projectId);
 
@@ -121,3 +126,5 @@ export function FileManager({ projectId }: FileManagerProps) {
     </div>
   );
 }
+
+    

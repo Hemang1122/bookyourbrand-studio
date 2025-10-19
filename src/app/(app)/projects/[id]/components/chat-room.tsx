@@ -13,6 +13,9 @@ import { useAuth } from '@/lib/auth-client';
 import { useData } from '../../../data-provider';
 import { AddChatAttachmentDialog } from './add-chat-attachment-dialog';
 import { FieldValue } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
+import { addDocumentNonBlocking } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 
 type ChatRoomProps = {
@@ -29,6 +32,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const { triggerNotification, addNotification, projects, users } = useData();
   const prevMessagesCount = useRef(0);
   const project = projects.find(p => p.id === projectId);
+  const firestore = useFirestore();
 
   // Simulate receiving messages
   useEffect(() => {
@@ -47,6 +51,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
           timestamp: new Date() as unknown as FieldValue,
           fileUrl: null,
         };
+        addDocumentNonBlocking(collection(firestore, 'messages'), newMessage);
         setMessages(prev => [...prev, newMessage]);
       }
     }, 5000); // Add a new message every 5 seconds on average
@@ -79,6 +84,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
       fileUrl: fileUrl || null,
     };
     
+    addDocumentNonBlocking(collection(firestore, 'messages'), messagePayload);
     setMessages(prev => [...prev, messagePayload]);
     addNotification(`sent a new message in project "${project.name}".`, projectId);
   }
@@ -175,3 +181,5 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     </div>
   );
 }
+
+    

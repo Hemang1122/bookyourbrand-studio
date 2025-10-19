@@ -7,6 +7,9 @@ import { users as initialUsers, clients as initialClients, projects as initialPr
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
+import { useFirestore } from '@/firebase';
+import { addDocumentNonBlocking } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 type DataContextType = {
   projects: Project[];
@@ -61,6 +64,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const { user: currentUser } = useAuth();
   const [playNotification, setPlayNotification] = useState(false);
   const router = useRouter();
+  const firestore = useFirestore();
 
 
   const teamMembers = useMemo(() => users.filter(u => u.role === 'admin' || u.role === 'team'), [users]);
@@ -72,6 +76,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...projectData,
       coverImage: `project-${Math.ceil(Math.random() * 3)}`,
     };
+    addDocumentNonBlocking(collection(firestore, 'projects'), newProject);
     setProjects(prev => [...prev, newProject]);
     addNotification(`New project "${projectData.name}" was created.`, 'general');
   };
@@ -90,6 +95,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       status: 'Pending',
       remarks: [],
     };
+    addDocumentNonBlocking(collection(firestore, 'tasks'), newTask);
     setTasks(prev => [...prev, newTask]);
     addNotification(`New task "${newTask.title}" added to project "${project?.name}".`, newTask.projectId);
   }
@@ -151,6 +157,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         role: 'client',
         username: clientData.name.toLowerCase().replace(/\s/g, ''),
     }
+    addDocumentNonBlocking(collection(firestore, 'clients'), newClient);
     setClients(prev => [...prev, newClient]);
     setUsers(prev => [...prev, newUser]);
   }
@@ -171,6 +178,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         role: 'team',
         username: memberData.name.toLowerCase().replace(/\s/g, ''),
      };
+     addDocumentNonBlocking(collection(firestore, 'users'), newMember);
      setUsers(prev => [...prev, newMember]);
   }
 
@@ -270,3 +278,5 @@ export function useData() {
   }
   return context;
 }
+
+    
