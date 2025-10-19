@@ -31,7 +31,7 @@ export function TeamDashboard({ user }: TeamDashboardProps) {
   return (
     <div className="space-y-4">
        <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">My Dashboard</h2>
+        <h2 className="text-2xl font-bold tracking-tight">My Dashboard</h2>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
