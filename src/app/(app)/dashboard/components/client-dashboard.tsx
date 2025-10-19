@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { FolderKanban, Clock, CheckCircle2, Plus, ClipboardList } from 'lucide-react';
+import { FolderKanban, Clock, CheckCircle2, Plus } from 'lucide-react';
 import type { Project, User } from '@/lib/types';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -56,7 +56,7 @@ export function ClientDashboard() {
           </AddProjectDialog>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
@@ -85,20 +85,6 @@ export function ClientDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{completedProjects}</div>
             <p className="text-xs text-muted-foreground">Successfully delivered</p>
-          </CardContent>
-        </Card>
-         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Daily Scrum</CardTitle>
-            <ClipboardList className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground mb-2">Submit your daily update, questions, or blockers.</p>
-            <Button className="w-full" asChild>
-                <Link href="/scrum">
-                    <ClipboardList className="mr-2 h-4 w-4" /> Go to Scrum Sheet
-                </Link>
-            </Button>
           </CardContent>
         </Card>
       </div>

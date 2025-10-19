@@ -1,4 +1,4 @@
-import type { User, Client, Project, Task, ChatMessage, ProjectFile, ScrumUpdate } from './types';
+import type { User, Client, Project, Task, ChatMessage, ProjectFile } from './types';
 
 export const users: User[] = [
   { id: 'user-1', name: 'Alex Johnson', email: 'admin@bookyourbrands.com', avatar: 'avatar-1', role: 'admin', username: 'admin' },
@@ -78,13 +78,3 @@ export const projectFiles: { [key: string]: any[] } = {
     'proj-1': [],
     'proj-2': []
 };
-
-export const scrumUpdates: ScrumUpdate[] = [
-    {
-        id: 'scrum-1',
-        userId: 'user-2',
-        yesterday: 'Finished the initial mockups for the new landing page.',
-        today: 'Start working on the component library.',
-        timestamp: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString(),
-    }
-];

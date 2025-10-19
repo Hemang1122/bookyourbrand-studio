@@ -2,8 +2,8 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect } from 'react';
-import type { Project, Task, User, Client, ScrumUpdate, TaskStatus } from '@/lib/types';
-import { projects as initialProjects, tasks as initialTasks, users as initialUsers, clients as initialClients, scrumUpdates as initialScrumUpdates } from '@/lib/data';
+import type { Project, Task, User, Client, TaskStatus } from '@/lib/types';
+import { projects as initialProjects, tasks as initialTasks, users as initialUsers, clients as initialClients } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 
 type DataContextType = {
@@ -12,14 +12,12 @@ type DataContextType = {
   clients: Client[];
   teamMembers: User[];
   users: User[];
-  scrumUpdates: ScrumUpdate[];
   addProject: (project: Omit<Project, 'id' | 'coverImage'>) => void;
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
   updateTaskStatus: (taskId: string, status: TaskStatus) => void;
   addClient: (name: string, company: string, email: string) => void;
   addTeamMember: (name: string, email: string) => void;
-  addScrumUpdate: (update: Omit<ScrumUpdate, 'id'>) => void;
   triggerNotification: () => void;
   playNotification: boolean;
   notificationPlayed: () => void;
@@ -33,7 +31,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [clients, setClients] = useState<Client[]>(initialClients);
-  const [scrumUpdates, setScrumUpdates] = useState<ScrumUpdate[]>(initialScrumUpdates);
   const [playNotification, setPlayNotification] = useState(false);
   const { toast } = useToast();
 
@@ -114,15 +111,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
      };
      setUsers(prev => [...prev, newMember]);
   }
-
-  const addScrumUpdate = (updateData: Omit<ScrumUpdate, 'id'>) => {
-    const newUpdate: ScrumUpdate = {
-      ...updateData,
-      id: `scrum-${Date.now()}`,
-    };
-    initialScrumUpdates.unshift(newUpdate);
-    setScrumUpdates([...initialScrumUpdates]);
-  };
   
   const triggerNotification = () => {
     setPlayNotification(true);
@@ -140,14 +128,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         clients, 
         teamMembers, 
         users, 
-        scrumUpdates, 
         addProject, 
         addTask, 
         updateProjectTeam, 
         updateTaskStatus,
         addClient, 
         addTeamMember, 
-        addScrumUpdate, 
         triggerNotification, 
         playNotification, 
         notificationPlayed,

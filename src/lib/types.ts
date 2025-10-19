@@ -67,11 +67,3 @@ export type ProjectFile = {
   size?: string;
   type?: string;
 };
-
-export type ScrumUpdate = {
-  id: string;
-  userId: string;
-  yesterday: string;
-  today: string;
-  timestamp: string;
-};
