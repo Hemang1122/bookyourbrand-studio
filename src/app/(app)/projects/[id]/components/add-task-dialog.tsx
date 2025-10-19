@@ -1,3 +1,4 @@
+
 'use client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -20,11 +20,11 @@ import type { Task } from '@/lib/types';
 type AddTaskDialogProps = {
   projectId: string;
   onTaskAdd: (task: Omit<Task, 'id' | 'assignedTo' | 'status'>) => void;
-  children: React.ReactNode;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 };
 
-export function AddTaskDialog({ projectId, onTaskAdd, children }: AddTaskDialogProps) {
-  const [open, setOpen] = useState(false);
+export function AddTaskDialog({ projectId, onTaskAdd, open, onOpenChange }: AddTaskDialogProps) {
   const [brief, setBrief] = useState('');
   const [aiResult, setAiResult] = useState<SummarizeProjectBriefOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,19 +57,16 @@ export function AddTaskDialog({ projectId, onTaskAdd, children }: AddTaskDialogP
     onTaskAdd(newTask);
     toast({ title: 'Task Added', description: `"${title}" has been added to the project.` });
     
-    // Reset relevant fields after adding, but keep dialog open to add more
     const updatedTasks = aiResult?.suggestedTasks.filter(t => t.title !== title);
     if(updatedTasks && updatedTasks.length > 0) {
         setAiResult(prev => prev ? {...prev, suggestedTasks: updatedTasks} : null);
     } else {
-        setAiResult(null);
-        setBrief('');
-        setOpen(false); // Close if all tasks are added
+        handleClose();
     }
   };
   
   const handleClose = () => {
-    setOpen(false);
+    onOpenChange(false);
     setBrief('');
     setAiResult(null);
     setIsLoading(false);
@@ -77,9 +74,6 @@ export function AddTaskDialog({ projectId, onTaskAdd, children }: AddTaskDialogP
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
       <DialogContent className="sm:max-w-[625px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

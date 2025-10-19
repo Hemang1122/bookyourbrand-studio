@@ -125,10 +125,16 @@ const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
 };
 
 
+type TaskListProps = {
+  projectId: string;
+};
+
 export function TaskList({ projectId }: TaskListProps) {
   const { tasks, addTask } = useData();
   const { user } = useAuth();
   const [isStatusUpdateOpen, setIsStatusUpdateOpen] = useState(false);
+  const [isManualTaskOpen, setIsManualTaskOpen] = useState(false);
+  const [isAiTaskOpen, setIsAiTaskOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
 
   const projectTasks = tasks.filter((t) => t.projectId === projectId);
@@ -151,18 +157,14 @@ export function TaskList({ projectId }: TaskListProps) {
       <div className="space-y-4">
         {(user?.role === 'admin' || user?.role === 'team') && (
           <div className="flex justify-end gap-2">
-              <AddManualTaskDialog projectId={projectId} onTaskAdd={addTask}>
-                <Button variant="outline">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Task
-                </Button>
-              </AddManualTaskDialog>
-              <AddTaskDialog projectId={projectId} onTaskAdd={addTask}>
-                  <Button>
-                  <Wand2 className="mr-2 h-4 w-4" />
-                  Generate with AI
-                  </Button>
-              </AddTaskDialog>
+              <Button variant="outline" onClick={() => setIsManualTaskOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Task
+              </Button>
+              <Button onClick={() => setIsAiTaskOpen(true)}>
+                <Wand2 className="mr-2 h-4 w-4" />
+                Generate with AI
+              </Button>
           </div>
         )}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -191,8 +193,18 @@ export function TaskList({ projectId }: TaskListProps) {
           onOpenChange={setIsStatusUpdateOpen}
         />
       )}
+      <AddManualTaskDialog 
+        projectId={projectId} 
+        onTaskAdd={addTask} 
+        open={isManualTaskOpen}
+        onOpenChange={setIsManualTaskOpen}
+      />
+      <AddTaskDialog 
+        projectId={projectId} 
+        onTaskAdd={addTask} 
+        open={isAiTaskOpen}
+        onOpenChange={setIsAiTaskOpen}
+      />
     </>
   );
 }
-
-    

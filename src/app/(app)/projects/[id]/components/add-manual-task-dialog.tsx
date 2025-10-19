@@ -9,7 +9,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -20,11 +19,11 @@ import { Input } from '@/components/ui/input';
 type AddManualTaskDialogProps = {
   projectId: string;
   onTaskAdd: (task: Omit<Task, 'id' | 'assignedTo' | 'status'>) => void;
-  children: React.ReactNode;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 };
 
-export function AddManualTaskDialog({ projectId, onTaskAdd, children }: AddManualTaskDialogProps) {
-  const [open, setOpen] = useState(false);
+export function AddManualTaskDialog({ projectId, onTaskAdd, open, onOpenChange }: AddManualTaskDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const { toast } = useToast();
@@ -43,22 +42,17 @@ export function AddManualTaskDialog({ projectId, onTaskAdd, children }: AddManua
     onTaskAdd(newTask);
     toast({ title: 'Task Added', description: `"${title}" has been added to the project.` });
     
-    setOpen(false);
-    setTitle('');
-    setDescription('');
+    handleClose();
   };
   
   const handleClose = () => {
-    setOpen(false);
+    onOpenChange(false);
     setTitle('');
     setDescription('');
   }
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle>Add a New Task</DialogTitle>
