@@ -1,15 +1,14 @@
 
 'use client';
 
-import { createContext, useContext, useState, useMemo } from 'react';
+import { createContext, useContext, useState, useMemo, useEffect } from 'react';
 import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, Notification, ProjectStatus, TaskRemark } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
-import { useFirestore } from '@/firebase';
-import { addDocumentNonBlocking } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
 
 type DataContextType = {
   projects: Project[];
@@ -66,6 +65,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const firestore = useFirestore();
 
+  // Firestore listeners
+  const projectsCollection = useMemoFirebase(() => collection(firestore, 'projects'), [firestore]);
+  const tasksCollection = useMemoFirebase(() => collection(firestore, 'tasks'), [firestore]);
+  
+  const { data: firestoreProjects, isLoading: isLoadingProjects } = useCollection<Project>(projectsCollection);
+  const { data: firestoreTasks, isLoading: isLoadingTasks } = useCollection<Task>(tasksCollection);
+
+  useEffect(() => {
+    if (firestoreProjects) {
+      setProjects(firestoreProjects);
+    }
+  }, [firestoreProjects]);
+
+  useEffect(() => {
+    if (firestoreTasks) {
+      setTasks(firestoreTasks);
+    }
+  }, [firestoreTasks]);
+
 
   const teamMembers = useMemo(() => users.filter(u => u.role === 'admin' || u.role === 'team'), [users]);
 
@@ -77,7 +95,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       coverImage: `project-${Math.ceil(Math.random() * 3)}`,
     };
     addDocumentNonBlocking(collection(firestore, 'projects'), newProject);
-    setProjects(prev => [...prev, newProject]);
+    // Local state will be updated by the firestore listener
     addNotification(`New project "${projectData.name}" was created.`, 'general');
   };
 
@@ -96,7 +114,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       remarks: [],
     };
     addDocumentNonBlocking(collection(firestore, 'tasks'), newTask);
-    setTasks(prev => [...prev, newTask]);
+     // Local state will be updated by the firestore listener
     addNotification(`New task "${newTask.title}" added to project "${project?.name}".`, newTask.projectId);
   }
 
@@ -262,7 +280,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         triggerNotification, 
         playNotification, 
         notificationPlayed,
-        isLoading: false,
+        isLoading: isLoadingProjects || isLoadingTasks,
         deleteProject,
         updateProject
     }}>
@@ -278,3 +296,5 @@ export function useData() {
   }
   return context;
 }
+
+    
