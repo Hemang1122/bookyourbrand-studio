@@ -80,7 +80,7 @@ export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMe
           </div>
            <div className="space-y-1">
             <p className="text-sm font-medium text-muted-foreground">Role</p>
-            <p><Badge variant={teamMember.role === 'admin' ? 'default' : 'secondary'}>{teamMember.role}</Badge></p>
+            <div><Badge variant={teamMember.role === 'admin' ? 'default' : 'secondary'}>{teamMember.role}</Badge></div>
           </div>
           <div className="space-y-2">
             <h4 className="font-medium">Uploaded Documents</h4>

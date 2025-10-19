@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -101,7 +102,7 @@ export function TeamDashboard({ user }: TeamDashboardProps) {
                       {task.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{task.dueDate}</TableCell>
+                  <TableCell>{new Date(task.dueDate).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="outline" size="sm" asChild>
                         <Link href={`/projects/${task.projectId}`}>View Project</Link>

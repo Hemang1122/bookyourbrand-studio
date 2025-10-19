@@ -118,7 +118,7 @@ export function ClientDashboard() {
                         <span className="text-sm font-medium text-muted-foreground">{Math.round(progress)}%</span>
                     </div>
                     <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Status: <Badge variant="outline">{project.status}</Badge></span>
+                        <div>Status: <Badge variant="outline">{project.status}</Badge></div>
                          <span>Due: {new Date(project.deadline).toLocaleDateString()}</span>
                     </div>
                 </div>
