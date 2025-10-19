@@ -6,8 +6,8 @@ import { users as initialUsers, clients as initialClients, projects as initialPr
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
-import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection } from '@/firebase';
+import { collection, doc, query, where } from 'firebase/firestore';
 
 type DataContextType = {
   projects: Project[];
@@ -52,10 +52,6 @@ type DataContextType = {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
-  const [clients, setClients] = useState<Client[]>(initialClients);
-  const [users, setUsers] = useState<User[]>(initialUsers);
   const [scrumUpdates, setScrumUpdates] = useState<ScrumUpdate[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const { toast } = useToast();
@@ -63,19 +59,59 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [playNotification, setPlayNotification] = useState(false);
   const router = useRouter();
   const firestore = useFirestore();
-  const [isLoading, setIsLoading] = useState(true); // Start with loading true
+  
+  // Real-time data from Firestore
+  const { data: firestoreProjects, isLoading: projectsLoading } = useCollection<Project>(useMemoFirebase(() => {
+    if (!firestore || !currentUser) return null;
+    if (currentUser.role === 'admin') {
+      return collection(firestore, 'projects');
+    }
+    if (currentUser.role === 'client') {
+      return query(collection(firestore, 'projects'), where('client.id', '==', currentUser.id));
+    }
+    // Team member
+    return query(collection(firestore, 'projects'), where('team', 'array-contains', currentUser.id));
+  }, [firestore, currentUser]));
 
-  // Simulate initial data load. In a real app this might fetch initial data securely.
+  const { data: firestoreTasks, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'tasks');
+  }, [firestore]));
+  
+  const { data: firestoreUsers, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'users');
+  }, [firestore]));
+
+  const { data: firestoreClients, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'clients');
+  }, [firestore]));
+  
+  // Combine initial data with firestore data, giving precedence to firestore
+  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [users, setUsers] = useState<User[]>(initialUsers);
+  const [clients, setClients] = useState<Client[]>(initialClients);
+
   useEffect(() => {
-    setProjects(initialProjects);
-    setTasks(initialTasks);
-    setClients(initialClients);
-    setUsers(initialUsers);
-    // Add any other initial data loading here
-    setIsLoading(false); // Set loading to false after initial data is set
-  }, []);
+    if (firestoreProjects) setProjects(firestoreProjects);
+  }, [firestoreProjects]);
 
+  useEffect(() => {
+    if (firestoreTasks) setTasks(firestoreTasks);
+  }, [firestoreTasks]);
 
+  useEffect(() => {
+    if (firestoreUsers) setUsers(firestoreUsers);
+  }, [firestoreUsers]);
+
+  useEffect(() => {
+    if (firestoreClients) setClients(firestoreClients);
+  }, [firestoreClients]);
+
+  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading;
+  
   const teamMembers = useMemo(() => users.filter(u => u.role === 'admin' || u.role === 'team'), [users]);
 
 
@@ -121,12 +157,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     
     const newTeam = users.filter(u => teamMemberIds.includes(u.id));
 
+    if (firestore) {
+      const projectRef = doc(firestore, 'projects', projectId);
+      updateDocumentNonBlocking(projectRef, { team: newTeam });
+    }
     setProjects(prev => prev.map(p => p.id === projectId ? {...p, team: newTeam} : p));
-    
-    if (!firestore) return;
-    const projectRef = doc(firestore, 'projects', projectId);
-    updateDocumentNonBlocking(projectRef, { team: newTeam });
-
     addNotification(`The team for project "${project.name}" has been updated.`, projectId);
   };
 
@@ -145,14 +180,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       toStatus: status,
     };
     
+    if (firestore) {
+      const taskRef = doc(firestore, 'tasks', taskId);
+      updateDocumentNonBlocking(taskRef, {
+        status: status,
+        remarks: [...task.remarks, newRemark]
+      });
+    }
     setTasks(prev => prev.map(t => t.id === taskId ? {...t, status, remarks: [...t.remarks, newRemark]} : t));
-
-    if (!firestore) return;
-    const taskRef = doc(firestore, 'tasks', taskId);
-    updateDocumentNonBlocking(taskRef, {
-      status: status,
-      remarks: [...task.remarks, newRemark]
-    });
 
     const project = projects.find(p => p.id === task.projectId);
     if(project) {
@@ -180,19 +215,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         username: clientData.name.toLowerCase().replace(/\s/g, ''),
         avatar: ''
     }
-    setClients(prev => [...prev, newClient]);
-    setUsers(prev => [...prev, newUser]);
     if (firestore) {
         addDocumentNonBlocking(collection(firestore, 'clients'), newClient);
         addDocumentNonBlocking(collection(firestore, 'users'), newUser);
     }
+    setClients(prev => [...prev, newClient]);
+    setUsers(prev => [...prev, newUser]);
   }
   
   const updateClient = (clientId: string, clientData: Partial<Client>) => {
-    setClients(prev => prev.map(c => c.id === clientId ? { ...c, ...clientData } : c));
     if (!firestore) return;
     const clientRef = doc(firestore, 'clients', clientId);
     updateDocumentNonBlocking(clientRef, clientData);
+    setClients(prev => prev.map(c => c.id === clientId ? { ...c, ...clientData } : c));
   }
 
   const addTeamMember = (memberData: { name: string, email: string, aadharUrl?: string, panUrl?: string, joiningLetterUrl?: string }) => {
@@ -207,17 +242,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         username: memberData.name.toLowerCase().replace(/\s/g, ''),
         avatar: ''
      };
-     setUsers(prev => [...prev, newMember]);
      if (firestore) {
         addDocumentNonBlocking(collection(firestore, 'users'), newMember);
      }
+     setUsers(prev => [...prev, newMember]);
   }
 
   const updateTeamMember = (userId: string, memberData: Partial<User>) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...memberData } : u));
     if (!firestore) return;
     const userRef = doc(firestore, 'users', userId);
     updateDocumentNonBlocking(userRef, memberData);
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...memberData } : u));
   }
   
   const triggerNotification = () => {
@@ -230,10 +265,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const addScrumUpdate = (update: Omit<ScrumUpdate, 'id'>) => {
     const newUpdate: ScrumUpdate = { ...update, id: `scrum-${Date.now()}`, timestamp: new Date().toISOString() };
-    setScrumUpdates(prev => [...prev, newUpdate]);
     if (firestore) {
         addDocumentNonBlocking(collection(firestore, 'scrum-updates'), newUpdate);
     }
+    setScrumUpdates(prev => [...prev, newUpdate]);
   };
 
   const addNotification = (message: string, projectId: string) => {
@@ -259,16 +294,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteProject = (projectId: string) => {
-    setProjects(prev => prev.filter(p => p.id !== projectId));
     if (!firestore) return;
     const projectRef = doc(firestore, 'projects', projectId);
     deleteDocumentNonBlocking(projectRef);
+    setProjects(prev => prev.filter(p => p.id !== projectId));
     toast({ title: 'Project Deleted', description: 'The project and all its tasks have been removed.' });
     router.push('/projects');
   };
 
   const updateProject = (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team' | 'coverImage'>>) => {
-    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ...projectData } : p));
     if (!firestore) return;
     const projectRef = doc(firestore, 'projects', projectId);
     updateDocumentNonBlocking(projectRef, projectData);
@@ -276,6 +310,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if(project) {
         addNotification(`Project "${project.name}" has been updated.`, projectId);
     }
+    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ...projectData } : p));
   };
 
   return (
