@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -76,7 +75,7 @@ export function LoginForm() {
           disabled={isLoading}
         />
       </div>
-      <Button type="submit" className="w-full" disabled={isLoading}>
+      <Button type="submit" className="w-full button-pulse" disabled={isLoading}>
         {isLoading ? <Loader2 className="animate-spin" /> : 'Sign In'}
       </Button>
     </form>
