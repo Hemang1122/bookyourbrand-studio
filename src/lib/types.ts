@@ -35,6 +35,15 @@ export type Project = {
 
 export type TaskStatus = 'Pending' | 'In Progress' | 'Completed';
 
+export type TaskRemark = {
+  userId: string;
+  userName: string;
+  remark: string;
+  timestamp: string;
+  fromStatus: TaskStatus;
+  toStatus: TaskStatus;
+};
+
 export type Task = {
   id: string;
   projectId: string;
@@ -43,6 +52,7 @@ export type Task = {
   assignedTo: User;
   status: TaskStatus;
   dueDate: string;
+  remarks?: TaskRemark[];
 };
 
 export type ChatMessage = {
@@ -66,4 +76,12 @@ export type ProjectFile = {
   uploadedAt: FieldValue | Date;
   size?: string;
   type?: string;
+};
+
+export type ScrumUpdate = {
+  id: string;
+  userId: string;
+  yesterday: string;
+  today: string;
+  timestamp: string;
 };
