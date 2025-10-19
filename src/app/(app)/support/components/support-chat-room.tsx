@@ -12,13 +12,21 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/lib/auth-client';
 import { useFirestore, useCollection } from '@/firebase';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, serverTimestamp, query, orderBy, where, or } from 'firebase/firestore';
+import { collection, serverTimestamp, query, orderBy, where, or, CollectionReference } from 'firebase/firestore';
 import { AddChatAttachmentDialog } from '../../projects/[id]/components/add-chat-attachment-dialog';
 import { useData } from '../../data-provider';
 
 type SupportChatRoomProps = {
   chatPartnerId: string;
 };
+
+function getMessageCollectionRef(firestore: any, userId: string, chatPartnerId: string): CollectionReference | null {
+    if (!firestore) return null;
+    // Create a consistent, bidirectional chat ID
+    const chatId = [userId, chatPartnerId].sort().join('_');
+    return collection(firestore, 'supportChats', chatId, 'messages');
+}
+
 
 export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
@@ -30,35 +38,17 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
   const chatPartner = useMemo(() => users.find(u => u.id === chatPartnerId), [users, chatPartnerId]);
 
   const messagesRef = useMemo(() => {
-    if (!firestore) return null;
-    // We'll create a dedicated collection for support chats
-    return collection(firestore, 'supportChats');
-  }, [firestore]);
+    if (!firestore || !currentUser) return null;
+    return getMessageCollectionRef(firestore, currentUser.id, chatPartnerId);
+  }, [firestore, currentUser, chatPartnerId]);
+
 
   const messagesQuery = useMemo(() => {
-    if (!messagesRef || !currentUser) return null;
-    // This query fetches messages where the current user is either the sender or receiver,
-    // and the other party is the chat partner. This defines a private chat room.
-    return query(
-        messagesRef,
-        or(
-            where('senderId', '==', currentUser.id),
-            where('receiverId', '==', currentUser.id)
-        ),
-        orderBy('timestamp', 'asc')
-    );
-  }, [messagesRef, currentUser]);
+    if (!messagesRef) return null;
+    return query(messagesRef, orderBy('timestamp', 'asc'));
+  }, [messagesRef]);
   
-  const { data: rawMessages, isLoading } = useCollection<ChatMessage>(messagesQuery);
-
-  // Further filter messages client-side to ensure it's only between the two partners
-  const messages = useMemo(() => {
-    if (!rawMessages) return [];
-    return rawMessages.filter(msg => 
-        (msg.senderId === currentUser?.id && msg.receiverId === chatPartnerId) || 
-        (msg.senderId === chatPartnerId && msg.receiverId === currentUser?.id)
-    );
-  }, [rawMessages, currentUser, chatPartnerId]);
+  const { data: messages, isLoading } = useCollection<ChatMessage>(messagesQuery);
 
 
   useEffect(() => {
@@ -73,8 +63,10 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
 
 
   const sendMessage = (message: string, fileUrl?: string) => {
-     if (!currentUser || !messagesRef) return;
+     if (!currentUser || !firestore) return;
      
+     // We need to write the message to both users' collections so they both see it in real-time.
+     // This is a common pattern for 1-on-1 chats in Firestore.
      const messagePayload: any = {
       senderId: currentUser.id,
       senderName: currentUser.name,
@@ -85,7 +77,19 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
       fileUrl: fileUrl || null,
     };
     
-    addDocumentNonBlocking(messagesRef, messagePayload);
+    // Get refs for both sides of the conversation
+    const userMessagesRef = getMessageCollectionRef(firestore, currentUser.id, chatPartnerId);
+    const partnerMessagesRef = getMessageCollectionRef(firestore, chatPartnerId, currentUser.id);
+
+    if (userMessagesRef) {
+        addDocumentNonBlocking(userMessagesRef, messagePayload);
+    }
+    // To ensure the other user gets the message in their view, we must also write it there.
+    // In a real-world scenario with proper rules, we'd use a Cloud Function to mirror the message
+    // to avoid letting clients write to other users' paths. For this prototype, we'll write directly.
+    if (partnerMessagesRef && partnerMessagesRef.path !== userMessagesRef?.path) {
+       addDocumentNonBlocking(partnerMessagesRef, messagePayload);
+    }
   }
 
 
