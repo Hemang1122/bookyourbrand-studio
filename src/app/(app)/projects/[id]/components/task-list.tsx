@@ -33,13 +33,13 @@ import {
 import { format } from 'date-fns';
 import { AddManualTaskDialog } from './add-manual-task-dialog';
 
-type TaskListProps = {
-  projectId: string;
+type TaskCardProps = {
+  task: Task;
+  onStatusUpdate: (task: Task) => void;
 };
 
-const TaskCard = ({ task }: { task: Task }) => {
+const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
   const { user } = useAuth();
-  const [isStatusUpdateOpen, setIsStatusUpdateOpen] = useState(false);
   const userAvatar = PlaceHolderImages.find(img => img.id === task.assignedTo.avatar);
 
   const canUpdateStatus = (user?.role === 'admin' || (user?.role === 'team' && user.id === task.assignedTo.id));
@@ -49,7 +49,6 @@ const TaskCard = ({ task }: { task: Task }) => {
   const nextActionIcon = task.status === 'Pending' ? <Play className="mr-2 h-4 w-4" /> : <CheckCircle className="mr-2 h-4 w-4" />;
   
   return (
-    <>
       <Card className="bg-background">
         <CardHeader className="p-4 flex flex-row items-start justify-between">
           <CardTitle className="text-base">{task.title}</CardTitle>
@@ -94,7 +93,7 @@ const TaskCard = ({ task }: { task: Task }) => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     <DropdownMenuItem
-                      onSelect={() => setIsStatusUpdateOpen(true)}
+                      onSelect={() => onStatusUpdate(task)}
                       className="cursor-pointer"
                     >
                       {nextActionIcon}
@@ -122,15 +121,6 @@ const TaskCard = ({ task }: { task: Task }) => {
           </TooltipProvider>
         </CardContent>
       </Card>
-      {nextStatus && (
-        <UpdateTaskStatusDialog 
-          task={task} 
-          newStatus={nextStatus}
-          open={isStatusUpdateOpen}
-          onOpenChange={setIsStatusUpdateOpen}
-        />
-      )}
-    </>
   );
 };
 
@@ -138,6 +128,9 @@ const TaskCard = ({ task }: { task: Task }) => {
 export function TaskList({ projectId }: TaskListProps) {
   const { tasks, addTask } = useData();
   const { user } = useAuth();
+  const [isStatusUpdateOpen, setIsStatusUpdateOpen] = useState(false);
+  const [currentTask, setCurrentTask] = useState<Task | null>(null);
+
   const projectTasks = tasks.filter((t) => t.projectId === projectId);
 
   const columns = {
@@ -146,41 +139,60 @@ export function TaskList({ projectId }: TaskListProps) {
     Completed: projectTasks.filter((t) => t.status === 'Completed'),
   };
 
+  const handleStatusUpdateClick = (task: Task) => {
+    setCurrentTask(task);
+    setIsStatusUpdateOpen(true);
+  };
+  
+  const nextStatus = currentTask?.status === 'Pending' ? 'In Progress' : currentTask?.status === 'In Progress' ? 'Completed' : null;
+
   return (
-    <div className="space-y-4">
-       {(user?.role === 'admin' || user?.role === 'team') && (
-        <div className="flex justify-end gap-2">
-            <AddManualTaskDialog projectId={projectId} onTaskAdd={addTask}>
-              <Button variant="outline">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Task
-              </Button>
-            </AddManualTaskDialog>
-            <AddTaskDialog projectId={projectId} onTaskAdd={addTask}>
-                <Button>
-                <Wand2 className="mr-2 h-4 w-4" />
-                Generate with AI
+    <>
+      <div className="space-y-4">
+        {(user?.role === 'admin' || user?.role === 'team') && (
+          <div className="flex justify-end gap-2">
+              <AddManualTaskDialog projectId={projectId} onTaskAdd={addTask}>
+                <Button variant="outline">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Task
                 </Button>
-            </AddTaskDialog>
-        </div>
-      )}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        {(Object.keys(columns) as Array<keyof typeof columns>).map((status) => (
-          <div key={status} className="flex flex-col gap-4">
-            <h3 className="text-lg font-semibold tracking-tight">
-              {status} <span className="text-sm text-muted-foreground">({columns[status].length})</span>
-            </h3>
-            <div className="flex flex-col gap-4 rounded-lg bg-muted/50 p-4 min-h-[200px]">
-              {columns[status].map((task) => <TaskCard key={task.id} task={task} />)}
-              {columns[status].length === 0 && (
-                <div className="text-center text-sm text-muted-foreground py-8">
-                  No tasks in this stage.
-                </div>
-              )}
-            </div>
+              </AddManualTaskDialog>
+              <AddTaskDialog projectId={projectId} onTaskAdd={addTask}>
+                  <Button>
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  Generate with AI
+                  </Button>
+              </AddTaskDialog>
           </div>
-        ))}
+        )}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          {(Object.keys(columns) as Array<keyof typeof columns>).map((status) => (
+            <div key={status} className="flex flex-col gap-4">
+              <h3 className="text-lg font-semibold tracking-tight">
+                {status} <span className="text-sm text-muted-foreground">({columns[status].length})</span>
+              </h3>
+              <div className="flex flex-col gap-4 rounded-lg bg-muted/50 p-4 min-h-[200px]">
+                {columns[status].map((task) => <TaskCard key={task.id} task={task} onStatusUpdate={handleStatusUpdateClick} />)}
+                {columns[status].length === 0 && (
+                  <div className="text-center text-sm text-muted-foreground py-8">
+                    No tasks in this stage.
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+       {currentTask && nextStatus && (
+        <UpdateTaskStatusDialog 
+          task={currentTask} 
+          newStatus={nextStatus}
+          open={isStatusUpdateOpen}
+          onOpenChange={setIsStatusUpdateOpen}
+        />
+      )}
+    </>
   );
 }
+
+    
