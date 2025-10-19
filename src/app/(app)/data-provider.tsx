@@ -73,29 +73,32 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       return projectsCollection;
     }
     if (currentUser.role === 'client') {
-      const clientRecord = clients.find(c => c.email === currentUser.email);
-      if (!clientRecord) return null; // Wait until client data is loaded
-      return query(projectsCollection, where('client.id', '==', clientRecord.id));
+      return query(projectsCollection, where('client.email', '==', currentUser.email));
     }
-    // For team members, we'll have to filter client-side for now
-    // A more robust solution would involve a 'teamMembers' array in the project document.
+    // For team members, we filter projects where their ID is in the 'team' array.
+    // Firestore requires that the value in the 'array-contains' clause is a whole object
+    // if the array contains objects, which is not ideal here.
+    // A better data model would be to have an array of team member IDs.
+    // For now, we fetch all and filter on the client.
+     if (currentUser.role === 'team') {
+      return query(projectsCollection, where('team', 'array-contains', currentUser.id));
+    }
     return projectsCollection;
-  }, [firestore, currentUser, clients]);
+  }, [firestore, currentUser]);
 
   const { data: firestoreProjects, isLoading: isLoadingProjects } = useCollection<Project>(projectsQuery);
 
-  const allTasksCollection = useMemoFirebase(() => {
+   const allTasksCollection = useMemoFirebase(() => {
       if (!firestore || !currentUser) return null;
       // Admin can see all tasks.
       if (currentUser.role === 'admin') {
         return collection(firestore, 'tasks');
       }
-      // For clients and team members, we don't fetch all tasks directly.
-      // They are loaded with the projects.
       return null;
   }, [firestore, currentUser]);
 
   const { data: firestoreTasks, isLoading: isLoadingTasks } = useCollection<Task>(allTasksCollection);
+
 
   useEffect(() => {
     if (firestoreProjects) {
@@ -124,7 +127,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       coverImage: `project-${Math.ceil(Math.random() * 3)}`,
     };
     addDocumentNonBlocking(collection(firestore, 'projects'), newProject);
-    // Local state will be updated by the firestore listener
+    // Optimistically update the local state to avoid race conditions on navigation
+    setProjects(prev => [...prev, newProject]);
     addNotification(`New project "${projectData.name}" was created.`, 'general');
   };
 
@@ -328,5 +332,7 @@ export function useData() {
   }
   return context;
 }
+
+    
 
     
