@@ -34,7 +34,8 @@ export function LoginForm() {
         // We're not checking the password for this mock.
         if(user) {
             // In a real app, you'd set a session cookie here.
-            // For now, we just redirect. The app layout will find the mock user.
+            // For this mock, we'll use sessionStorage to persist the logged-in user's ID.
+            sessionStorage.setItem('mockUserId', user.id);
             router.push(from);
         } else {
              setError('Invalid email or password. Please check your credentials.');

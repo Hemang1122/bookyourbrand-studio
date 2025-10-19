@@ -25,6 +25,8 @@ export function UserNavClient({ user }: { user: User }) {
 
   const handleLogout = () => {
     // In a real app, this would clear the session.
+    // For this mock, we clear sessionStorage.
+    sessionStorage.removeItem('mockUserId');
     router.push('/login');
   };
   
