@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { FolderKanban, Clock, CheckCircle2, Plus, MessageSquare } from 'lucide-react';
+import { FolderKanban, Clock, CheckCircle2, Plus, ClipboardList } from 'lucide-react';
 import type { Project, User } from '@/lib/types';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -89,14 +89,14 @@ export function ClientDashboard() {
         </Card>
          <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Support</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Daily Scrum</CardTitle>
+            <ClipboardList className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground mb-2">Have a question? Reach out to us directly.</p>
+            <p className="text-xs text-muted-foreground mb-2">Submit your daily update, questions, or blockers.</p>
             <Button className="w-full" asChild>
-                <Link href="/support">
-                    <MessageSquare className="mr-2 h-4 w-4" /> Chat with Admin
+                <Link href="/scrum">
+                    <ClipboardList className="mr-2 h-4 w-4" /> Go to Scrum Sheet
                 </Link>
             </Button>
           </CardContent>
