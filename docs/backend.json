@@ -4,7 +4,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents a user within the BookYourBrands CRM.",
+      "description": "Represents a user within the BookYourBrands CRM system.",
       "properties": {
         "id": {
           "type": "string",
@@ -12,21 +12,20 @@
         },
         "name": {
           "type": "string",
-          "description": "User's full name."
+          "description": "The user's full name."
         },
         "role": {
           "type": "string",
-          "description": "User's role (admin, team, client)."
+          "description": "The user's role within the system (admin, team, client)."
         },
         "email": {
           "type": "string",
-          "description": "User's email address.",
+          "description": "The user's email address.",
           "format": "email"
         },
         "profilePic": {
           "type": "string",
-          "description": "URL of the user's profile picture.",
-          "format": "uri"
+          "description": "URL to the user's profile picture."
         }
       },
       "required": [
@@ -48,20 +47,20 @@
         },
         "clientId": {
           "type": "string",
-          "description": "Reference to Client. (Relationship: Client 1:N Project)"
+          "description": "Reference to the Client associated with this project. (Relationship: Client 1:N Project)"
         },
         "projectName": {
           "type": "string",
-          "description": "Name of the project."
+          "description": "The name of the project."
         },
         "createdAt": {
           "type": "string",
-          "description": "Timestamp when the project was created.",
+          "description": "Timestamp indicating when the project was created.",
           "format": "date-time"
         },
         "status": {
           "type": "string",
-          "description": "Current status of the project (e.g., active, completed)."
+          "description": "The current status of the project."
         }
       },
       "required": [
@@ -84,38 +83,38 @@
         },
         "projectId": {
           "type": "string",
-          "description": "Reference to Project. (Relationship: Project 1:N Task)"
+          "description": "Reference to the Project this task belongs to. (Relationship: Project 1:N Task)"
         },
         "assignedTo": {
           "type": "string",
-          "description": "Reference to User (Team Member). (Relationship: User 1:N Task)"
-        },
-        "title": {
-          "type": "string",
-          "description": "Title of the task."
+          "description": "Reference to the User assigned to this task. (Relationship: User 1:N Task)"
         },
         "description": {
           "type": "string",
-          "description": "Description of the task."
+          "description": "A description of the task."
         },
         "dueDate": {
           "type": "string",
-          "description": "Due date for the task.",
+          "description": "The due date for the task.",
           "format": "date-time"
         },
         "status": {
           "type": "string",
-          "description": "Current status of the task (pending, in progress, completed)."
+          "description": "The current status of the task (Pending, In Progress, Completed)."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the task."
         }
       },
       "required": [
         "id",
         "projectId",
         "assignedTo",
-        "title",
         "description",
         "dueDate",
-        "status"
+        "status",
+        "title"
       ]
     },
     "Chat": {
@@ -126,23 +125,18 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the chat."
-        },
-        "projectId": {
-          "type": "string",
-          "description": "Reference to Project. (Relationship: Project 1:1 Chat)"
+          "description": "Unique identifier for the chat (matches projectId)."
         }
       },
       "required": [
-        "id",
-        "projectId"
+        "id"
       ]
     },
     "Message": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Message",
       "type": "object",
-      "description": "Represents a message within a chat room.",
+      "description": "Represents a message within a chat.",
       "properties": {
         "id": {
           "type": "string",
@@ -150,25 +144,24 @@
         },
         "chatId": {
           "type": "string",
-          "description": "Reference to Chat. (Relationship: Chat 1:N Message)"
+          "description": "Reference to the Chat this message belongs to. (Relationship: Chat 1:N Message)"
         },
         "senderId": {
           "type": "string",
-          "description": "Reference to User who sent the message."
+          "description": "Reference to the User who sent the message. (Relationship: User 1:N Message)"
         },
         "text": {
           "type": "string",
-          "description": "Text content of the message."
+          "description": "The text content of the message."
         },
         "timestamp": {
           "type": "string",
-          "description": "Timestamp when the message was sent.",
+          "description": "Timestamp indicating when the message was sent.",
           "format": "date-time"
         },
         "fileURL": {
           "type": "string",
-          "description": "URL of the file attached to the message (if any).",
-          "format": "uri"
+          "description": "URL to a file attached to the message (if any)."
         }
       },
       "required": [
@@ -183,7 +176,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "File",
       "type": "object",
-      "description": "Represents a file uploaded within a project.",
+      "description": "Represents a file uploaded to the system.",
       "properties": {
         "id": {
           "type": "string",
@@ -191,20 +184,19 @@
         },
         "projectId": {
           "type": "string",
-          "description": "Reference to Project. (Relationship: Project 1:N File)"
+          "description": "Reference to the Project this file is associated with. (Relationship: Project 1:N File)"
         },
         "uploadedBy": {
           "type": "string",
-          "description": "Reference to User who uploaded the file."
+          "description": "Reference to the User who uploaded the file. (Relationship: User 1:N File)"
         },
         "fileType": {
           "type": "string",
-          "description": "Type of the file (e.g., video, document)."
+          "description": "The type of the file."
         },
         "fileURL": {
           "type": "string",
-          "description": "URL of the file stored in Firebase Storage.",
-          "format": "uri"
+          "description": "URL to the file in Firebase Storage."
         }
       },
       "required": [
@@ -231,124 +223,100 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores user data. User ID is used for path-based ownership.",
+          "description": "Stores user data including role (admin, team, client).",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier for the user."
+              "description": "The unique identifier of the user."
             }
           ]
         }
       },
       {
-        "path": "/clients/{clientId}/projects/{projectId}",
+        "path": "/projects/{projectId}",
         "definition": {
           "entityName": "Project",
           "schema": {
             "$ref": "#/backend/entities/Project"
           },
-          "description": "Stores project data, nested under the client.  This enables path-based rules that associate projects to the client.",
+          "description": "Stores project data. Includes denormalized 'clientId' for authorization independence and a 'members' map containing user roles for the project (admin, team, client).",
           "params": [
             {
-              "name": "clientId",
-              "description": "The unique identifier for the client."
-            },
-            {
               "name": "projectId",
-              "description": "The unique identifier for the project."
+              "description": "The unique identifier of the project."
             }
           ]
         }
       },
       {
-        "path": "/clients/{clientId}/projects/{projectId}/tasks/{taskId}",
+        "path": "/tasks/{taskId}",
         "definition": {
           "entityName": "Task",
           "schema": {
             "$ref": "#/backend/entities/Task"
           },
-          "description": "Stores task data, nested under the project.  This enables path-based rules that associate tasks to the project and client.",
+          "description": "Stores task data. Includes denormalized 'projectId' and 'assignedTo' for authorization independence.",
           "params": [
-            {
-              "name": "clientId",
-              "description": "The unique identifier for the client."
-            },
-            {
-              "name": "projectId",
-              "description": "The unique identifier for the project."
-            },
             {
               "name": "taskId",
-              "description": "The unique identifier for the task."
+              "description": "The unique identifier of the task."
             }
           ]
         }
       },
       {
-        "path": "/projects/{projectId}/chats/{chatId}/messages/{messageId}",
+        "path": "/chats/{chatId}",
         "definition": {
-          "entityName": "Message",
+          "entityName": "Chat",
           "schema": {
-            "$ref": "#/backend/entities/Message"
+            "$ref": "#/backend/entities/Chat"
           },
-          "description": "Stores messages within a specific project chat.",
-          "params": [
-            {
-              "name": "projectId",
-              "description": "The unique identifier for the project."
-            },
-            {
-              "name": "chatId",
-              "description": "The unique identifier for the chat."
-            },
-            {
-              "name": "messageId",
-              "description": "The unique identifier for the message."
-            }
-          ]
-        }
-      },
-       {
-        "path": "/supportChats/{chatId}/messages/{messageId}",
-        "definition": {
-          "entityName": "Message",
-          "schema": {
-            "$ref": "#/backend/entities/Message"
-          },
-          "description": "Stores messages within a specific support chat.",
+          "description": "Stores chat room data. The 'chatId' matches the 'projectId'.",
           "params": [
             {
               "name": "chatId",
-              "description": "A composite key of `userId1_userId2`."
-            },
-            {
-              "name": "messageId",
-              "description": "The unique identifier for the message."
+              "description": "The unique identifier of the chat (project ID)."
             }
           ]
         }
       },
       {
-        "path": "/projects/{projectId}/files/{fileId}",
+        "path": "/chats/{chatId}/messages/{messageId}",
+        "definition": {
+          "entityName": "Message",
+          "schema": {
+            "$ref": "#/backend/entities/Message"
+          },
+          "description": "Stores messages within a chat room. Includes denormalized 'chatId' and 'senderId'.",
+          "params": [
+            {
+              "name": "chatId",
+              "description": "The unique identifier of the chat (project ID)."
+            },
+            {
+              "name": "messageId",
+              "description": "The unique identifier of the message."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/files/{fileId}",
         "definition": {
           "entityName": "File",
           "schema": {
             "$ref": "#/backend/entities/File"
           },
-          "description": "Stores file metadata associated with a project.",
+          "description": "Stores file metadata. Includes denormalized 'projectId' and 'uploadedBy'.",
           "params": [
             {
-              "name": "projectId",
-              "description": "The unique identifier for the project."
-            },
-            {
               "name": "fileId",
-              "description": "The unique identifier for the file."
+              "description": "The unique identifier of the file."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability. User data is stored in `/users/{userId}`. Projects are stored under their respective clients to establish ownership. Tasks are nested under projects. Project chats are stored in a dedicated subcollection under each project. Direct support chats are stored in a top-level `supportChats` collection, where the document ID is a composite of the two users' IDs, ensuring a unique chat room for each pair. This design allows for secure list operations and avoids `get()` calls in security rules by using path-based access control."
+    "reasoning": "The Firestore structure is designed to ensure security, scalability, and ease of debugging, following the principles of Authorization Independence, Clarity of Intent, and DBAC. It leverages denormalization and structural segregation to simplify security rules and enable secure list operations. The design addresses the user's requirement for role-based access (admin, team, client) and management of clients, projects, tasks, chats, and files.\n\nAuthorization Independence:\nAuthorization context is denormalized to avoid `get()` calls in security rules. For example, the `Project` collection includes the `members` map, denormalizing team and client roles. Tasks include the projectId. This ensures that authorization checks do not rely on fetching parent document data, which would break atomic operations.\n\nStructural Segregation:\nData with different access requirements are segregated into distinct collections. User data, project data, task data and chat messages are each stored in different collections to allow for simple security rules.\n\nQAPs (Rules are not Filters):\nThe structure supports secure `list` operations by ensuring each collection has a homogeneous security posture. The project's `members` map allows secure listing of projects accessible to a user, as membership data is directly available within each project document.\n\nAccess Modeling:\nPath-Based ownership is used for entities representing a User 1:N relationship (e.g. Projects, Tasks, Messages). Collaborative data relies on the Membership Map (`members: {uid1: \"role\", uid2: \"role\"}`)."
   }
 }
