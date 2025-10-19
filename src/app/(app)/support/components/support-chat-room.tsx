@@ -29,10 +29,10 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
 
   const chatPartner = useMemo(() => users.find(u => u.id === chatPartnerId), [users, chatPartnerId]);
 
-  // CORRECTED: The path now correctly uses the CURRENT user's ID for the query,
-  // ensuring we only ever try to read from a location the user has access to.
   const messagesCollectionRef = useMemo(() => {
     if (!firestore || !currentUser) return null;
+    // CORRECTED: The path now correctly uses the CURRENT user's ID for the query,
+    // ensuring we only ever try to read from a location the user has access to.
     return collection(firestore, 'users', currentUser.id, 'chats', chatPartnerId, 'messages');
   }, [firestore, currentUser, chatPartnerId]);
 
