@@ -14,6 +14,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
+import { File, Upload } from 'lucide-react';
 
 type AddTeamMemberDialogProps = {
   onTeamMemberAdd: (name: string, email: string) => void;
@@ -24,10 +25,16 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [aadharLink, setAadharLink] = useState('');
-  const [panLink, setPanLink] = useState('');
-  const [joiningLetterLink, setJoiningLetterLink] = useState('');
+  const [aadharFile, setAadharFile] = useState<File | null>(null);
+  const [panFile, setPanFile] = useState<File | null>(null);
+  const [joiningLetterFile, setJoiningLetterFile] = useState<File | null>(null);
   const { toast } = useToast();
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setFile: React.Dispatch<React.SetStateAction<File | null>>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setFile(e.target.files[0]);
+    }
+  };
 
   const handleAddMember = () => {
     if (!name || !email) {
@@ -35,14 +42,22 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
       return;
     }
     
+    // In a real app, you would upload the files here.
+    // For now, we just pass the names.
+    console.log({
+      aadharFile: aadharFile?.name,
+      panFile: panFile?.name,
+      joiningLetterFile: joiningLetterFile?.name,
+    });
+
     onTeamMemberAdd(name, email);
     setOpen(false);
     // Reset fields
     setName('');
     setEmail('');
-    setAadharLink('');
-    setPanLink('');
-    setJoiningLetterLink('');
+    setAadharFile(null);
+    setPanFile(null);
+    setJoiningLetterFile(null);
   };
 
   return (
@@ -62,18 +77,46 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g., john.d@example.com" />
           </div>
+          
           <div className="space-y-2">
-            <Label htmlFor="aadhar">Aadhar Card Link</Label>
-            <Input id="aadhar" value={aadharLink} onChange={e => setAadharLink(e.target.value)} placeholder="https://link.to/aadhar.pdf" />
+            <Label>Aadhar Card</Label>
+            <div className="flex items-center gap-2">
+                <Button asChild variant="outline">
+                    <label htmlFor="aadhar-upload" className="cursor-pointer">
+                        <Upload className="mr-2 h-4 w-4" /> Upload File
+                    </label>
+                </Button>
+                <Input id="aadhar-upload" type="file" className="hidden" onChange={e => handleFileChange(e, setAadharFile)} />
+                {aadharFile && <span className="text-sm text-muted-foreground truncate">{aadharFile.name}</span>}
+            </div>
           </div>
+          
           <div className="space-y-2">
-            <Label htmlFor="pan">PAN Card Link</Label>
-            <Input id="pan" value={panLink} onChange={e => setPanLink(e.target.value)} placeholder="https://link.to/pan.pdf" />
+            <Label>PAN Card</Label>
+            <div className="flex items-center gap-2">
+                <Button asChild variant="outline">
+                    <label htmlFor="pan-upload" className="cursor-pointer">
+                        <Upload className="mr-2 h-4 w-4" /> Upload File
+                    </label>
+                </Button>
+                <Input id="pan-upload" type="file" className="hidden" onChange={e => handleFileChange(e, setPanFile)} />
+                {panFile && <span className="text-sm text-muted-foreground truncate">{panFile.name}</span>}
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="joining-letter">Joining Letter Link</Label>
-            <Input id="joining-letter" value={joiningLetterLink} onChange={e => setJoiningLetterLink(e.target.value)} placeholder="https://link.to/letter.pdf" />
+
+           <div className="space-y-2">
+            <Label>Joining Letter</Label>
+            <div className="flex items-center gap-2">
+                <Button asChild variant="outline">
+                    <label htmlFor="joining-letter-upload" className="cursor-pointer">
+                        <Upload className="mr-2 h-4 w-4" /> Upload File
+                    </label>
+                </Button>
+                <Input id="joining-letter-upload" type="file" className="hidden" onChange={e => handleFileChange(e, setJoiningLetterFile)} />
+                {joiningLetterFile && <span className="text-sm text-muted-foreground truncate">{joiningLetterFile.name}</span>}
+            </div>
           </div>
+
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

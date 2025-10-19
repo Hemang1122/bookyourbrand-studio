@@ -13,7 +13,7 @@ import {
 import { Label } from '@/components/ui/label';
 import type { Client } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
-import { FileText } from 'lucide-react';
+import { FileText, Download } from 'lucide-react';
 
 type ViewClientDetailsDialogProps = {
   client: Client;
@@ -22,6 +22,11 @@ type ViewClientDetailsDialogProps = {
 
 export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsDialogProps) {
   const [open, setOpen] = useState(false);
+
+  // This is a mock download handler. In a real app, this would trigger a download.
+  const handleDownload = (fileName: string) => {
+    alert(`Downloading ${fileName}... (simulation)`);
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -61,14 +66,18 @@ export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsD
                         <FileText className="h-5 w-5 text-muted-foreground" />
                         <span className="font-medium text-sm">client_agreement.pdf</span>
                     </div>
-                    <Button variant="outline" size="sm">View</Button>
+                    <Button variant="outline" size="sm" onClick={() => handleDownload('client_agreement.pdf')}>
+                        <Download className="mr-2 h-4 w-4" /> Download
+                    </Button>
                 </div>
                  <div className="flex items-center justify-between rounded-lg border p-3">
                     <div className="flex items-center gap-2">
                         <FileText className="h-5 w-5 text-muted-foreground" />
                         <span className="font-medium text-sm">founder_id_card.pdf</span>
                     </div>
-                    <Button variant="outline" size="sm">View</Button>
+                    <Button variant="outline" size="sm" onClick={() => handleDownload('founder_id_card.pdf')}>
+                        <Download className="mr-2 h-4 w-4" /> Download
+                    </Button>
                 </div>
             </div>
           </div>
