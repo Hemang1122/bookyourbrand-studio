@@ -2,7 +2,7 @@
 'use client';
 
 import { createContext, useContext, useState, useMemo } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, Notification, ProjectStatus } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, Notification, ProjectStatus, TaskRemark } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-client';
@@ -278,5 +278,3 @@ export function useData() {
   }
   return context;
 }
-
-    

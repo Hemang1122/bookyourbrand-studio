@@ -63,10 +63,10 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
       let idCardUrl: string | undefined;
 
       if (agreementFile) {
-        agreementUrl = await uploadFile(agreementFile, `documents/clients/${name}`, setUploadProgress);
+        agreementUrl = await uploadFile(agreementFile, `documents/clients/${name}`, (p) => setUploadProgress(p * 0.5));
       }
       if (idCardFile) {
-        idCardUrl = await uploadFile(idCardFile, `documents/clients/${name}`, setUploadProgress);
+        idCardUrl = await uploadFile(idCardFile, `documents/clients/${name}`, (p) => setUploadProgress(50 + p * 0.5));
       }
 
       onClientAdd({ name, company, email, founderDetails, agreementUrl, idCardUrl });

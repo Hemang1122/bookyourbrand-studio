@@ -59,16 +59,17 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
       let aadharUrl, panUrl, joiningLetterUrl;
 
       if (aadharFile) {
-        aadharUrl = await uploadFile(aadharFile, `documents/team/${name}`, setUploadProgress);
+        aadharUrl = await uploadFile(aadharFile, `documents/team/${name}`, p => setUploadProgress(p * (1/3)));
       }
       if (panFile) {
-        panUrl = await uploadFile(panFile, `documents/team/${name}`, setUploadProgress);
+        panUrl = await uploadFile(panFile, `documents/team/${name}`, p => setUploadProgress(33.3 + p * (1/3)));
       }
       if (joiningLetterFile) {
-        joiningLetterUrl = await uploadFile(joiningLetterFile, `documents/team/${name}`, setUploadProgress);
+        joiningLetterUrl = await uploadFile(joiningLetterFile, `documents/team/${name}`, p => setUploadProgress(66.6 + p * (1/3)));
       }
 
       onTeamMemberAdd({ name, email, aadharUrl, panUrl, joiningLetterUrl });
+      toast({ title: 'Team Member Added', description: `"${name}" has been added.` });
       
       setOpen(false);
       // Reset fields

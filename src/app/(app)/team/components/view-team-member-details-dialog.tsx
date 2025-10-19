@@ -46,6 +46,7 @@ export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMe
 
       toast({ title: 'Upload Successful', description: `${type} document uploaded.` });
     } catch (error) {
+      console.error(error);
       toast({ title: 'Upload Failed', description: `Could not upload ${type} document.`, variant: 'destructive' });
     } finally {
       setIsUploading(null);

@@ -45,6 +45,7 @@ export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsD
 
       toast({ title: 'Upload Successful', description: `${type} document uploaded.` });
     } catch (error) {
+      console.error(error);
       toast({ title: 'Upload Failed', description: `Could not upload ${type} document.`, variant: 'destructive' });
     } finally {
       setIsUploading(null);
