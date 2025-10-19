@@ -11,8 +11,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import type { User } from '@/lib/types';
-import { FileText, Download } from 'lucide-react';
+import { FileText, Download, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 type ViewTeamMemberDetailsDialogProps = {
   teamMember: User;
@@ -26,6 +27,11 @@ export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMe
   const handleDownload = (fileName: string) => {
     alert(`Downloading ${fileName}... (simulation)`);
   };
+
+  const handleUpload = (fileType: string) => {
+    alert(`Uploading ${fileType}... (simulation)`);
+  }
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -56,27 +62,54 @@ export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMe
                         <FileText className="h-5 w-5 text-muted-foreground" />
                         <span className="font-medium text-sm">aadhar_card.pdf</span>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => handleDownload('aadhar_card.pdf')}>
-                        <Download className="mr-2 h-4 w-4" /> Download
-                    </Button>
+                     {teamMember.aadharUrl ? (
+                        <Button variant="outline" size="sm" onClick={() => handleDownload('aadhar_card.pdf')}>
+                            <Download className="mr-2 h-4 w-4" /> Download
+                        </Button>
+                     ) : (
+                         <Button asChild variant="secondary" size="sm">
+                            <label htmlFor="aadhar-upload-view" className="cursor-pointer">
+                                <Upload className="mr-2 h-4 w-4" /> Upload File
+                                <Input id="aadhar-upload-view" type="file" className="hidden" onChange={() => handleUpload('aadhar')} />
+                            </label>
+                        </Button>
+                     )}
                 </div>
                  <div className="flex items-center justify-between rounded-lg border p-3">
                     <div className="flex items-center gap-2">
                         <FileText className="h-5 w-5 text-muted-foreground" />
                         <span className="font-medium text-sm">pan_card.pdf</span>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => handleDownload('pan_card.pdf')}>
-                        <Download className="mr-2 h-4 w-4" /> Download
-                    </Button>
+                    {teamMember.panUrl ? (
+                        <Button variant="outline" size="sm" onClick={() => handleDownload('pan_card.pdf')}>
+                            <Download className="mr-2 h-4 w-4" /> Download
+                        </Button>
+                    ) : (
+                        <Button asChild variant="secondary" size="sm">
+                            <label htmlFor="pan-upload-view" className="cursor-pointer">
+                                <Upload className="mr-2 h-4 w-4" /> Upload File
+                                <Input id="pan-upload-view" type="file" className="hidden" onChange={() => handleUpload('pan')} />
+                            </label>
+                        </Button>
+                    )}
                 </div>
                 <div className="flex items-center justify-between rounded-lg border p-3">
                     <div className="flex items-center gap-2">
                         <FileText className="h-5 w-5 text-muted-foreground" />
                         <span className="font-medium text-sm">joining_letter.pdf</span>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => handleDownload('joining_letter.pdf')}>
-                        <Download className="mr-2 h-4 w-4" /> Download
-                    </Button>
+                    {teamMember.joiningLetterUrl ? (
+                         <Button variant="outline" size="sm" onClick={() => handleDownload('joining_letter.pdf')}>
+                            <Download className="mr-2 h-4 w-4" /> Download
+                        </Button>
+                    ) : (
+                         <Button asChild variant="secondary" size="sm">
+                            <label htmlFor="joining-letter-upload-view" className="cursor-pointer">
+                                <Upload className="mr-2 h-4 w-4" /> Upload File
+                                <Input id="joining-letter-upload-view" type="file" className="hidden" onChange={() => handleUpload('joining-letter')} />
+                            </label>
+                        </Button>
+                    )}
                 </div>
             </div>
           </div>

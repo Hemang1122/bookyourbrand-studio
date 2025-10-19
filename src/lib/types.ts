@@ -9,6 +9,9 @@ export type User = {
   avatar: string; // Corresponds to id in placeholder-images.json
   role: UserRole;
   username: string;
+  aadharUrl?: string;
+  panUrl?: string;
+  joiningLetterUrl?: string;
 };
 
 export type Client = {
@@ -17,6 +20,9 @@ export type Client = {
   email: string;
   company: string;
   avatar: string;
+  founderDetails?: string;
+  agreementUrl?: string;
+  idCardUrl?: string;
 };
 
 export type ProjectStatus = 'Active' | 'On Hold' | 'Completed' | 'In Progress';
