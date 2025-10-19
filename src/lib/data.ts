@@ -6,7 +6,6 @@ import type { User, Client, Project, Task } from './types';
 // To re-seed, you would need a script to populate your Firestore database.
 
 export const users: User[] = [
-  { id: 'user-1', name: 'Alex Johnson', email: 'admin@bookyourbrands.com', avatar: 'avatar-1', role: 'admin', username: 'admin' },
   { id: 'user-10', name: 'Niddhi Sharma', email: 'niddhi@bookyourbrands.com', avatar: 'avatar-2', role: 'admin', username: 'niddhi' },
   { id: 'user-11', name: 'Himmat Singh', email: 'himmat@example.com', avatar: 'avatar-3', role: 'team', username: 'himmat' },
   { id: 'user-12', name: 'VFA Global', email: 'vfa@creative.co', avatar: 'avatar-4', role: 'client', username: 'vfa' },
