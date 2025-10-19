@@ -285,33 +285,13 @@
         }
       },
       {
-        "path": "/projects/{projectId}/chats/{chatId}",
-        "definition": {
-          "entityName": "Chat",
-          "schema": {
-            "$ref": "#/backend/entities/Chat"
-          },
-          "description": "Stores chat data associated with a project.",
-          "params": [
-            {
-              "name": "projectId",
-              "description": "The unique identifier for the project."
-            },
-            {
-              "name": "chatId",
-              "description": "The unique identifier for the chat."
-            }
-          ]
-        }
-      },
-      {
         "path": "/projects/{projectId}/chats/{chatId}/messages/{messageId}",
         "definition": {
           "entityName": "Message",
           "schema": {
             "$ref": "#/backend/entities/Message"
           },
-          "description": "Stores messages within a specific chat.",
+          "description": "Stores messages within a specific project chat.",
           "params": [
             {
               "name": "projectId",
@@ -320,6 +300,26 @@
             {
               "name": "chatId",
               "description": "The unique identifier for the chat."
+            },
+            {
+              "name": "messageId",
+              "description": "The unique identifier for the message."
+            }
+          ]
+        }
+      },
+       {
+        "path": "/supportChats/{chatId}/messages/{messageId}",
+        "definition": {
+          "entityName": "Message",
+          "schema": {
+            "$ref": "#/backend/entities/Message"
+          },
+          "description": "Stores messages within a specific support chat.",
+          "params": [
+            {
+              "name": "chatId",
+              "description": "A composite key of `userId1_userId2`."
             },
             {
               "name": "messageId",
@@ -349,6 +349,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability, adhering to the specified principles. User data is stored in `/users/{userId}`. Projects are stored in `/clients/{clientId}/projects/{projectId}` to establish ownership. Tasks are located under `/clients/{clientId}/projects/{projectId}/tasks/{taskId}`. Chats are in `/projects/{projectId}/chats/{chatId}` and messages in `/projects/{projectId}/chats/{chatId}/messages/{messageId}`. Files are stored under `/projects/{projectId}/files/{fileId}`.  This ensures all file uploads are tied directly to a project and facilitates secure access. This design allows for secure list operations (QAPs) as each collection inherently represents a homogeneous security posture based on the client-project-task relationship. Authorization Independence is achieved by avoiding `get()` calls in security rules, relying instead on the path structure to enforce access control."
+    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability. User data is stored in `/users/{userId}`. Projects are stored under their respective clients to establish ownership. Tasks are nested under projects. Project chats are stored in a dedicated subcollection under each project. Direct support chats are stored in a top-level `supportChats` collection, where the document ID is a composite of the two users' IDs, ensuring a unique chat room for each pair. This design allows for secure list operations and avoids `get()` calls in security rules by using path-based access control."
   }
 }

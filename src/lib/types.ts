@@ -50,10 +50,10 @@ export type ChatMessage = {
   senderId: string;
   senderName?: string; // Made optional as it can be retrieved via senderId
   senderAvatar?: string; // Made optional as it can be retrieved via senderId
-  receiverId: string;
   message: string;
   timestamp: FieldValue;
   fileUrl: string | null;
+  receiverId?: string; // This is optional now
 };
 
 export type ProjectFile = {

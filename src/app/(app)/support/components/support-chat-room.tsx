@@ -11,10 +11,16 @@ import { Send, Paperclip, Link as LinkIcon, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/lib/auth-client';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection, serverTimestamp, query, orderBy, writeBatch, doc } from 'firebase/firestore';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { collection, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { AddChatAttachmentDialog } from '../../projects/[id]/components/add-chat-attachment-dialog';
 import { useData } from '../../data-provider';
 import { CardHeader, CardTitle } from '@/components/ui/card';
+
+
+function getChatId(id1: string, id2: string) {
+  return [id1, id2].sort().join('_');
+}
 
 type SupportChatRoomProps = {
   chatPartnerId: string;
@@ -26,16 +32,20 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
   const firestore = useFirestore();
   const { triggerNotification, users } = useData();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const prevMessagesCount = useRef(0);
 
   const chatPartner = useMemo(() => users.find(u => u.id === chatPartnerId), [users, chatPartnerId]);
+  
+  const chatId = useMemo(() => {
+    if (!currentUser) return null;
+    return getChatId(currentUser.id, chatPartnerId);
+  }, [currentUser, chatPartnerId]);
+
 
   const messagesCollectionRef = useMemo(() => {
-    if (!firestore || !currentUser) return null;
-    // THIS IS THE CRITICAL FIX: The path is now correctly and reliably built
-    // using the CURRENTLY LOGGED IN user's ID. This guarantees we only ever
-    // query a path that the user has permission to read.
-    return collection(firestore, 'users', currentUser.id, 'chats', chatPartnerId, 'messages');
-  }, [firestore, currentUser, chatPartnerId]);
+    if (!firestore || !chatId) return null;
+    return collection(firestore, 'supportChats', chatId, 'messages');
+  }, [firestore, chatId]);
 
   const messagesQuery = useMemo(() => {
     if (!messagesCollectionRef) return null;
@@ -46,7 +56,10 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
   
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+        const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+        if (viewport) {
+            viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+        }
     }
   };
   
@@ -55,43 +68,30 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
   }, [messages]);
 
   useEffect(() => {
-    if (messages && messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage && lastMessage.senderId !== currentUser?.id) {
-          triggerNotification();
-      }
+    if (messages && messages.length > prevMessagesCount.current) {
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage.senderId !== currentUser?.id) {
+            triggerNotification();
+        }
     }
+    prevMessagesCount.current = messages ? messages.length : 0;
   }, [messages, currentUser, triggerNotification]);
 
 
   const sendMessage = async (message: string, fileUrl?: string) => {
-     if (!currentUser || !firestore || (!message.trim() && !fileUrl)) return;
+     if (!currentUser || !messagesCollectionRef || (!message.trim() && !fileUrl)) return;
      
-     const messagePayload: Omit<ChatMessage, 'id'> = {
+     const messagePayload = {
       senderId: currentUser.id,
-      receiverId: chatPartnerId,
+      senderName: currentUser.name,
+      senderAvatar: currentUser.avatar,
       message: message,
       timestamp: serverTimestamp(),
       fileUrl: fileUrl || null,
     };
     
-    // Use a batch write to ensure the message is delivered to both parties atomically.
-    const batch = writeBatch(firestore);
-
-    // 1. Add to the sender's chat collection
-    const senderChatRef = collection(firestore, 'users', currentUser.id, 'chats', chatPartnerId, 'messages');
-    batch.set(doc(senderChatRef), messagePayload);
-    
-    // 2. Add to the receiver's chat collection
-    const receiverChatRef = collection(firestore, 'users', chatPartnerId, 'chats', currentUser.id, 'messages');
-    batch.set(doc(receiverChatRef), messagePayload);
-
-    try {
-        await batch.commit();
-        setNewMessage('');
-    } catch (error) {
-        console.error("Failed to send message:", error);
-    }
+    addDocumentNonBlocking(messagesCollectionRef, messagePayload);
+    setNewMessage('');
   }
 
 
@@ -126,7 +126,7 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
               No messages yet. Send a message to start the conversation!
             </div>
           )}
-          {messages && messages.map((msg, index) => {
+          {messages && messages.map((msg) => {
             const sender = users.find(u => u.id === msg.senderId);
             const userAvatar = PlaceHolderImages.find(img => img.id === sender?.avatar);
             const isCurrentUser = msg.senderId === currentUser.id;
@@ -134,7 +134,7 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
 
             return (
               <div
-                key={index} // Using index as key because IDs might not be unique across batched writes temporarily
+                key={msg.id}
                 className={`flex items-start gap-3 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
               >
                 {!isCurrentUser && (
