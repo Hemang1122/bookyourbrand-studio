@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Task, TaskStatus } from '@/lib/types';
@@ -83,19 +84,22 @@ const TaskCard = ({ task }: { task: Task }) => {
           )}
           {canUpdateStatus && nextStatus && (
             <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                    <UpdateTaskStatusDialog task={task} newStatus={nextStatus}>
-                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                            {nextActionIcon}
-                            <span>{nextActionText}</span>
-                        </DropdownMenuItem>
-                    </UpdateTaskStatusDialog>
-                </DropdownMenuContent>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <UpdateTaskStatusDialog task={task} newStatus={nextStatus}>
+                  <DropdownMenuItem
+                    onSelect={(e) => e.preventDefault()}
+                    className="cursor-pointer"
+                  >
+                    {nextActionIcon}
+                    <span>{nextActionText}</span>
+                  </DropdownMenuItem>
+                </UpdateTaskStatusDialog>
+              </DropdownMenuContent>
             </DropdownMenu>
           )}
         </div>
@@ -133,7 +137,7 @@ export function TaskList({ projectId }: TaskListProps) {
 
   return (
     <div className="space-y-4">
-       {user?.role === 'admin' && (
+       {(user?.role === 'admin' || user?.role === 'team') && (
         <div className="flex justify-end gap-2">
             <AddManualTaskDialog projectId={projectId} onTaskAdd={addTask}>
               <Button variant="outline">
