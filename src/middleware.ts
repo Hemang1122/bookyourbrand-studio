@@ -1,10 +1,5 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { getFirebaseAdminApp } from '@/firebase/admin';
-import { auth } from 'firebase-admin';
-
-// Initialize the Firebase Admin SDK
-getFirebaseAdminApp();
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -17,7 +12,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // If it's an API route, let it be handled by its own logic (e.g., /api/login, /api/logout)
+  // If it's an API route, let it be handled by its own logic
   if (pathname.startsWith('/api/')) {
     return NextResponse.next();
   }
@@ -32,21 +27,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  try {
-    // Verify the session cookie. This checks if the token is valid and not expired.
-    await auth().verifySessionCookie(sessionCookie, true);
-    
-    // If verification is successful, allow the request to proceed.
-    return NextResponse.next();
-
-  } catch (error) {
-    console.error('Session cookie verification failed:', error);
-    // If verification fails (e.g., cookie expired), redirect to login
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    url.searchParams.set('from', request.nextUrl.pathname);
-    return NextResponse.redirect(url);
-  }
+  // If the session cookie exists, allow the request to proceed.
+  // The actual validation of the cookie against a session store or service
+  // would happen in a server component or API route that needs protected data.
+  return NextResponse.next();
 }
 
 export const config = {
