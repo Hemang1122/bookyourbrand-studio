@@ -27,6 +27,8 @@ export function UserNavClient({ user }: { user: User }) {
 
   const handleLogout = async () => {
     await auth.signOut();
+    // After signing out with Firebase, also hit our API route to clear the session cookie
+    await fetch('/api/logout', { method: 'POST' });
     router.push('/login');
   };
   

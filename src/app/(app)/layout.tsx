@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { redirect } from 'next/navigation';
 import AppLayoutClient from './layout-client';
 import { FirebaseClientProvider } from '@/firebase';
-import { useUser } from '@/firebase/provider';
+import { useUser } from '@/firebase';
 import { users } from '@/lib/data';
 import type { User as AppUser } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
@@ -24,12 +24,21 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [firebaseUser, isUserLoading]);
 
-  if (isUserLoading || !appUser) {
+  if (isUserLoading || (firebaseUser && !appUser)) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
+  }
+  
+  if (!appUser) {
+    // This can happen briefly during the transition or if the user is not in our system.
+    return (
+       <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
   }
 
   // Once we have the appUser, we pass it to the AppLayoutClient
