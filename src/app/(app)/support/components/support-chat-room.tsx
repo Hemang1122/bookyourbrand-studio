@@ -12,7 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/lib/auth-client';
 import { useFirestore, useCollection } from '@/firebase';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, serverTimestamp, query, orderBy, where, or, CollectionReference } from 'firebase/firestore';
+import { collection, serverTimestamp, query, orderBy, where, or, CollectionReference, writeBatch, doc } from 'firebase/firestore';
 import { AddChatAttachmentDialog } from '../../projects/[id]/components/add-chat-attachment-dialog';
 import { useData } from '../../data-provider';
 
@@ -20,11 +20,18 @@ type SupportChatRoomProps = {
   chatPartnerId: string;
 };
 
+/**
+ * Gets a reference to the message subcollection for a specific chat conversation.
+ * The path will be `users/{userId}/chats/{chatPartnerId}/messages`.
+ * @param firestore - The Firestore instance.
+ * @param userId - The ID of the user who "owns" this collection.
+ * @param chatPartnerId - The ID of the other user in the conversation.
+ * @returns A CollectionReference or null if Firestore is not available.
+ */
 function getMessageCollectionRef(firestore: any, userId: string, chatPartnerId: string): CollectionReference | null {
     if (!firestore) return null;
-    // Create a consistent, bidirectional chat ID
-    const chatId = [userId, chatPartnerId].sort().join('_');
-    return collection(firestore, 'supportChats', chatId, 'messages');
+    // This creates a path like `users/user-abc/chats/user-xyz/messages`
+    return collection(firestore, 'users', userId, 'chats', chatPartnerId, 'messages');
 }
 
 
@@ -37,6 +44,7 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
 
   const chatPartner = useMemo(() => users.find(u => u.id === chatPartnerId), [users, chatPartnerId]);
 
+  // The query now points to the user's own chat collection.
   const messagesRef = useMemo(() => {
     if (!firestore || !currentUser) return null;
     return getMessageCollectionRef(firestore, currentUser.id, chatPartnerId);
@@ -62,12 +70,10 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
   }, [messages, currentUser, triggerNotification]);
 
 
-  const sendMessage = (message: string, fileUrl?: string) => {
+  const sendMessage = async (message: string, fileUrl?: string) => {
      if (!currentUser || !firestore) return;
      
-     // We need to write the message to both users' collections so they both see it in real-time.
-     // This is a common pattern for 1-on-1 chats in Firestore.
-     const messagePayload: any = {
+     const messagePayload: Omit<ChatMessage, 'id'> = {
       senderId: currentUser.id,
       senderName: currentUser.name,
       senderAvatar: currentUser.avatar,
@@ -77,18 +83,28 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
       fileUrl: fileUrl || null,
     };
     
-    // Get refs for both sides of the conversation
-    const userMessagesRef = getMessageCollectionRef(firestore, currentUser.id, chatPartnerId);
-    const partnerMessagesRef = getMessageCollectionRef(firestore, chatPartnerId, currentUser.id);
+    // Use a batch write to ensure the message is delivered to both parties atomically.
+    const batch = writeBatch(firestore);
 
-    if (userMessagesRef) {
-        addDocumentNonBlocking(userMessagesRef, messagePayload);
+    // 1. Add to the sender's chat collection
+    const senderChatRef = getMessageCollectionRef(firestore, currentUser.id, chatPartnerId);
+    if(senderChatRef) {
+        const senderNewMessageRef = doc(senderChatRef);
+        batch.set(senderNewMessageRef, messagePayload);
     }
-    // To ensure the other user gets the message in their view, we must also write it there.
-    // In a real-world scenario with proper rules, we'd use a Cloud Function to mirror the message
-    // to avoid letting clients write to other users' paths. For this prototype, we'll write directly.
-    if (partnerMessagesRef && partnerMessagesRef.path !== userMessagesRef?.path) {
-       addDocumentNonBlocking(partnerMessagesRef, messagePayload);
+    
+    // 2. Add to the receiver's chat collection
+    const receiverChatRef = getMessageCollectionRef(firestore, chatPartnerId, currentUser.id);
+    if(receiverChatRef) {
+        const receiverNewMessageRef = doc(receiverChatRef);
+        batch.set(receiverNewMessageRef, messagePayload);
+    }
+
+    try {
+        await batch.commit();
+    } catch (error) {
+        console.error("Failed to send message:", error);
+        // Here you would show a toast to the user
     }
   }
 
