@@ -1,3 +1,4 @@
+
 import { FieldValue } from 'firebase/firestore';
 
 export type UserRole = 'admin' | 'team' | 'client';
@@ -53,6 +54,7 @@ export type ChatMessage = {
   message: string;
   timestamp: FieldValue | Date;
   fileUrl?: string;
+  receiverId?: string; // For direct messages
 };
 
 export type ProjectFile = {

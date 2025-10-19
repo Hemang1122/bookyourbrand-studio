@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -9,6 +10,7 @@ import {
   Settings,
   Briefcase,
   ClipboardList,
+  MessageCircle,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -24,6 +26,7 @@ const navItems = [
   { href: '/clients', icon: Briefcase, label: 'Clients', roles: ['admin'] },
   { href: '/team', icon: Users, label: 'Team', roles: ['admin'] },
   { href: '/scrum', icon: ClipboardList, label: 'Scrum Sheet', roles: ['admin', 'team'] },
+  { href: '/support', icon: MessageCircle, label: 'Support', roles: ['admin', 'client'] },
   { href: '/settings', icon: Settings, label: 'Settings', roles: ['admin', 'team', 'client'] },
 ];
 
