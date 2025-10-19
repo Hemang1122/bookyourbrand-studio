@@ -9,22 +9,27 @@ export function getFirebaseAdminApp(): App {
   }
 
   // The SERVICE_ACCOUNT environment variable is automatically populated
-  // by Firebase App Hosting.
+  // by Firebase App Hosting when deployed.
   if (process.env.SERVICE_ACCOUNT) {
+    // In a deployed environment, initialize without explicit credentials.
     return initializeApp();
-  }
-  
-  // If not on App Hosting, we need to use a service account file.
-  // This is for local development.
-  // The service account JSON is parsed from an environment variable.
-  try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON as string);
-    return initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-  } catch (e) {
-    console.error('Failed to initialize Firebase Admin SDK. Ensure FIREBASE_SERVICE_ACCOUNT_JSON is set correctly in your environment.', e);
-    // Throw an error to prevent the app from running with a broken config
-    throw new Error('Firebase Admin SDK initialization failed.');
+  } else if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    // For local development, use the service account JSON from the environment variable.
+    try {
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON as string);
+      return initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+    } catch (e) {
+      console.error(
+        'Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON. Make sure it is a valid JSON string.',
+        e
+      );
+      throw new Error('Firebase Admin SDK initialization failed due to invalid service account JSON.');
+    }
+  } else {
+    // If neither environment variable is set, the configuration is incomplete.
+    console.error('Firebase Admin SDK initialization failed. Set either SERVICE_ACCOUNT (for App Hosting) or FIREBASE_SERVICE_ACCOUNT_JSON (for local dev) environment variables.');
+    throw new Error('Firebase Admin SDK is not configured. See server logs for details.');
   }
 }
