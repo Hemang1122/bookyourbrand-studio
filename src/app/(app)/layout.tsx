@@ -3,22 +3,21 @@
 import { useEffect } from 'react';
 import { redirect } from 'next/navigation';
 import AppLayoutClient from './layout-client';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import type { User as AppUser } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
-import { collection, query, where } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user: firebaseUser, isUserLoading } = useUser();
   const firestore = useFirestore();
 
-  const userQuery = useMemoFirebase(() => {
-    if (!firestore || !firebaseUser?.email) return null;
-    return query(collection(firestore, 'users'), where('email', '==', firebaseUser.email));
-  }, [firestore, firebaseUser?.email]);
+  const userDocRef = useMemoFirebase(() => {
+    if (!firestore || !firebaseUser?.uid) return null;
+    return doc(firestore, 'users', firebaseUser.uid);
+  }, [firestore, firebaseUser?.uid]);
 
-  const { data: appUsers, isLoading: isAppUserLoading } = useCollection<AppUser>(userQuery);
-  const appUser = appUsers?.[0];
+  const { data: appUser, isLoading: isAppUserLoading } = useDoc<AppUser>(userDocRef);
   
   useEffect(() => {
     if (!isUserLoading && !firebaseUser) {
@@ -26,7 +25,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [firebaseUser, isUserLoading]);
 
-  if (isUserLoading || isAppUserLoading || (firebaseUser && !appUser)) {
+  if (isUserLoading || (firebaseUser && isAppUserLoading)) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
