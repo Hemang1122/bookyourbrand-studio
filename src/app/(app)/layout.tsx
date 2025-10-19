@@ -3,7 +3,6 @@
 import { useEffect } from 'react';
 import { redirect } from 'next/navigation';
 import AppLayoutClient from './layout-client';
-import { FirebaseClientProvider } from '@/firebase';
 import { useUser } from '@/firebase';
 import { users } from '@/lib/data';
 import type { User as AppUser } from '@/lib/types';
@@ -51,8 +50,6 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <FirebaseClientProvider>
       <AuthGuard>{children}</AuthGuard>
-    </FirebaseClientProvider>
   );
 }
