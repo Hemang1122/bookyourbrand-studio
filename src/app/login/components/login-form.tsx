@@ -73,7 +73,6 @@ export function LoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           disabled={isLoading}
-          defaultValue="password"
         />
       </div>
       <Button type="submit" className="w-full button-pulse" disabled={isLoading}>
