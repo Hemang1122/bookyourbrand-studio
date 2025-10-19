@@ -57,15 +57,20 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
 
     try {
       let aadharUrl, panUrl, joiningLetterUrl;
+      const totalFiles = (aadharFile ? 1 : 0) + (panFile ? 1 : 0) + (joiningLetterFile ? 1 : 0);
+      let filesUploaded = 0;
 
       if (aadharFile) {
-        aadharUrl = await uploadFile(aadharFile, `documents/team/${name}`, p => setUploadProgress(p * (1/3)));
+        aadharUrl = await uploadFile(aadharFile, `documents/team/${name}`, p => setUploadProgress((filesUploaded * 100 + p) / totalFiles));
+        filesUploaded++;
       }
       if (panFile) {
-        panUrl = await uploadFile(panFile, `documents/team/${name}`, p => setUploadProgress(33.3 + p * (1/3)));
+        panUrl = await uploadFile(panFile, `documents/team/${name}`, p => setUploadProgress((filesUploaded * 100 + p) / totalFiles));
+        filesUploaded++;
       }
       if (joiningLetterFile) {
-        joiningLetterUrl = await uploadFile(joiningLetterFile, `documents/team/${name}`, p => setUploadProgress(66.6 + p * (1/3)));
+        joiningLetterUrl = await uploadFile(joiningLetterFile, `documents/team/${name}`, p => setUploadProgress((filesUploaded * 100 + p) / totalFiles));
+        filesUploaded++;
       }
 
       onTeamMemberAdd({ name, email, aadharUrl, panUrl, joiningLetterUrl });
@@ -80,6 +85,7 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
       setJoiningLetterFile(null);
       
     } catch (error) {
+      console.error(error);
       toast({ title: 'Upload Error', description: 'Could not upload files.', variant: 'destructive' });
     } finally {
       setIsUploading(false);
