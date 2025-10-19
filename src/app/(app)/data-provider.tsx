@@ -1,4 +1,3 @@
-
 'use client';
 
 import { createContext, useContext, useState, useMemo, useEffect } from 'react';
@@ -75,46 +74,48 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (currentUser.role === 'client') {
       return query(projectsCollection, where('client.email', '==', currentUser.email));
     }
-    // For team members, we filter projects where their ID is in the 'team' array.
-    // Firestore requires that the value in the 'array-contains' clause is a whole object
-    // if the array contains objects, which is not ideal here.
-    // A better data model would be to have an array of team member IDs.
-    // For now, we fetch all and filter on the client.
      if (currentUser.role === 'team') {
+      // Team members will see projects they are assigned to.
+      // Firestore's `array-contains` is used for this.
       return query(projectsCollection, where('team', 'array-contains', currentUser.id));
     }
-    return projectsCollection;
+    return null; // Should not happen if user has a role
   }, [firestore, currentUser]);
 
   const { data: firestoreProjects, isLoading: isLoadingProjects } = useCollection<Project>(projectsQuery);
 
-   const allTasksCollection = useMemoFirebase(() => {
-      if (!firestore || !currentUser) return null;
-      // Admin can see all tasks.
-      if (currentUser.role === 'admin') {
-        return collection(firestore, 'tasks');
-      }
-      return null;
-  }, [firestore, currentUser]);
-
-  const { data: firestoreTasks, isLoading: isLoadingTasks } = useCollection<Task>(allTasksCollection);
+  const { data: firestoreTasks, isLoading: isLoadingTasks } = useCollection<Task>(
+    useMemoFirebase(() => {
+        if (!firestore || !currentUser) return null;
+        // Admin sees all tasks. For clients/team, tasks are filtered based on their projects.
+        // A more robust solution might involve a subcollection query per project,
+        // but for simplicity, admin gets all.
+        if (currentUser.role === 'admin') {
+            return collection(firestore, 'tasks');
+        }
+        // For other roles, we will filter tasks on the client-side based on the projects they have access to.
+        return null;
+    }, [firestore, currentUser])
+  );
 
 
   useEffect(() => {
     if (firestoreProjects) {
-        if (currentUser?.role === 'team') {
-             setProjects(firestoreProjects.filter(p => p.team.some(tm => tm.id === currentUser.id)));
-        } else {
-            setProjects(firestoreProjects);
-        }
+        setProjects(firestoreProjects);
     }
-  }, [firestoreProjects, currentUser]);
+  }, [firestoreProjects]);
   
   useEffect(() => {
-    if(firestoreTasks) {
+    if(currentUser?.role === 'admin' && firestoreTasks) {
         setTasks(firestoreTasks);
+    } else if (projects) {
+        // For clients and team members, derive tasks from their accessible projects.
+        const userProjectIds = new Set(projects.map(p => p.id));
+        // We filter initial tasks or a potentially stale task list.
+        // A better approach would be fetching tasks as a subcollection of projects.
+        setTasks(initialTasks.filter(t => userProjectIds.has(t.projectId)));
     }
-  }, [firestoreTasks])
+  }, [firestoreTasks, projects, currentUser])
 
 
   const teamMembers = useMemo(() => users.filter(u => u.role === 'admin' || u.role === 'team'), [users]);
@@ -126,10 +127,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...projectData,
       coverImage: `project-${Math.ceil(Math.random() * 3)}`,
     };
-    addDocumentNonBlocking(collection(firestore, 'projects'), newProject);
     // Optimistically update the local state to avoid race conditions on navigation
     setProjects(prev => [...prev, newProject]);
+    addDocumentNonBlocking(collection(firestore, 'projects'), newProject);
     addNotification(`New project "${projectData.name}" was created.`, 'general');
+    router.push(`/projects/${newProject.id}`);
   };
 
   const addTask = (taskData: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks'>) => {
@@ -147,8 +149,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       remarks: [],
     };
     addDocumentNonBlocking(collection(firestore, 'tasks'), newTask);
-     // Local state will be updated by the firestore listener
-     if (currentUser?.role === 'admin' || currentUser?.role === 'team') {
+     // Local state will be updated by the firestore listener for admin
+     // For others, we can optimistically update
+     if (currentUser?.role !== 'admin') {
        setTasks(prev => [...prev, newTask]);
      }
     addNotification(`New task "${newTask.title}" added to project "${project?.name}".`, newTask.projectId);
@@ -201,15 +204,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       founderDetails: clientData.founderDetails,
       agreementUrl: clientData.agreementUrl,
       idCardUrl: clientData.idCardUrl,
-      avatar: `avatar-${(clients.length % 6) + 1}`,
     };
     const newUser: User = {
         id: newClient.id,
         name: clientData.name,
         email: clientData.email,
-        avatar: newClient.avatar,
         role: 'client',
         username: clientData.name.toLowerCase().replace(/\s/g, ''),
+        avatar: ''
     }
     addDocumentNonBlocking(collection(firestore, 'clients'), newClient);
     setClients(prev => [...prev, newClient]);
@@ -228,9 +230,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         aadharUrl: memberData.aadharUrl,
         panUrl: memberData.panUrl,
         joiningLetterUrl: memberData.joiningLetterUrl,
-        avatar: `avatar-${(users.length % 6) + 1}`,
         role: 'team',
         username: memberData.name.toLowerCase().replace(/\s/g, ''),
+        avatar: ''
      };
      addDocumentNonBlocking(collection(firestore, 'users'), newMember);
      setUsers(prev => [...prev, newMember]);
@@ -332,7 +334,3 @@ export function useData() {
   }
   return context;
 }
-
-    
-
-    
