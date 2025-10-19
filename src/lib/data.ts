@@ -1,5 +1,9 @@
 
-import type { User, Client, Project, Task, ChatMessage, ProjectFile } from './types';
+import type { User, Client, Project, Task } from './types';
+
+// THIS FILE IS NOW FOR SEEDING DATA and providing fallback structure.
+// The application primarily uses live data from Firestore.
+// To re-seed, you would need a script to populate your Firestore database.
 
 export const users: User[] = [
   { id: 'user-1', name: 'Alex Johnson', email: 'admin@bookyourbrands.com', avatar: 'avatar-1', role: 'admin', username: 'admin' },
@@ -75,15 +79,3 @@ export const tasks: Task[] = [
   { id: 'task-5', projectId: 'proj-2', title: 'Shoot raw footage', description: 'Client to provide all raw video footage for editing.', assignedTo: users[1], status: 'In Progress', dueDate: '2024-07-20', remarks: [] },
   { id: 'task-6', projectId: 'proj-3', title: 'Logo redesign sketches', description: 'Provide initial sketches for the new logo.', assignedTo: users[2], status: 'Completed', dueDate: '2024-05-15', remarks: [] },
 ];
-
-// This mock data is no longer the source of truth for chat and files.
-// It is kept here for reference but the app now uses Firestore.
-export const chatMessages: { [key: string]: any[] } = {
-  'proj-1': [],
-  'proj-2': []
-};
-
-export const projectFiles: { [key: string]: any[] } = {
-  'proj-1': [],
-  'proj-2': []
-};

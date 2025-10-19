@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { notFound, useParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TaskList } from './components/task-list';
@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { ListTodo, MessageSquare, Files, Info, Users, Edit } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
-import type { Project, User } from '@/lib/types';
+import type { Project } from '@/lib/types';
 import { useAuth } from '@/lib/auth-client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -23,20 +23,14 @@ export default function ProjectDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const { user } = useAuth();
-  const { projects } = useData();
+  const { projects, isLoading } = useData();
 
-  const [project, setProject] = useState<Project | undefined | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // We find the project from the context now.
-    const foundProject = projects.find((p) => p.id === id);
-    setProject(foundProject);
-    setLoading(false);
+  const project = useMemo(() => {
+    return projects.find((p) => p.id === id);
   }, [id, projects]);
 
 
-  if (loading) {
+  if (isLoading) {
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
