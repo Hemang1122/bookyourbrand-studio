@@ -1,15 +1,19 @@
+
 import type { User, Client, Project, Task, ChatMessage, ProjectFile } from './types';
 
 export const users: User[] = [
   { id: 'user-1', name: 'Alex Johnson', email: 'admin@bookyourbrands.com', avatar: 'avatar-1', role: 'admin', username: 'admin' },
+  { id: 'user-10', name: 'Niddhi Sharma', email: 'niddhi@bookyourbrands.com', avatar: 'avatar-2', role: 'admin', username: 'niddhi' },
   { id: 'user-2', name: 'Maria Garcia', email: 'maria@example.com', avatar: 'avatar-2', role: 'team', username: 'maria' },
   { id: 'user-3', name: 'James Smith', email: 'james@example.com', avatar: 'avatar-3', role: 'team', username: 'james' },
   { id: 'user-7', name: 'Krish', email: 'krish@example.com', avatar: 'avatar-1', role: 'team', username: 'krish' },
   { id: 'user-8', name: 'Hemang', email: 'hemang@example.com', avatar: 'avatar-2', role: 'team', username: 'hemang' },
+  { id: 'user-11', name: 'Himmat Singh', email: 'himmat@example.com', avatar: 'avatar-3', role: 'team', username: 'himmat' },
   { id: 'user-4', name: 'Creative Co.', email: 'client@creative.co', avatar: 'avatar-4', role: 'client', username: 'creative' },
   { id: 'user-5', name: 'Innovate Inc.', email: 'client@innovate.inc', avatar: 'avatar-5', role: 'client', username: 'innovate' },
   { id: 'user-6', name: 'Marketing Masters', email: 'client@marketing.com', avatar: 'avatar-6', role: 'client', username: 'marketing' },
   { id: 'user-9', name: 'Kumud', email: 'kumud@creative.co', avatar: 'avatar-3', role: 'client', username: 'kumud' },
+  { id: 'user-12', name: 'VFA Global', email: 'vfa@creative.co', avatar: 'avatar-4', role: 'client', username: 'vfa' },
 ];
 
 export const clients: Client[] = [
@@ -17,6 +21,7 @@ export const clients: Client[] = [
     { id: 'client-2', name: 'Innovate Inc.', email: 'hello@innovate.inc', company: 'Innovate Technologies', avatar: 'avatar-5' },
     { id: 'client-3', name: 'Marketing Masters', email: 'info@marketing.com', company: 'Global Marketing Group', avatar: 'avatar-6' },
     { id: 'client-4', name: 'Kumud', email: 'kumud@creative.co', company: 'Creative Solutions LLC', avatar: 'avatar-3' },
+    { id: 'client-5', name: 'VFA Global', email: 'vfa@creative.co', company: 'VFA Industries', avatar: 'avatar-4' },
 ];
 
 export const projects: Project[] = [
@@ -79,3 +84,4 @@ export const chatMessages: { [key: string]: any[] } = {
 };
 
 export const projectFiles: { [key
+    
