@@ -25,6 +25,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [firebaseUser, isUserLoading]);
 
+  // Combined loading state: wait for Firebase Auth and Firestore doc read
   if (isUserLoading || (firebaseUser && isAppUserLoading)) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -33,14 +34,15 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
   
+  // After loading, if there's still no user profile, redirect.
+  // This handles the case where the user exists in Auth but not in our 'users' collection.
   if (!appUser) {
-     // This can happen briefly during the transition or if the user is not in our system.
-     // Or if the user exists in Firebase Auth but not in our 'users' collection.
      if(!isUserLoading && firebaseUser) {
         console.warn("Authenticated user not found in 'users' collection. Redirecting to login.");
-        redirect('/login'); // Or a page that says "access denied"
+        redirect('/login');
      }
-
+    // If there's no firebaseUser and we're not loading, the useEffect above will handle the redirect.
+    // We can show a loader here as a fallback before the redirect kicks in.
     return (
        <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
