@@ -1,6 +1,6 @@
 
-import { initializeApp, getApp, getApps, type App } from 'firebase-admin/app';
-import { firebaseConfig } from './config';
+import { initializeApp, getApp, getApps, type App, type ServiceAccount } from 'firebase-admin/app';
+import * as admin from 'firebase-admin';
 
 // It is important that we initialize the app once!
 export function getFirebaseAdminApp(): App {
@@ -12,12 +12,19 @@ export function getFirebaseAdminApp(): App {
   // by Firebase App Hosting.
   if (process.env.SERVICE_ACCOUNT) {
     return initializeApp();
-  } else {
-    // If not in a managed environment, fall back to the client-side config.
-    // Note: This is less secure and should only be used for development
-    // or in environments where service accounts are not feasible.
+  }
+  
+  // If not on App Hosting, we need to use a service account file.
+  // This is for local development.
+  // The service account JSON is parsed from an environment variable.
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON as string);
     return initializeApp({
-      projectId: firebaseConfig.projectId,
+      credential: admin.credential.cert(serviceAccount)
     });
+  } catch (e) {
+    console.error('Failed to initialize Firebase Admin SDK. Ensure FIREBASE_SERVICE_ACCOUNT_JSON is set correctly in your environment.', e);
+    // Throw an error to prevent the app from running with a broken config
+    throw new Error('Firebase Admin SDK initialization failed.');
   }
 }
