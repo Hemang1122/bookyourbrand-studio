@@ -1,3 +1,4 @@
+
 'use client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -21,11 +21,11 @@ import { Badge } from '@/components/ui/badge';
 type UpdateTaskStatusDialogProps = {
   task: Task;
   newStatus: TaskStatus;
-  children: React.ReactNode;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 };
 
-export function UpdateTaskStatusDialog({ task, newStatus, children }: UpdateTaskStatusDialogProps) {
-  const [open, setOpen] = useState(false);
+export function UpdateTaskStatusDialog({ task, newStatus, open, onOpenChange }: UpdateTaskStatusDialogProps) {
   const [remark, setRemark] = useState('');
   const { updateTaskStatus } = useData();
   const { toast } = useToast();
@@ -37,18 +37,16 @@ export function UpdateTaskStatusDialog({ task, newStatus, children }: UpdateTask
     }
     
     updateTaskStatus(task.id, newStatus, remark);
-    setOpen(false);
-    setRemark('');
+    handleClose();
   };
 
   const handleClose = () => {
-    setOpen(false);
+    onOpenChange(false);
     setRemark('');
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Update Task Status</DialogTitle>
