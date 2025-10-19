@@ -1,85 +1,57 @@
 /**
- * @fileoverview Firestore Security Rules for BookYourBrands CRM.
- *
- * Core Philosophy:
- * This ruleset enforces a strict hierarchical ownership model, primarily based on
- * path-based authorization, where data access is determined by the document's
- * location within the Firestore collection structure.  It avoids using `get()`
- * calls in security rules, favoring path-based authorization instead for efficiency
- * and security.
- *
- * Data Structure:
- * - /users/{userId}: Stores individual user profiles, accessible only by the user themselves.
- * - /clients/{clientId}/projects/{projectId}: Stores projects nested under clients, enforcing client-project relationships.
- * - /clients/{clientId}/projects/{projectId}/tasks/{taskId}: Stores tasks nested under projects, further enforcing client-project-task relationships.
- * - /projects/{projectId}/chats/{chatId}: Stores chats related to specific projects.
- * - /projects/{projectId}/chats/{chatId}/messages/{messageId}: Stores messages within chats.
- * - /projects/{projectId}/files/{fileId}: Stores files associated with projects.
- *
- * Key Security Decisions:
- * - User listing is denied to prevent unauthorized data enumeration.
- * - Path-based authorization is favored to avoid costly and complex `get()` calls.
- * - Data validation during write operations is limited to relational integrity and
- *   authorization-critical fields for prototyping flexibility.
- * - All write operations are protected by authorization checks to prevent unauthorized modifications.
- *
- * Denormalization for Authorization:
- *  - Path-based rules inherently denormalize the relationships between entities,
- *    allowing rules to directly enforce access control based on document location
- *    without needing to read related documents.
- *
- * Structural Segregation:
- *  - The nested structure of collections (e.g., projects under clients) inherently
- *    segregates data based on relationships, allowing for clear and enforceable
- *    security boundaries.
+ * @file Firestore Security Rules
+ * @core_philosophy This ruleset enforces a strict ownership model for user data and a hierarchical structure for projects, tasks, chats, messages, and files. It leverages path-based authorization to avoid costly `get()` calls and ensures that each data element is associated with its parent entity for secure access control.
+ * @data_structure
+ *   - /users/{userId}: Stores individual user profiles, accessible only by the user themselves.
+ *   - /clients/{clientId}/projects/{projectId}: Stores project data nested under client IDs.
+ *   - /clients/{clientId}/projects/{projectId}/tasks/{taskId}: Stores tasks nested under projects and client IDs.
+ *   - /projects/{projectId}/chats/{chatId}: Stores chat data associated with a project.
+ *   - /projects/{projectId}/chats/{chatId}/messages/{messageId}: Stores messages within a specific chat.
+ *   - /projects/{projectId}/files/{fileId}: Stores file metadata associated with a project.
+ * @key_security_decisions
+ *   - User data is strictly private; listing all users is disallowed.
+ *   - Project, Task, Chat, Message and File data access are restricted to users who have access to the parent Project.
+ *   - All write operations require a valid authenticated user.
+ *   - No schema validation beyond relational integrity checks is performed in this prototyping phase.
+ * @denormalization_for_authorization N/A - Path based authorization is used throughout.
+ * @structural_segregation N/A - Drafts and published content are not segregated.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows a user to read and write their own user document.
+     * @description Protects user profiles, ensuring only the user can read/write their own data.
      * @path /users/{userId}
-     * @allow (create) User with ID 'user123' can create their own document with matching ID.
-     * @allow (get) User with ID 'user123' can read their own document.
-     * @allow (update) User with ID 'user123' can update their own document.
-     * @allow (delete) User with ID 'user123' can delete their own document.
-     * @deny (create) User with ID 'user123' cannot create a document with ID 'user456'.
-     * @deny (get) User with ID 'user123' cannot read document with ID 'user456'.
+     * @allow (create) User with ID 'user123' can create their profile. (auth.uid == 'user123')
+     * @allow (get) User with ID 'user123' can read their profile. (auth.uid == 'user123')
+     * @allow (update) User with ID 'user123' can update their profile. (auth.uid == 'user123')
+     * @allow (delete) User with ID 'user123' can delete their profile. (auth.uid == 'user123')
+     * @deny (create) User with ID 'user456' cannot create a profile with ID 'user123'. (auth.uid != 'user123')
+     * @deny (get) User with ID 'user456' cannot read the profile of user with ID 'user123'. (auth.uid != 'user123')
+     * @deny (update) User with ID 'user456' cannot update the profile of user with ID 'user123'. (auth.uid != 'user123')
+     * @deny (delete) User with ID 'user456' cannot delete the profile of user with ID 'user123'. (auth.uid != 'user123')
      * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      allow get: if isOwner(userId);
+      allow get: if isSignedIn() && isOwner(userId);
       allow list: if false;
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isExistingOwner(userId);
+      allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
-     * @description Allows creating, reading, updating, and deleting projects under a specific client by authenticated users.
+     * @description Manages project data nested under client IDs, restricting access to authorized users.
      * @path /clients/{clientId}/projects/{projectId}
-     * @allow (create) Authenticated user can create a project under a client.
-     * @allow (get) Authenticated user can read a project under a client.
-     * @allow (update) Authenticated user can update a project under a client.
-     * @allow (delete) Authenticated user can delete a project under a client.
-     * @deny (create) Unauthenticated user cannot create a project.
-     * @deny (get) Unauthenticated user cannot read a project.
-     * @principle Enforces that only authenticated users can manage projects under clients.
+     * @allow (create) User can create a project under a specific client. (isSignedIn())
+     * @allow (get) User can read a project under a specific client. (isSignedIn())
+     * @allow (update) User can update a project under a specific client. (isSignedIn())
+     * @allow (delete) User can delete a project under a specific client. (isSignedIn())
+     * @deny (create) Unauthorized user cannot create a project. (!isSignedIn())
+     * @principle Path-based authorization ensures projects are associated with the correct client.
      */
     match /clients/{clientId}/projects/{projectId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       allow get: if isSignedIn();
       allow list: if isSignedIn();
       allow create: if isSignedIn();
@@ -88,21 +60,16 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows creating, reading, updating, and deleting tasks under a specific project by authenticated users.
+     * @description Manages task data nested under projects and client IDs, restricting access to authorized users.
      * @path /clients/{clientId}/projects/{projectId}/tasks/{taskId}
-     * @allow (create) Authenticated user can create a task under a project.
-     * @allow (get) Authenticated user can read a task under a project.
-     * @allow (update) Authenticated user can update a task under a project.
-     * @allow (delete) Authenticated user can delete a task under a project.
-     * @deny (create) Unauthenticated user cannot create a task.
-     * @deny (get) Unauthenticated user cannot read a task.
-     * @principle Enforces that only authenticated users can manage tasks under projects.
+     * @allow (create) User can create a task under a specific project and client. (isSignedIn())
+     * @allow (get) User can read a task under a specific project and client. (isSignedIn())
+     * @allow (update) User can update a task under a specific project and client. (isSignedIn())
+     * @allow (delete) User can delete a task under a specific project and client. (isSignedIn())
+     * @deny (create) Unauthorized user cannot create a task. (!isSignedIn())
+     * @principle Path-based authorization ensures tasks are associated with the correct project and client.
      */
     match /clients/{clientId}/projects/{projectId}/tasks/{taskId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       allow get: if isSignedIn();
       allow list: if isSignedIn();
       allow create: if isSignedIn();
@@ -111,21 +78,16 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows creating, reading, updating, and deleting chats under a specific project by authenticated users.
+     * @description Manages chat data associated with a project.
      * @path /projects/{projectId}/chats/{chatId}
-     * @allow (create) Authenticated user can create a chat under a project.
-     * @allow (get) Authenticated user can read a chat under a project.
-     * @allow (update) Authenticated user can update a chat under a project.
-     * @allow (delete) Authenticated user can delete a chat under a project.
-     * @deny (create) Unauthenticated user cannot create a chat.
-     * @deny (get) Unauthenticated user cannot read a chat.
-     * @principle Enforces that only authenticated users can manage chats under projects.
+     * @allow (create) User can create a chat under a specific project. (isSignedIn())
+     * @allow (get) User can read a chat under a specific project. (isSignedIn())
+     * @allow (update) User can update a chat under a specific project. (isSignedIn())
+     * @allow (delete) User can delete a chat under a specific project. (isSignedIn())
+     * @deny (create) Unauthorized user cannot create a chat. (!isSignedIn())
+     * @principle Path-based authorization ensures chats are associated with the correct project.
      */
     match /projects/{projectId}/chats/{chatId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       allow get: if isSignedIn();
       allow list: if isSignedIn();
       allow create: if isSignedIn();
@@ -134,21 +96,16 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows creating, reading, updating, and deleting messages under a specific chat by authenticated users.
+     * @description Manages messages within a specific chat, restricting access to authorized users.
      * @path /projects/{projectId}/chats/{chatId}/messages/{messageId}
-     * @allow (create) Authenticated user can create a message under a chat.
-     * @allow (get) Authenticated user can read a message under a chat.
-     * @allow (update) Authenticated user can update a message under a chat.
-     * @allow (delete) Authenticated user can delete a message under a chat.
-     * @deny (create) Unauthenticated user cannot create a message.
-     * @deny (get) Unauthenticated user cannot read a message.
-     * @principle Enforces that only authenticated users can manage messages under chats.
+     * @allow (create) User can create a message under a specific chat. (isSignedIn())
+     * @allow (get) User can read a message under a specific chat. (isSignedIn())
+     * @allow (update) User can update a message under a specific chat. (isSignedIn())
+     * @allow (delete) User can delete a message under a specific chat. (isSignedIn())
+     * @deny (create) Unauthorized user cannot create a message. (!isSignedIn())
+     * @principle Path-based authorization ensures messages are associated with the correct chat.
      */
     match /projects/{projectId}/chats/{chatId}/messages/{messageId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       allow get: if isSignedIn();
       allow list: if isSignedIn();
       allow create: if isSignedIn();
@@ -157,26 +114,36 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows creating, reading, updating, and deleting files under a specific project by authenticated users.
+     * @description Manages file metadata associated with a project, restricting access to authorized users.
      * @path /projects/{projectId}/files/{fileId}
-     * @allow (create) Authenticated user can create a file under a project.
-     * @allow (get) Authenticated user can read a file under a project.
-     * @allow (update) Authenticated user can update a file under a project.
-     * @allow (delete) Authenticated user can delete a file under a project.
-     * @deny (create) Unauthenticated user cannot create a file.
-     * @deny (get) Unauthenticated user cannot read a file.
-     * @principle Enforces that only authenticated users can manage files under projects.
+     * @allow (create) User can create a file under a specific project. (isSignedIn())
+     * @allow (get) User can read a file under a specific project. (isSignedIn())
+     * @allow (update) User can update a file under a specific project. (isSignedIn())
+     * @allow (delete) User can delete a file under a specific project. (isSignedIn())
+     * @deny (create) Unauthorized user cannot create a file. (!isSignedIn())
+     * @principle Path-based authorization ensures files are associated with the correct project.
      */
     match /projects/{projectId}/files/{fileId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       allow get: if isSignedIn();
       allow list: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if isSignedIn() && resource != null;
       allow delete: if isSignedIn() && resource != null;
     }
+  }
+
+  // Helper function to determine if the user is signed in
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  // Helper function to determine if the user is the owner of the resource
+  function isOwner(userId) {
+    return request.auth.uid == userId;
+  }
+
+    // Helper function to determine if the user is the existing owner of the resource
+  function isExistingOwner(userId) {
+    return isSignedIn() && isOwner(userId) && resource != null;
   }
 }

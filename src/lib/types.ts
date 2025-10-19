@@ -1,4 +1,3 @@
-
 import { FieldValue } from 'firebase/firestore';
 
 export type UserRole = 'admin' | 'team' | 'client';
@@ -47,14 +46,14 @@ export type Task = {
 };
 
 export type ChatMessage = {
-  id: string;
+  id?: string; // Optional because it's assigned by Firestore
   senderId: string;
-  senderName: string;
-  senderAvatar: string;
+  senderName?: string; // Made optional as it can be retrieved via senderId
+  senderAvatar?: string; // Made optional as it can be retrieved via senderId
+  receiverId: string;
   message: string;
-  timestamp: FieldValue | Date;
-  fileUrl?: string;
-  receiverId?: string; // For direct messages
+  timestamp: FieldValue;
+  fileUrl: string | null;
 };
 
 export type ProjectFile = {

@@ -1,60 +1,85 @@
-
 'use client';
 
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { SupportChatRoom } from './components/support-chat-room';
 import { useAuth } from '@/lib/auth-client';
 import { useData } from '../data-provider';
-import { MultiSelect } from '@/components/ui/multi-select';
-import { useState } from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function SupportPage() {
     const { user } = useAuth();
-    const { clients } = useData();
+    const { clients, users } = useData();
+    const admin = users.find(u => u.role === 'admin');
+
+    // For admin, the state holds the ID of the client they are currently chatting with
     const [selectedClientId, setSelectedClientId] = useState<string | null>(clients[0]?.id || null);
 
     if (!user) return null;
 
+    // Admin View: A list of clients on the left, chat on the right
     if (user.role === 'admin') {
-        const clientOptions = clients.map(c => ({ value: c.id, label: c.name }));
-
         return (
             <div className="space-y-6">
-                 <div className="space-y-2">
+                <div className="space-y-2">
                     <h2 className="text-3xl font-bold tracking-tight">Client Support Center</h2>
                     <p className="text-muted-foreground">
-                        View and respond to direct messages from clients.
+                        Select a client to view and respond to direct messages.
                     </p>
                 </div>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Client Chat</CardTitle>
-                        <CardDescription>Select a client to view the conversation.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="max-w-sm space-y-2">
-                            <Label>Select Client</Label>
-                            <Select onValueChange={(val) => setSelectedClientId(val)} value={selectedClientId || undefined}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a client..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                <Card className="h-[75vh]">
+                    <div className="grid h-full grid-cols-1 md:grid-cols-[300px_1fr]">
+                        <div className="border-r">
+                            <CardHeader>
+                                <CardTitle>Clients</CardTitle>
+                            </CardHeader>
+                             <ScrollArea className="h-[calc(75vh-80px)]">
+                                <div className="space-y-1 p-2">
+                                    {clients.map(client => {
+                                        const avatar = PlaceHolderImages.find(img => img.id === client.avatar);
+                                        return (
+                                            <button
+                                                key={client.id}
+                                                onClick={() => setSelectedClientId(client.id)}
+                                                className={cn(
+                                                    "w-full flex items-center gap-3 text-left p-2 rounded-md transition-colors",
+                                                    selectedClientId === client.id ? "bg-accent text-accent-foreground" : "hover:bg-muted"
+                                                )}
+                                            >
+                                                <Avatar className="h-9 w-9">
+                                                    <AvatarImage src={avatar?.imageUrl} alt={client.name} data-ai-hint={avatar?.imageHint} />
+                                                    <AvatarFallback>{client.name.charAt(0)}</AvatarFallback>
+                                                </Avatar>
+                                                <div className="flex-1">
+                                                    <p className="font-semibold text-sm">{client.name}</p>
+                                                    <p className="text-xs text-muted-foreground">{client.company}</p>
+                                                </div>
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                             </ScrollArea>
                         </div>
-                        {selectedClientId && <SupportChatRoom chatPartnerId={selectedClientId} />}
-                    </CardContent>
+                        <div className="flex flex-col">
+                            {selectedClientId ? (
+                                <SupportChatRoom key={selectedClientId} chatPartnerId={selectedClientId} />
+                            ) : (
+                                <div className="flex flex-1 items-center justify-center text-muted-foreground">
+                                    <p>Select a client to start chatting.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </Card>
             </div>
         );
     }
 
-    // Client View
-    const admin = useData().users.find(u => u.role === 'admin');
-    if (!admin) return <div>Admin user not found.</div>;
+    // Client View: Direct chat with the admin
+    if (!admin) return <div>Admin user not found. Please contact support.</div>;
 
     return (
         <div className="space-y-6">
@@ -64,14 +89,8 @@ export default function SupportPage() {
                     Have a question or need assistance? Send a message directly to the admin.
                 </p>
             </div>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Chat with {admin.name}</CardTitle>
-                    <CardDescription>This is a private chat between you and the administrator.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <SupportChatRoom chatPartnerId={admin.id} />
-                </CardContent>
+            <Card className="h-[75vh]">
+                 <SupportChatRoom chatPartnerId={admin.id} />
             </Card>
         </div>
     );

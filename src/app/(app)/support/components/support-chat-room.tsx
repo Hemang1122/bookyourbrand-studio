@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import type { ChatMessage, User } from '@/lib/types';
+import type { ChatMessage } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Input } from '@/components/ui/input';
@@ -11,72 +10,63 @@ import { Send, Paperclip, Link as LinkIcon, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/lib/auth-client';
 import { useFirestore, useCollection } from '@/firebase';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, serverTimestamp, query, orderBy, where, or, CollectionReference, writeBatch, doc } from 'firebase/firestore';
+import { collection, serverTimestamp, query, orderBy, writeBatch, doc } from 'firebase/firestore';
 import { AddChatAttachmentDialog } from '../../projects/[id]/components/add-chat-attachment-dialog';
 import { useData } from '../../data-provider';
+import { CardHeader, CardTitle } from '@/components/ui/card';
 
 type SupportChatRoomProps = {
   chatPartnerId: string;
 };
-
-/**
- * Gets a reference to the message subcollection for a specific chat conversation.
- * The path will be `users/{userId}/chats/{chatPartnerId}/messages`.
- * @param firestore - The Firestore instance.
- * @param userId - The ID of the user who "owns" this collection.
- * @param chatPartnerId - The ID of the other user in the conversation.
- * @returns A CollectionReference or null if Firestore is not available.
- */
-function getMessageCollectionRef(firestore: any, userId: string, chatPartnerId: string): CollectionReference | null {
-    if (!firestore) return null;
-    // This creates a path like `users/user-abc/chats/user-xyz/messages`
-    return collection(firestore, 'users', userId, 'chats', chatPartnerId, 'messages');
-}
-
 
 export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
   const firestore = useFirestore();
   const { triggerNotification, users } = useData();
-  const prevMessagesCount = useRef(0);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const chatPartner = useMemo(() => users.find(u => u.id === chatPartnerId), [users, chatPartnerId]);
 
-  // The query now points to the user's own chat collection.
-  const messagesRef = useMemo(() => {
+  // Path to the chat messages in the current user's own document.
+  // e.g., /users/{currentUserId}/chats/{chatPartnerId}/messages
+  const messagesCollectionRef = useMemo(() => {
     if (!firestore || !currentUser) return null;
-    return getMessageCollectionRef(firestore, currentUser.id, chatPartnerId);
+    return collection(firestore, 'users', currentUser.id, 'chats', chatPartnerId, 'messages');
   }, [firestore, currentUser, chatPartnerId]);
 
-
   const messagesQuery = useMemo(() => {
-    if (!messagesRef) return null;
-    return query(messagesRef, orderBy('timestamp', 'asc'));
-  }, [messagesRef]);
+    if (!messagesCollectionRef) return null;
+    return query(messagesCollectionRef, orderBy('timestamp', 'asc'));
+  }, [messagesCollectionRef]);
   
   const { data: messages, isLoading } = useCollection<ChatMessage>(messagesQuery);
-
+  
+  const scrollToBottom = () => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+    }
+  };
+  
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   useEffect(() => {
-    if (messages && messages.length > prevMessagesCount.current) {
-        const lastMessage = messages[messages.length - 1];
-        if (lastMessage.senderId !== currentUser?.id) {
-            triggerNotification();
-        }
+    if (messages && messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage && lastMessage.senderId !== currentUser?.id) {
+          triggerNotification();
+      }
     }
-    prevMessagesCount.current = messages ? messages.length : 0;
   }, [messages, currentUser, triggerNotification]);
 
 
   const sendMessage = async (message: string, fileUrl?: string) => {
-     if (!currentUser || !firestore) return;
+     if (!currentUser || !firestore || (!message.trim() && !fileUrl)) return;
      
      const messagePayload: Omit<ChatMessage, 'id'> = {
       senderId: currentUser.id,
-      senderName: currentUser.name,
-      senderAvatar: currentUser.avatar,
       receiverId: chatPartnerId,
       message: message,
       timestamp: serverTimestamp(),
@@ -87,49 +77,51 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
     const batch = writeBatch(firestore);
 
     // 1. Add to the sender's chat collection
-    const senderChatRef = getMessageCollectionRef(firestore, currentUser.id, chatPartnerId);
-    if(senderChatRef) {
-        const senderNewMessageRef = doc(senderChatRef);
-        batch.set(senderNewMessageRef, messagePayload);
-    }
+    const senderChatRef = collection(firestore, 'users', currentUser.id, 'chats', chatPartnerId, 'messages');
+    batch.set(doc(senderChatRef), messagePayload);
     
     // 2. Add to the receiver's chat collection
-    const receiverChatRef = getMessageCollectionRef(firestore, chatPartnerId, currentUser.id);
-    if(receiverChatRef) {
-        const receiverNewMessageRef = doc(receiverChatRef);
-        batch.set(receiverNewMessageRef, messagePayload);
-    }
+    const receiverChatRef = collection(firestore, 'users', chatPartnerId, 'chats', currentUser.id, 'messages');
+    batch.set(doc(receiverChatRef), messagePayload);
 
     try {
         await batch.commit();
+        setNewMessage('');
     } catch (error) {
         console.error("Failed to send message:", error);
-        // Here you would show a toast to the user
     }
   }
 
 
   const handleSendTextMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newMessage.trim() === '') return;
     sendMessage(newMessage);
-    setNewMessage('');
   };
 
   const handleAddAttachment = (url: string, message: string) => {
     sendMessage(message || url, url);
   }
   
-  if (!currentUser || !chatPartner) return null;
+  if (!currentUser || !chatPartner) return <div className="flex h-full items-center justify-center"><p className="text-muted-foreground">Select a conversation</p></div>;
 
   return (
-    <div className="flex h-[60vh] flex-col rounded-md border">
-      <ScrollArea className="flex-1 p-4">
+    <div className="flex h-full flex-col">
+       <CardHeader className="flex-row items-center border-b">
+         <Avatar className="h-9 w-9">
+            <AvatarImage src={PlaceHolderImages.find(p => p.id === chatPartner.avatar)?.imageUrl} alt={chatPartner.name} />
+            <AvatarFallback>{chatPartner.name.charAt(0)}</AvatarFallback>
+         </Avatar>
+         <div className="ml-4">
+            <CardTitle className="text-base">{chatPartner.name}</CardTitle>
+         </div>
+      </CardHeader>
+
+      <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
         <div className="space-y-4">
-          {isLoading && <p>Loading messages...</p>}
+          {isLoading && <p className="text-center text-muted-foreground">Loading messages...</p>}
           {!isLoading && messages?.length === 0 && (
             <div className="text-center text-muted-foreground py-12">
-              No messages yet. Start the conversation!
+              No messages yet. Send a message to start the conversation!
             </div>
           )}
           {messages && messages.map((msg, index) => {
@@ -140,7 +132,7 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
 
             return (
               <div
-                key={index}
+                key={index} // Using index as key because IDs might not be unique across batched writes temporarily
                 className={`flex items-start gap-3 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
               >
                 {!isCurrentUser && (
@@ -150,7 +142,7 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
                    </Avatar>
                 )}
                 <div className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${isCurrentUser ? 'items-end' : 'items-start'}`}>
-                    <span className="text-xs text-muted-foreground">{sender?.name}</span>
+                    {!isCurrentUser && <span className="text-xs text-muted-foreground">{sender?.name}</span>}
                     <div className={`rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                         {msg.fileUrl ? (
                            <div className="space-y-2">
