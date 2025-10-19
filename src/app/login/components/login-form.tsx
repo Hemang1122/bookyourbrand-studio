@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -5,16 +6,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { useAuth } from '@/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
+import { users } from '@/lib/data';
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const auth = useAuth();
   const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,20 +26,21 @@ export function LoginForm() {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      router.push(from);
-    } catch (err: any) {
-        let errorMessage = 'An unexpected error occurred. Please try again.';
-        if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-            errorMessage = 'Invalid email or password. Please check your credentials.';
-        } else if (err.code === 'auth/invalid-email') {
-            errorMessage = 'Please enter a valid email address.';
+    
+    // This is mock authentication.
+    // In a real app, you would validate against a database or auth service.
+    setTimeout(() => {
+        const user = users.find(u => u.email === email);
+        // We're not checking the password for this mock.
+        if(user) {
+            // In a real app, you'd set a session cookie here.
+            // For now, we just redirect. The app layout will find the mock user.
+            router.push(from);
+        } else {
+             setError('Invalid email or password. Please check your credentials.');
         }
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
+        setIsLoading(false);
+    }, 1000);
   };
 
   return (
@@ -73,6 +73,7 @@ export function LoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           disabled={isLoading}
+          defaultValue="password"
         />
       </div>
       <Button type="submit" className="w-full button-pulse" disabled={isLoading}>

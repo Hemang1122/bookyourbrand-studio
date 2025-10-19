@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import type { ProjectFile } from '@/lib/types';
 import {
   Table,
@@ -17,13 +17,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth-client';
-import { useCollection, useFirestore } from '@/firebase';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { AddFileLinkDialog } from './add-file-link-dialog';
 import { useData } from '../../../data-provider';
+import { FieldValue } from 'firebase/firestore';
 
 type FileManagerProps = {
   projectId: string;
@@ -31,32 +29,25 @@ type FileManagerProps = {
 
 export function FileManager({ projectId }: FileManagerProps) {
   const { user } = useAuth();
-  const firestore = useFirestore();
   const { toast } = useToast();
   const { addNotification, projects } = useData();
   const project = projects.find(p => p.id === projectId);
-
-  const filesCollectionRef = useMemo(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'projects', projectId, 'files');
-  }, [firestore, projectId]);
-
-  const { data: files, isLoading } = useCollection<ProjectFile>(filesCollectionRef);
+  const [files, setFiles] = useState<ProjectFile[]>([]);
 
   const handleAddFileLink = (name: string, url: string) => {
-    if (!user || !filesCollectionRef || !project) return;
+    if (!user || !project) return;
 
-    const fileData: Omit<ProjectFile, 'id'> = {
+    const fileData: ProjectFile = {
+      id: `file-${Date.now()}`,
       name: name,
       url: url,
       uploadedById: user.id,
       uploadedByName: user.name,
       uploadedByAvatar: user.avatar,
-      uploadedAt: serverTimestamp(),
-      type: 'link', // We can mark this as a link
+      uploadedAt: new Date() as unknown as FieldValue,
+      type: 'link',
     };
-
-    addDocumentNonBlocking(filesCollectionRef, fileData);
+    setFiles(prev => [...prev, fileData]);
     addNotification(`added a new file link "${name}" to project "${project.name}".`, projectId);
 
     toast({ title: 'File Link Added', description: `${name} has been added to the project.` });
@@ -66,7 +57,7 @@ export function FileManager({ projectId }: FileManagerProps) {
     <div className="space-y-4">
       <div className="flex justify-end">
         <AddFileLinkDialog onAddFile={handleAddFileLink}>
-          <Button disabled={!firestore}>
+          <Button>
             <Plus className="mr-2 h-4 w-4" />
             Add File Link
           </Button>
@@ -84,10 +75,9 @@ export function FileManager({ projectId }: FileManagerProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={5} className="h-24 text-center">Loading files...</TableCell></TableRow>}
-            {files && files.map((file) => {
+            {files.map((file) => {
               const userAvatar = PlaceHolderImages.find(img => img.id === file.uploadedByAvatar);
-              const uploadedAtDate = (file.uploadedAt as any)?.toDate ? (file.uploadedAt as any).toDate() : new Date();
+              const uploadedAtDate = new Date();
               return (
                 <TableRow key={file.id}>
                   <TableCell className="font-medium flex items-center gap-2">
@@ -118,7 +108,7 @@ export function FileManager({ projectId }: FileManagerProps) {
                 </TableRow>
               );
             })}
-            {!isLoading && files?.length === 0 && (
+            {files.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center">
                   No files added yet.

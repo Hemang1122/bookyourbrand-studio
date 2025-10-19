@@ -16,19 +16,15 @@ import Link from 'next/link';
 import { CreditCard, LogOut, Settings, User as UserIcon } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import type { User } from '@/lib/types';
-import { useAuth } from '@/firebase';
 import { useRouter } from 'next/navigation';
 
 
 export function UserNavClient({ user }: { user: User }) {
   const userAvatar = PlaceHolderImages.find(img => img.id === user.avatar);
-  const auth = useAuth();
   const router = useRouter();
 
-  const handleLogout = async () => {
-    await auth.signOut();
-    // After signing out with Firebase, also hit our API route to clear the session cookie
-    await fetch('/api/logout', { method: 'POST' });
+  const handleLogout = () => {
+    // In a real app, this would clear the session.
     router.push('/login');
   };
   

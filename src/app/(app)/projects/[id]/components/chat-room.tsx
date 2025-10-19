@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { ChatMessage, User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -10,12 +10,10 @@ import { Button } from '@/components/ui/button';
 import { Send, Paperclip, Link as LinkIcon, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/lib/auth-client';
-import { useFirestore, useCollection } from '@/firebase';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, serverTimestamp, query, orderBy } from 'firebase/firestore';
-import { AddChatAttachmentDialog } from './add-chat-attachment-dialog';
-import Link from 'next/link';
 import { useData } from '../../../data-provider';
+import { AddChatAttachmentDialog } from './add-chat-attachment-dialog';
+import { FieldValue } from 'firebase/firestore';
+
 
 type ChatRoomProps = {
   projectId: string;
@@ -26,23 +24,36 @@ const CHAT_ID = 'main-chat';
 
 export function ChatRoom({ projectId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const { user: currentUser } = useAuth();
-  const firestore = useFirestore();
-  const { triggerNotification, addNotification, projects } = useData();
+  const { triggerNotification, addNotification, projects, users } = useData();
   const prevMessagesCount = useRef(0);
   const project = projects.find(p => p.id === projectId);
 
-  const messagesRef = useMemo(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'projects', projectId, 'chats', CHAT_ID, 'messages');
-  }, [firestore, projectId]);
+  // Simulate receiving messages
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!project || !currentUser) return;
+      const participants = [...project.team, project.client];
+      const otherParticipant = participants.find(p => p.id !== currentUser.id && p.role !== 'admin');
+      
+      if (otherParticipant && Math.random() > 0.8) {
+        const newMessage: ChatMessage = {
+          id: `msg-${Date.now()}`,
+          senderId: otherParticipant.id,
+          senderName: otherParticipant.name,
+          senderAvatar: otherParticipant.avatar,
+          message: `This is a simulated message about project ${project.name}.`,
+          timestamp: new Date() as unknown as FieldValue,
+          fileUrl: null,
+        };
+        setMessages(prev => [...prev, newMessage]);
+      }
+    }, 5000); // Add a new message every 5 seconds on average
 
-  const messagesQuery = useMemo(() => {
-    if (!messagesRef) return null;
-    return query(messagesRef, orderBy('timestamp', 'asc'));
-  }, [messagesRef]);
+    return () => clearInterval(interval);
+  }, [project, currentUser]);
 
-  const { data: messages, isLoading } = useCollection<ChatMessage>(messagesQuery);
   
   useEffect(() => {
     if (messages && messages.length > prevMessagesCount.current) {
@@ -56,18 +67,19 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
 
 
   const sendMessage = (message: string, fileUrl?: string) => {
-     if (!currentUser || !messagesRef || !project) return;
+     if (!currentUser || !project) return;
      
-     const messagePayload = {
+     const messagePayload: ChatMessage = {
+      id: `msg-${Date.now()}`,
       senderId: currentUser.id,
       senderName: currentUser.name,
       senderAvatar: currentUser.avatar,
       message: message,
-      timestamp: serverTimestamp(),
+      timestamp: new Date() as unknown as FieldValue,
       fileUrl: fileUrl || null,
     };
     
-    addDocumentNonBlocking(messagesRef, messagePayload);
+    setMessages(prev => [...prev, messagePayload]);
     addNotification(`sent a new message in project "${project.name}".`, projectId);
   }
 
@@ -89,11 +101,10 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     <div className="flex h-[60vh] flex-col">
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
-          {isLoading && <p>Loading messages...</p>}
-          {messages && messages.map((msg) => {
+          {messages.map((msg) => {
             const userAvatar = PlaceHolderImages.find(img => img.id === msg.senderAvatar);
             const isCurrentUser = msg.senderId === currentUser.id;
-            const messageDate = (msg.timestamp as any)?.toDate ? (msg.timestamp as any).toDate() : new Date();
+            const messageDate = new Date(); // Simplified for mock
 
             return (
               <div
@@ -103,7 +114,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                 {!isCurrentUser && (
                    <Avatar className="h-8 w-8">
                      <AvatarImage src={userAvatar?.imageUrl} alt={msg.senderName} data-ai-hint={userAvatar?.imageHint} />
-                     <AvatarFallback>{msg.senderName.charAt(0)}</AvatarFallback>
+                     <AvatarFallback>{msg.senderName?.charAt(0)}</AvatarFallback>
                    </Avatar>
                 )}
                 <div className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${isCurrentUser ? 'items-end' : 'items-start'}`}>
@@ -154,9 +165,8 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type a message..."
             autoComplete="off"
-            disabled={!firestore}
           />
-          <Button type="submit" size="icon" disabled={!firestore || !newMessage}>
+          <Button type="submit" size="icon" disabled={!newMessage}>
             <Send className="h-5 w-5" />
             <span className="sr-only">Send message</span>
           </Button>

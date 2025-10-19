@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { ChatMessage } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -10,12 +10,10 @@ import { Button } from '@/components/ui/button';
 import { Send, Paperclip, Link as LinkIcon, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/lib/auth-client';
-import { useFirestore, useCollection } from '@/firebase';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, serverTimestamp, query, orderBy } from 'firebase/firestore';
-import { AddChatAttachmentDialog } from '../../projects/[id]/components/add-chat-attachment-dialog';
 import { useData } from '../../data-provider';
+import { AddChatAttachmentDialog } from '../../projects/[id]/components/add-chat-attachment-dialog';
 import { CardHeader, CardTitle } from '@/components/ui/card';
+import { FieldValue } from 'firebase/firestore';
 
 
 function getChatId(id1: string, id2: string) {
@@ -28,31 +26,13 @@ type SupportChatRoomProps = {
 
 export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const { user: currentUser } = useAuth();
-  const firestore = useFirestore();
   const { triggerNotification, users } = useData();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const prevMessagesCount = useRef(0);
 
-  const chatPartner = useMemo(() => users.find(u => u.id === chatPartnerId), [users, chatPartnerId]);
-  
-  const chatId = useMemo(() => {
-    if (!currentUser) return null;
-    return getChatId(currentUser.id, chatPartnerId);
-  }, [currentUser, chatPartnerId]);
-
-
-  const messagesCollectionRef = useMemo(() => {
-    if (!firestore || !chatId) return null;
-    return collection(firestore, 'supportChats', chatId, 'messages');
-  }, [firestore, chatId]);
-
-  const messagesQuery = useMemo(() => {
-    if (!messagesCollectionRef) return null;
-    return query(messagesCollectionRef, orderBy('timestamp', 'asc'));
-  }, [messagesCollectionRef]);
-  
-  const { data: messages, isLoading } = useCollection<ChatMessage>(messagesQuery);
+  const chatPartner = users.find(u => u.id === chatPartnerId);
   
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
@@ -78,19 +58,20 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
   }, [messages, currentUser, triggerNotification]);
 
 
-  const sendMessage = async (message: string, fileUrl?: string) => {
-     if (!currentUser || !messagesCollectionRef || (!message.trim() && !fileUrl)) return;
+  const sendMessage = (message: string, fileUrl?: string) => {
+     if (!currentUser || (!message.trim() && !fileUrl)) return;
      
-     const messagePayload = {
+     const messagePayload: ChatMessage = {
+      id: `support-msg-${Date.now()}`,
       senderId: currentUser.id,
       senderName: currentUser.name,
       senderAvatar: currentUser.avatar,
       message: message,
-      timestamp: serverTimestamp(),
+      timestamp: new Date() as unknown as FieldValue,
       fileUrl: fileUrl || null,
     };
     
-    addDocumentNonBlocking(messagesCollectionRef, messagePayload);
+    setMessages(prev => [...prev, messagePayload]);
     setNewMessage('');
   }
 
@@ -120,17 +101,16 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
 
       <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
         <div className="space-y-4">
-          {isLoading && <p className="text-center text-muted-foreground">Loading messages...</p>}
-          {!isLoading && messages?.length === 0 && (
+          {messages?.length === 0 && (
             <div className="text-center text-muted-foreground py-12">
               No messages yet. Send a message to start the conversation!
             </div>
           )}
-          {messages && messages.map((msg) => {
+          {messages.map((msg) => {
             const sender = users.find(u => u.id === msg.senderId);
             const userAvatar = PlaceHolderImages.find(img => img.id === sender?.avatar);
             const isCurrentUser = msg.senderId === currentUser.id;
-            const messageDate = (msg.timestamp as any)?.toDate ? (msg.timestamp as any).toDate() : new Date();
+            const messageDate = new Date();
 
             return (
               <div
@@ -191,9 +171,8 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type a message..."
             autoComplete="off"
-            disabled={!firestore}
           />
-          <Button type="submit" size="icon" disabled={!firestore || !newMessage}>
+          <Button type="submit" size="icon" disabled={!newMessage}>
             <Send className="h-5 w-5" />
             <span className="sr-only">Send message</span>
           </Button>
