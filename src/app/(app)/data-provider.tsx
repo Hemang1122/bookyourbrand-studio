@@ -5,7 +5,7 @@ import { createContext, useContext, useState, useMemo } from 'react';
 import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, TaskRemark, Notification } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-client';
-import { useCollection, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
 import { collection, doc, serverTimestamp, where, query } from 'firebase/firestore';
 
 type DataContextType = {
@@ -47,6 +47,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   
   const notificationsQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
+    // Note: This query requires a composite index on (userId, read).
+    // The Firestore error message in the console will provide a direct link to create it.
     return query(collection(firestore, 'notifications'), where('userId', '==', currentUser.id));
   }, [firestore, currentUser]);
 
@@ -135,30 +137,40 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }
 
   const addClient = (name: string, company: string, email: string) => {
+    // This function should be tied to an admin action that creates a user in Firebase Auth
+    // and then adds the corresponding document to Firestore.
+    // For now, we'll just add to the collections non-blockingly.
     if (!clientsRef || !usersRef) return;
-    const newClient: Omit<Client, 'id'> = {
+    
+    // Create a new document in the 'clients' collection
+    const newClientDocRef = doc(clientsRef); // Creates a ref with a new auto-generated ID
+    const newClientData = {
+        id: newClientDocRef.id,
         name,
         company,
         email,
         avatar: `avatar-${((users?.length || 0) % 6) + 1}`,
     };
-    addDocumentNonBlocking(clientsRef, newClient).then(docRef => {
-        if(docRef) {
-             const newUser: Omit<User, 'id'> & {id?: string} = {
-                id: docRef.id,
-                name,
-                email,
-                avatar: newClient.avatar,
-                role: 'client',
-                username: name.toLowerCase().replace(/\s/g, ''),
-            };
-            const userDocRef = doc(usersRef, docRef.id);
-            updateDocumentNonBlocking(userDocRef, newUser);
-        }
-    });
+    setDocumentNonBlocking(newClientDocRef, newClientData, { merge: false });
+
+    // Also create a corresponding document in the 'users' collection
+    const newUserDocRef = doc(usersRef, newClientDocRef.id); // Use the same ID
+    const newUserData = {
+        id: newUserDocRef.id,
+        name,
+        email,
+        avatar: newClientData.avatar,
+        role: 'client' as UserRole,
+        username: name.toLowerCase().replace(/\s/g, ''),
+    };
+    setDocumentNonBlocking(newUserDocRef, newUserData, { merge: false });
+
+    toast({title: "Client Added", description: `Client ${name} and their user account have been created.`});
   }
 
   const addTeamMember = (name: string, email: string) => {
+     // This would also require creating a user in Firebase Auth.
+     // For now, just adding to the 'users' collection.
     if (!usersRef) return;
     const newMember: Omit<User, 'id'> = {
         name,
@@ -168,6 +180,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         username: name.toLowerCase().replace(/\s/g, ''),
      };
      addDocumentNonBlocking(usersRef, newMember);
+     toast({title: "Team Member Added", description: `${name} has been added.`});
   }
   
   const triggerNotification = () => {
@@ -187,7 +200,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addNotification = (message: string, projectId: string) => {
     if (!currentUser || !firestore) return;
     const notificationsColRef = collection(firestore, 'notifications');
-    const notification: Omit<Notification, 'id'> = {
+    const notification: Omit<Notification, 'id'> & {read: boolean, userId: string} = {
       message: `${currentUser.name} ${message}`,
       timestamp: new Date().toISOString(),
       projectId: projectId,
