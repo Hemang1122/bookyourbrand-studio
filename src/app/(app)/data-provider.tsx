@@ -66,23 +66,40 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const firestore = useFirestore();
 
   // Firestore listeners
-  const projectsCollection = useMemoFirebase(() => collection(firestore, 'projects'), [firestore]);
-  const tasksCollection = useMemoFirebase(() => collection(firestore, 'tasks'), [firestore]);
-  
-  const { data: firestoreProjects, isLoading: isLoadingProjects } = useCollection<Project>(projectsCollection);
-  const { data: firestoreTasks, isLoading: isLoadingTasks } = useCollection<Task>(tasksCollection);
+  const projectsQuery = useMemoFirebase(() => {
+    if (!firestore || !currentUser) return null;
+    const projectsCollection = collection(firestore, 'projects');
+    if (currentUser.role === 'admin') {
+      return projectsCollection;
+    }
+    if (currentUser.role === 'client') {
+      return query(projectsCollection, where('client.id', '==', currentUser.id));
+    }
+    // For team members, we'll have to filter client-side for now
+    // A more robust solution would involve a 'teamMembers' array in the project document.
+    return projectsCollection;
+  }, [firestore, currentUser]);
+
+  const { data: firestoreProjects, isLoading: isLoadingProjects } = useCollection<Project>(projectsQuery);
+
+  const allTasksCollection = useMemoFirebase(() => collection(firestore, 'tasks'), [firestore]);
+  const { data: allTasks, isLoading: isLoadingTasks } = useCollection<Task>(allTasksCollection);
 
   useEffect(() => {
     if (firestoreProjects) {
-      setProjects(firestoreProjects);
+        if (currentUser?.role === 'team') {
+             setProjects(firestoreProjects.filter(p => p.team.some(tm => tm.id === currentUser.id)));
+        } else {
+            setProjects(firestoreProjects);
+        }
     }
-  }, [firestoreProjects]);
-
+  }, [firestoreProjects, currentUser]);
+  
   useEffect(() => {
-    if (firestoreTasks) {
-      setTasks(firestoreTasks);
+    if(allTasks) {
+        setTasks(allTasks);
     }
-  }, [firestoreTasks]);
+  }, [allTasks])
 
 
   const teamMembers = useMemo(() => users.filter(u => u.role === 'admin' || u.role === 'team'), [users]);
@@ -296,5 +313,3 @@ export function useData() {
   }
   return context;
 }
-
-    
