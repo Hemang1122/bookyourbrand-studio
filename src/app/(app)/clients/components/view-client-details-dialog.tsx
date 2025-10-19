@@ -10,11 +10,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import type { Client } from '@/lib/types';
-import { Badge } from '@/components/ui/badge';
-import { FileText, Download, Upload } from 'lucide-react';
+import { FileText, Download, Upload, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { uploadFile } from '@/lib/storage';
+import { useData } from '../../data-provider';
+import { Progress } from '@/components/ui/progress';
 
 type ViewClientDetailsDialogProps = {
   client: Client;
@@ -23,15 +25,39 @@ type ViewClientDetailsDialogProps = {
 
 export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsDialogProps) {
   const [open, setOpen] = useState(false);
+  const { toast } = useToast();
+  const { updateClient } = useData();
+  const [isUploading, setIsUploading] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
-  // This is a mock download handler. In a real app, this would trigger a download.
-  const handleDownload = (fileName: string) => {
-    alert(`Downloading ${fileName}... (simulation)`);
+  const handleDownload = (url: string) => {
+    window.open(url, '_blank');
   };
 
-  const handleUpload = (fileType: string) => {
-    alert(`Uploading ${fileType}... (simulation)`);
+  const handleFileUpload = async (file: File, type: 'agreement' | 'idCard') => {
+    setIsUploading(type);
+    setUploadProgress(0);
+    try {
+      const url = await uploadFile(file, `documents/clients/${client.id}`, setUploadProgress);
+      const fieldToUpdate = type === 'agreement' ? 'agreementUrl' : 'idCardUrl';
+      
+      updateClient(client.id, { [fieldToUpdate]: url });
+
+      toast({ title: 'Upload Successful', description: `${type} document uploaded.` });
+    } catch (error) {
+      toast({ title: 'Upload Failed', description: `Could not upload ${type} document.`, variant: 'destructive' });
+    } finally {
+      setIsUploading(null);
+    }
+  };
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'agreement' | 'idCard') => {
+    const file = e.target.files?.[0];
+    if (file) {
+        handleFileUpload(file, type);
+    }
   }
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -71,14 +97,15 @@ export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsD
                         <span className="font-medium text-sm">client_agreement.pdf</span>
                     </div>
                     {client.agreementUrl ? (
-                         <Button variant="outline" size="sm" onClick={() => handleDownload('client_agreement.pdf')}>
+                         <Button variant="outline" size="sm" onClick={() => handleDownload(client.agreementUrl!)}>
                             <Download className="mr-2 h-4 w-4" /> Download
                         </Button>
                     ) : (
-                         <Button asChild variant="secondary" size="sm">
+                         <Button asChild variant="secondary" size="sm" disabled={isUploading === 'agreement'}>
                             <label htmlFor="agreement-upload-view" className="cursor-pointer">
-                                <Upload className="mr-2 h-4 w-4" /> Upload File
-                                 <Input id="agreement-upload-view" type="file" className="hidden" onChange={() => handleUpload('agreement')} />
+                                {isUploading === 'agreement' ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />}
+                                Upload File
+                                 <Input id="agreement-upload-view" type="file" className="hidden" onChange={(e) => handleFileChange(e, 'agreement')} />
                             </label>
                         </Button>
                     )}
@@ -89,18 +116,25 @@ export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsD
                         <span className="font-medium text-sm">founder_id_card.pdf</span>
                     </div>
                      {client.idCardUrl ? (
-                        <Button variant="outline" size="sm" onClick={() => handleDownload('founder_id_card.pdf')}>
+                        <Button variant="outline" size="sm" onClick={() => handleDownload(client.idCardUrl!)}>
                             <Download className="mr-2 h-4 w-4" /> Download
                         </Button>
                      ) : (
-                        <Button asChild variant="secondary" size="sm">
+                        <Button asChild variant="secondary" size="sm" disabled={isUploading === 'idCard'}>
                             <label htmlFor="id-card-upload-view" className="cursor-pointer">
-                                <Upload className="mr-2 h-4 w-4" /> Upload File
-                                <Input id="id-card-upload-view" type="file" className="hidden" onChange={() => handleUpload('id-card')} />
+                                {isUploading === 'idCard' ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />}
+                                Upload File
+                                <Input id="id-card-upload-view" type="file" className="hidden" onChange={(e) => handleFileChange(e, 'idCard')} />
                             </label>
                         </Button>
                      )}
                 </div>
+                 {isUploading && (
+                    <div className="space-y-2 mt-2">
+                        <Progress value={uploadProgress} />
+                        <p className="text-sm text-muted-foreground text-center">Uploading... {Math.round(uploadProgress)}%</p>
+                    </div>
+                )}
             </div>
           </div>
         </div>

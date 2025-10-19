@@ -11,9 +11,13 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import type { User } from '@/lib/types';
-import { FileText, Download, Upload } from 'lucide-react';
+import { FileText, Download, Upload, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { useData } from '../../data-provider';
+import { useToast } from '@/hooks/use-toast';
+import { uploadFile } from '@/lib/storage';
+import { Progress } from '@/components/ui/progress';
 
 type ViewTeamMemberDetailsDialogProps = {
   teamMember: User;
@@ -22,14 +26,37 @@ type ViewTeamMemberDetailsDialogProps = {
 
 export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMemberDetailsDialogProps) {
   const [open, setOpen] = useState(false);
-  
-  // This is a mock download handler. In a real app, this would trigger a download from cloud storage.
-  const handleDownload = (fileName: string) => {
-    alert(`Downloading ${fileName}... (simulation)`);
+  const { toast } = useToast();
+  const { updateTeamMember } = useData();
+  const [isUploading, setIsUploading] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const handleDownload = (url: string) => {
+    window.open(url, '_blank');
   };
 
-  const handleUpload = (fileType: string) => {
-    alert(`Uploading ${fileType}... (simulation)`);
+  const handleFileUpload = async (file: File, type: 'aadhar' | 'pan' | 'joiningLetter') => {
+    setIsUploading(type);
+    setUploadProgress(0);
+    try {
+      const url = await uploadFile(file, `documents/team/${teamMember.id}`, setUploadProgress);
+      const fieldToUpdate = `${type}Url` as const;
+      
+      updateTeamMember(teamMember.id, { [fieldToUpdate]: url });
+
+      toast({ title: 'Upload Successful', description: `${type} document uploaded.` });
+    } catch (error) {
+      toast({ title: 'Upload Failed', description: `Could not upload ${type} document.`, variant: 'destructive' });
+    } finally {
+      setIsUploading(null);
+    }
+  };
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'aadhar' | 'pan' | 'joiningLetter') => {
+    const file = e.target.files?.[0];
+    if (file) {
+        handleFileUpload(file, type);
+    }
   }
 
 
@@ -63,14 +90,15 @@ export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMe
                         <span className="font-medium text-sm">aadhar_card.pdf</span>
                     </div>
                      {teamMember.aadharUrl ? (
-                        <Button variant="outline" size="sm" onClick={() => handleDownload('aadhar_card.pdf')}>
+                        <Button variant="outline" size="sm" onClick={() => handleDownload(teamMember.aadharUrl!)}>
                             <Download className="mr-2 h-4 w-4" /> Download
                         </Button>
                      ) : (
-                         <Button asChild variant="secondary" size="sm">
+                         <Button asChild variant="secondary" size="sm" disabled={isUploading === 'aadhar'}>
                             <label htmlFor="aadhar-upload-view" className="cursor-pointer">
-                                <Upload className="mr-2 h-4 w-4" /> Upload File
-                                <Input id="aadhar-upload-view" type="file" className="hidden" onChange={() => handleUpload('aadhar')} />
+                                {isUploading === 'aadhar' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                                Upload File
+                                <Input id="aadhar-upload-view" type="file" className="hidden" onChange={(e) => handleFileChange(e, 'aadhar')} />
                             </label>
                         </Button>
                      )}
@@ -81,14 +109,15 @@ export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMe
                         <span className="font-medium text-sm">pan_card.pdf</span>
                     </div>
                     {teamMember.panUrl ? (
-                        <Button variant="outline" size="sm" onClick={() => handleDownload('pan_card.pdf')}>
+                        <Button variant="outline" size="sm" onClick={() => handleDownload(teamMember.panUrl!)}>
                             <Download className="mr-2 h-4 w-4" /> Download
                         </Button>
                     ) : (
-                        <Button asChild variant="secondary" size="sm">
+                        <Button asChild variant="secondary" size="sm" disabled={isUploading === 'pan'}>
                             <label htmlFor="pan-upload-view" className="cursor-pointer">
-                                <Upload className="mr-2 h-4 w-4" /> Upload File
-                                <Input id="pan-upload-view" type="file" className="hidden" onChange={() => handleUpload('pan')} />
+                                {isUploading === 'pan' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                                Upload File
+                                <Input id="pan-upload-view" type="file" className="hidden" onChange={(e) => handleFileChange(e, 'pan')} />
                             </label>
                         </Button>
                     )}
@@ -99,18 +128,25 @@ export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMe
                         <span className="font-medium text-sm">joining_letter.pdf</span>
                     </div>
                     {teamMember.joiningLetterUrl ? (
-                         <Button variant="outline" size="sm" onClick={() => handleDownload('joining_letter.pdf')}>
+                         <Button variant="outline" size="sm" onClick={() => handleDownload(teamMember.joiningLetterUrl!)}>
                             <Download className="mr-2 h-4 w-4" /> Download
                         </Button>
                     ) : (
-                         <Button asChild variant="secondary" size="sm">
+                         <Button asChild variant="secondary" size="sm" disabled={isUploading === 'joiningLetter'}>
                             <label htmlFor="joining-letter-upload-view" className="cursor-pointer">
-                                <Upload className="mr-2 h-4 w-4" /> Upload File
-                                <Input id="joining-letter-upload-view" type="file" className="hidden" onChange={() => handleUpload('joining-letter')} />
+                                {isUploading === 'joiningLetter' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                                Upload File
+                                <Input id="joining-letter-upload-view" type="file" className="hidden" onChange={(e) => handleFileChange(e, 'joiningLetter')} />
                             </label>
                         </Button>
                     )}
                 </div>
+                {isUploading && (
+                    <div className="space-y-2 mt-2">
+                        <Progress value={uploadProgress} />
+                        <p className="text-sm text-muted-foreground text-center">Uploading... {Math.round(uploadProgress)}%</p>
+                    </div>
+                )}
             </div>
           </div>
         </div>

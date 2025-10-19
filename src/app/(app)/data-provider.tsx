@@ -2,7 +2,7 @@
 'use client';
 
 import { createContext, useContext, useState, useMemo } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, TaskRemark, Notification, ProjectStatus } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, Notification, ProjectStatus } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-client';
@@ -20,8 +20,23 @@ type DataContextType = {
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
   updateTaskStatus: (taskId: string, status: TaskStatus, remark: string) => void;
-  addClient: (name: string, company: string, email: string) => void;
-  addTeamMember: (name: string, email: string) => void;
+  addClient: (clientData: {
+    name: string;
+    company: string;
+    email: string;
+    founderDetails: string;
+    agreementUrl?: string;
+    idCardUrl?: string;
+  }) => void;
+  updateClient: (clientId: string, clientData: Partial<Client>) => void;
+  addTeamMember: (memberData: {
+    name: string;
+    email: string;
+    aadharUrl?: string;
+    panUrl?: string;
+    joiningLetterUrl?: string;
+  }) => void;
+  updateTeamMember: (userId: string, memberData: Partial<User>) => void;
   addScrumUpdate: (update: Omit<ScrumUpdate, 'id'>) => void;
   addNotification: (message: string, projectId: string) => void;
   markNotificationsAsRead: (projectId?: string) => void;
@@ -117,36 +132,50 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     toast({ title: 'Task Updated', description: `Task status changed to "${status}".` });
   }
 
-  const addClient = (name: string, company: string, email: string) => {
+  const addClient = (clientData: {name: string, company: string, email: string, founderDetails: string, agreementUrl?: string, idCardUrl?: string}) => {
     const newClient: Client = {
       id: `client-${Date.now()}`,
-      name,
-      company,
-      email,
+      name: clientData.name,
+      company: clientData.company,
+      email: clientData.email,
+      founderDetails: clientData.founderDetails,
+      agreementUrl: clientData.agreementUrl,
+      idCardUrl: clientData.idCardUrl,
       avatar: `avatar-${(clients.length % 6) + 1}`,
     };
     const newUser: User = {
         id: newClient.id,
-        name,
-        email,
+        name: clientData.name,
+        email: clientData.email,
         avatar: newClient.avatar,
         role: 'client',
-        username: name.toLowerCase().replace(/\s/g, ''),
+        username: clientData.name.toLowerCase().replace(/\s/g, ''),
     }
     setClients(prev => [...prev, newClient]);
     setUsers(prev => [...prev, newUser]);
   }
+  
+  const updateClient = (clientId: string, clientData: Partial<Client>) => {
+    setClients(prev => prev.map(c => c.id === clientId ? { ...c, ...clientData } : c));
+  }
 
-  const addTeamMember = (name: string, email: string) => {
+  const addTeamMember = (memberData: { name: string, email: string, aadharUrl?: string, panUrl?: string, joiningLetterUrl?: string }) => {
      const newMember: User = {
         id: `user-${Date.now()}`,
-        name,
-        email,
+        name: memberData.name,
+        email: memberData.email,
+        aadharUrl: memberData.aadharUrl,
+        panUrl: memberData.panUrl,
+        joiningLetterUrl: memberData.joiningLetterUrl,
         avatar: `avatar-${(users.length % 6) + 1}`,
         role: 'team',
-        username: name.toLowerCase().replace(/\s/g, ''),
+        username: memberData.name.toLowerCase().replace(/\s/g, ''),
      };
      setUsers(prev => [...prev, newMember]);
+  }
+
+  const updateTeamMember = (userId: string, memberData: Partial<User>) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...memberData } : u));
   }
   
   const triggerNotification = () => {
@@ -215,8 +244,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         addTask, 
         updateProjectTeam, 
         updateTaskStatus,
-        addClient, 
-        addTeamMember, 
+        addClient,
+        updateClient,
+        addTeamMember,
+        updateTeamMember,
         addScrumUpdate,
         addNotification,
         markNotificationsAsRead,

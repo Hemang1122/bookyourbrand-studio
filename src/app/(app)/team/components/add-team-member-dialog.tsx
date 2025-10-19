@@ -14,10 +14,18 @@ import {
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
-import { File, Upload } from 'lucide-react';
+import { Loader2, Upload } from 'lucide-react';
+import { uploadFile } from '@/lib/storage';
+import { Progress } from '@/components/ui/progress';
 
 type AddTeamMemberDialogProps = {
-  onTeamMemberAdd: (name: string, email: string) => void;
+  onTeamMemberAdd: (memberData: {
+    name: string;
+    email: string;
+    aadharUrl?: string;
+    panUrl?: string;
+    joiningLetterUrl?: string;
+  }) => void;
   children: React.ReactNode;
 };
 
@@ -29,6 +37,8 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
   const [panFile, setPanFile] = useState<File | null>(null);
   const [joiningLetterFile, setJoiningLetterFile] = useState<File | null>(null);
   const { toast } = useToast();
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setFile: React.Dispatch<React.SetStateAction<File | null>>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -36,28 +46,43 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
     }
   };
 
-  const handleAddMember = () => {
+  const handleAddMember = async () => {
     if (!name || !email) {
       toast({ title: 'Error', description: 'Name and email are required.', variant: 'destructive' });
       return;
     }
     
-    // In a real app, you would upload the files here.
-    // For now, we just pass the names.
-    console.log({
-      aadharFile: aadharFile?.name,
-      panFile: panFile?.name,
-      joiningLetterFile: joiningLetterFile?.name,
-    });
+    setIsUploading(true);
+    setUploadProgress(0);
 
-    onTeamMemberAdd(name, email);
-    setOpen(false);
-    // Reset fields
-    setName('');
-    setEmail('');
-    setAadharFile(null);
-    setPanFile(null);
-    setJoiningLetterFile(null);
+    try {
+      let aadharUrl, panUrl, joiningLetterUrl;
+
+      if (aadharFile) {
+        aadharUrl = await uploadFile(aadharFile, `documents/team/${name}`, setUploadProgress);
+      }
+      if (panFile) {
+        panUrl = await uploadFile(panFile, `documents/team/${name}`, setUploadProgress);
+      }
+      if (joiningLetterFile) {
+        joiningLetterUrl = await uploadFile(joiningLetterFile, `documents/team/${name}`, setUploadProgress);
+      }
+
+      onTeamMemberAdd({ name, email, aadharUrl, panUrl, joiningLetterUrl });
+      
+      setOpen(false);
+      // Reset fields
+      setName('');
+      setEmail('');
+      setAadharFile(null);
+      setPanFile(null);
+      setJoiningLetterFile(null);
+      
+    } catch (error) {
+      toast({ title: 'Upload Error', description: 'Could not upload files.', variant: 'destructive' });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -71,22 +96,22 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., John Doe" />
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., John Doe" disabled={isUploading}/>
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g., john.d@example.com" />
+            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g., john.d@example.com" disabled={isUploading}/>
           </div>
           
           <div className="space-y-2">
             <Label>Aadhar Card</Label>
             <div className="flex items-center gap-2">
-                <Button asChild variant="outline">
+                <Button asChild variant="outline" disabled={isUploading}>
                     <label htmlFor="aadhar-upload" className="cursor-pointer">
                         <Upload className="mr-2 h-4 w-4" /> Upload File
                     </label>
                 </Button>
-                <Input id="aadhar-upload" type="file" className="hidden" onChange={e => handleFileChange(e, setAadharFile)} />
+                <Input id="aadhar-upload" type="file" className="hidden" onChange={e => handleFileChange(e, setAadharFile)} disabled={isUploading}/>
                 {aadharFile && <span className="text-sm text-muted-foreground truncate">{aadharFile.name}</span>}
             </div>
           </div>
@@ -94,12 +119,12 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
           <div className="space-y-2">
             <Label>PAN Card</Label>
             <div className="flex items-center gap-2">
-                <Button asChild variant="outline">
+                <Button asChild variant="outline" disabled={isUploading}>
                     <label htmlFor="pan-upload" className="cursor-pointer">
                         <Upload className="mr-2 h-4 w-4" /> Upload File
                     </label>
                 </Button>
-                <Input id="pan-upload" type="file" className="hidden" onChange={e => handleFileChange(e, setPanFile)} />
+                <Input id="pan-upload" type="file" className="hidden" onChange={e => handleFileChange(e, setPanFile)} disabled={isUploading}/>
                 {panFile && <span className="text-sm text-muted-foreground truncate">{panFile.name}</span>}
             </div>
           </div>
@@ -107,20 +132,30 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
            <div className="space-y-2">
             <Label>Joining Letter</Label>
             <div className="flex items-center gap-2">
-                <Button asChild variant="outline">
+                <Button asChild variant="outline" disabled={isUploading}>
                     <label htmlFor="joining-letter-upload" className="cursor-pointer">
                         <Upload className="mr-2 h-4 w-4" /> Upload File
                     </label>
                 </Button>
-                <Input id="joining-letter-upload" type="file" className="hidden" onChange={e => handleFileChange(e, setJoiningLetterFile)} />
+                <Input id="joining-letter-upload" type="file" className="hidden" onChange={e => handleFileChange(e, setJoiningLetterFile)} disabled={isUploading}/>
                 {joiningLetterFile && <span className="text-sm text-muted-foreground truncate">{joiningLetterFile.name}</span>}
             </div>
           </div>
 
+          {isUploading && (
+            <div className="space-y-2">
+              <Label>Upload Progress</Label>
+              <Progress value={uploadProgress} />
+              <p className="text-sm text-muted-foreground">{Math.round(uploadProgress)}%</p>
+            </div>
+          )}
+
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleAddMember}>Add Member</Button>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={isUploading}>Cancel</Button>
+          <Button onClick={handleAddMember} disabled={isUploading}>
+            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : 'Add Member'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -99,3 +99,22 @@ export type Notification = {
   projectId: string;
   read: boolean;
 };
+
+// New types for file uploads
+export type DocumentType = 'aadhar' | 'pan' | 'joiningLetter' | 'agreement' | 'idCard';
+
+export type UserDocument = {
+  userId: string;
+  type: DocumentType;
+  url: string;
+  fileName: string;
+  uploadedAt: FieldValue;
+};
+
+export type ClientDocument = {
+  clientId: string;
+  type: DocumentType;
+  url: string;
+  fileName: string;
+  uploadedAt: FieldValue;
+};

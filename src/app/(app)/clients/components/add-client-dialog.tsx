@@ -15,10 +15,19 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Upload } from 'lucide-react';
+import { Loader2, Upload } from 'lucide-react';
+import { uploadFile } from '@/lib/storage';
+import { Progress } from '@/components/ui/progress';
 
 type AddClientDialogProps = {
-  onClientAdd: (name: string, company: string, email: string) => void;
+  onClientAdd: (clientData: {
+    name: string;
+    company: string;
+    email: string;
+    founderDetails: string;
+    agreementUrl?: string;
+    idCardUrl?: string;
+  }) => void;
   children: React.ReactNode;
 };
 
@@ -31,6 +40,8 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
   const [agreementFile, setAgreementFile] = useState<File | null>(null);
   const [idCardFile, setIdCardFile] = useState<File | null>(null);
   const { toast } = useToast();
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setFile: React.Dispatch<React.SetStateAction<File | null>>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -38,28 +49,41 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
     }
   };
 
-  const handleAddClient = () => {
+  const handleAddClient = async () => {
     if (!name || !company || !email) {
       toast({ title: 'Error', description: 'Name, company, and email are required.', variant: 'destructive' });
       return;
     }
     
-    // In a real app, you would upload the files here.
-    console.log({
-        agreementFile: agreementFile?.name,
-        idCardFile: idCardFile?.name,
-    });
-    
-    onClientAdd(name, company, email);
-    toast({ title: 'Client Added', description: `"${name}" has been added.` });
-    setOpen(false);
-    // Reset fields
-    setName('');
-    setCompany('');
-    setEmail('');
-    setFounderDetails('');
-    setAgreementFile(null);
-    setIdCardFile(null);
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      let agreementUrl: string | undefined;
+      let idCardUrl: string | undefined;
+
+      if (agreementFile) {
+        agreementUrl = await uploadFile(agreementFile, `documents/clients/${name}`, setUploadProgress);
+      }
+      if (idCardFile) {
+        idCardUrl = await uploadFile(idCardFile, `documents/clients/${name}`, setUploadProgress);
+      }
+
+      onClientAdd({ name, company, email, founderDetails, agreementUrl, idCardUrl });
+      toast({ title: 'Client Added', description: `"${name}" has been added.` });
+      setOpen(false);
+      // Reset fields
+      setName('');
+      setCompany('');
+      setEmail('');
+      setFounderDetails('');
+      setAgreementFile(null);
+      setIdCardFile(null);
+    } catch (error) {
+        toast({ title: 'Upload Error', description: 'Could not upload files.', variant: 'destructive'});
+    } finally {
+        setIsUploading(false);
+    }
   };
 
   return (
@@ -73,48 +97,58 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="name">Client Name</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Acme Corp" />
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Acme Corp" disabled={isUploading} />
           </div>
            <div className="space-y-2">
             <Label htmlFor="company">Company Name</Label>
-            <Input id="company" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g., Acme Industries Inc." />
+            <Input id="company" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g., Acme Industries Inc." disabled={isUploading}/>
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Client Email</Label>
-            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g., contact@acme.com" />
+            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g., contact@acme.com" disabled={isUploading}/>
           </div>
           <div className="space-y-2">
             <Label htmlFor="founder-details">Founder Details</Label>
-            <Textarea id="founder-details" value={founderDetails} onChange={(e) => setFounderDetails(e.target.value)} placeholder="Enter details about the founder(s)." />
+            <Textarea id="founder-details" value={founderDetails} onChange={(e) => setFounderDetails(e.target.value)} placeholder="Enter details about the founder(s)." disabled={isUploading}/>
           </div>
            <div className="space-y-2">
             <Label>Client Agreement</Label>
             <div className="flex items-center gap-2">
-                <Button asChild variant="outline">
+                <Button asChild variant="outline" disabled={isUploading}>
                     <label htmlFor="agreement-upload" className="cursor-pointer">
                         <Upload className="mr-2 h-4 w-4" /> Upload File
                     </label>
                 </Button>
-                <Input id="agreement-upload" type="file" className="hidden" onChange={e => handleFileChange(e, setAgreementFile)} />
+                <Input id="agreement-upload" type="file" className="hidden" onChange={e => handleFileChange(e, setAgreementFile)} disabled={isUploading} />
                 {agreementFile && <span className="text-sm text-muted-foreground truncate">{agreementFile.name}</span>}
             </div>
           </div>
            <div className="space-y-2">
             <Label>Founder's Identity Card</Label>
             <div className="flex items-center gap-2">
-                <Button asChild variant="outline">
+                <Button asChild variant="outline" disabled={isUploading}>
                     <label htmlFor="id-card-upload" className="cursor-pointer">
                         <Upload className="mr-2 h-4 w-4" /> Upload File
                     </label>
                 </Button>
-                <Input id="id-card-upload" type="file" className="hidden" onChange={e => handleFileChange(e, setIdCardFile)} />
+                <Input id="id-card-upload" type="file" className="hidden" onChange={e => handleFileChange(e, setIdCardFile)} disabled={isUploading}/>
                 {idCardFile && <span className="text-sm text-muted-foreground truncate">{idCardFile.name}</span>}
             </div>
           </div>
+          {isUploading && (
+            <div className="space-y-2">
+              <Label>Upload Progress</Label>
+              <Progress value={uploadProgress} />
+              <p className="text-sm text-muted-foreground">{Math.round(uploadProgress)}%</p>
+            </div>
+          )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleAddClient}>Add Client</Button>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={isUploading}>Cancel</Button>
+          <Button onClick={handleAddClient} disabled={isUploading}>
+            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isUploading ? 'Adding Client...' : 'Add Client'}
+            </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
