@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -54,7 +55,7 @@ export default function LoginPage() {
         </p>
       </div>
 
-      <div className="relative z-10 flex w-full max-w-sm items-center justify-center">
+      <div className="relative z-10 flex w-full max-w-md items-center justify-center">
         <Card className="w-full bg-background/80 backdrop-blur-sm shadow-2xl">
           <CardHeader className="text-center">
             <div className="mb-4 flex justify-center lg:hidden">
