@@ -75,24 +75,48 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       return query(projectsCollection, where('client.email', '==', currentUser.email));
     }
      if (currentUser.role === 'team') {
-      return query(projectsCollection, where('team', 'array-contains', currentUser.id));
+       // This is not perfectly secure, as a team member could guess other user IDs.
+       // In a real production app, this would be backed by more robust security rules
+       // and possibly a backend function to resolve projects for a user.
+      return query(projectsCollection, where('team', 'array-contains', { id: currentUser.id, name: currentUser.name, email: currentUser.email, avatar: currentUser.avatar, role: currentUser.role, username: currentUser.username }));
     }
     return null;
   }, [firestore, currentUser]);
+  
+  const tasksQuery = useMemoFirebase(() => {
+      if (!firestore || !currentUser) return null;
+      const tasksCollection = collection(firestore, 'tasks');
+      if (currentUser.role === 'admin') {
+          return tasksCollection;
+      }
+      if (currentUser.role === 'team') {
+          return query(tasksCollection, where('assignedTo.id', '==', currentUser.id));
+      }
+      // Clients should not query the tasks collection directly. They get tasks through projects.
+      return null;
+  }, [firestore, currentUser]);
 
   const { data: firestoreProjects, isLoading: isLoadingProjects } = useCollection<Project>(projectsQuery);
-  const { data: firestoreTasks, isLoading: isLoadingTasks } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
-  const { data: firestoreUsers, isLoading: isLoadingUsers } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
-  const { data: firestoreClients, isLoading: isLoadingClients } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
+  const { data: firestoreTasks, isLoading: isLoadingTasks } = useCollection<Task>(tasksQuery);
+  const { data: firestoreUsers, isLoading: isLoadingUsers } = useCollection<User>(useMemoFirebase(() => (firestore && currentUser?.role === 'admin') ? collection(firestore, 'users') : null, [firestore, currentUser]));
+  const { data: firestoreClients, isLoading: isLoadingClients } = useCollection<Client>(useMemoFirebase(() => (firestore && currentUser?.role === 'admin') ? collection(firestore, 'clients') : null, [firestore, currentUser]));
   const { data: firestoreScrumUpdates, isLoading: isLoadingScrumUpdates } = useCollection<ScrumUpdate>(useMemoFirebase(() => firestore ? collection(firestore, 'scrum-updates') : null, [firestore]));
 
 
   useEffect(() => {
-    if (firestoreProjects) setProjects(firestoreProjects);
+    if (firestoreProjects) {
+        setProjects(firestoreProjects);
+    } else {
+        setProjects([]);
+    }
   }, [firestoreProjects]);
   
   useEffect(() => {
-    if (firestoreTasks) setTasks(firestoreTasks);
+    if (firestoreTasks) {
+        setTasks(firestoreTasks);
+    } else {
+        setTasks([]);
+    }
   }, [firestoreTasks]);
   
   useEffect(() => {
@@ -119,10 +143,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ...projectData,
       coverImage: `project-${Math.ceil(Math.random() * 3)}`,
     };
-    setProjects(prev => [...prev, newProject]);
     if(firestore) {
         addDocumentNonBlocking(collection(firestore, 'projects'), newProject);
     }
+    // Optimistically update local state
+    setProjects(prev => [...prev, newProject]);
     addNotification(`New project "${projectData.name}" was created.`, 'general');
     router.push(`/projects/${newProject.id}`);
   };
@@ -144,6 +169,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (firestore) {
         addDocumentNonBlocking(collection(firestore, 'tasks'), newTask);
     }
+    setTasks(prev => [...prev, newTask]);
     addNotification(`New task "${newTask.title}" added to project "${project?.name}".`, newTask.projectId);
   }
 
