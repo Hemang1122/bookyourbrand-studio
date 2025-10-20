@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -16,47 +15,48 @@ export function ClientDashboard() {
   const { user: authUser } = useAuth();
   const { projects, clients, tasks, addProject, isLoading } = useData();
 
-  // Wait for loading to complete before finding the client record
-  if (isLoading || !authUser) {
+  // Wait for loading to complete before processing
+  if (isLoading || !authUser || !clients) {
     return (
-        <div className="flex items-center justify-center text-center py-12">
-            <Loader2 className="mr-4 h-6 w-6 animate-spin" />
-            <div>
-                <h2 className="text-2xl font-semibold">Loading Dashboard...</h2>
-                <p className="text-muted-foreground mt-2">Please wait while we fetch your project data.</p>
-            </div>
+      <div className="flex items-center justify-center text-center py-12">
+        <Loader2 className="mr-4 h-6 w-6 animate-spin" />
+        <div>
+          <h2 className="text-2xl font-semibold">Loading Dashboard...</h2>
+          <p className="text-muted-foreground mt-2">Please wait while we fetch your project data.</p>
         </div>
-    )
+      </div>
+    );
   }
 
-  // Now that loading is complete, safely find the client record.
-  const myClientRecord = clients?.find(c => c.email === authUser?.email);
-  
+  // Case-insensitive lookup for client record
+  const myClientRecord = clients.find(
+    c => c.email?.trim().toLowerCase() === authUser.email?.trim().toLowerCase()
+  );
+
   if (!myClientRecord) {
-      return (
-        <div className="text-center py-12">
-            <h2 className="text-2xl font-semibold">Welcome, {authUser.name}</h2>
-            <p className="text-muted-foreground mt-2">Your client profile could not be loaded. Please contact support.</p>
-        </div>
-      )
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-2xl font-semibold">Welcome, {authUser.name}</h2>
+        <p className="text-red-600 mt-2">Your client profile could not be found. Please contact support.</p>
+      </div>
+    );
   }
-  
-  const myProjects = projects ? projects.filter(p => p.client.id === myClientRecord.id) : [];
+
+  const myProjects = projects?.filter(p => p.client?.id === myClientRecord.id) || [];
   const activeProjects = myProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;
   const completedProjects = myProjects.filter(p => p.status === 'Completed').length;
   const safeTasks = tasks || [];
-
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold tracking-tight">Client Dashboard</h2>
-         <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Project
-            </Button>
-          </AddProjectDialog>
+        <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Project
+          </Button>
+        </AddProjectDialog>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -77,7 +77,7 @@ export function ClientDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{myProjects.filter(p => p.status === 'On Hold').length}</div>
-             <p className="text-xs text-muted-foreground">Waiting for feedback or assets</p>
+            <p className="text-xs text-muted-foreground">Waiting for feedback or assets</p>
           </CardContent>
         </Card>
         <Card>
@@ -96,45 +96,46 @@ export function ClientDashboard() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-                <CardTitle>My Projects Overview</CardTitle>
-                <CardDescription>
-                    Track the progress of your ongoing projects.
-                </CardDescription>
+              <CardTitle>My Projects Overview</CardTitle>
+              <CardDescription>Track the progress of your ongoing projects.</CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {myProjects.length > 0 ? myProjects.map(project => {
-             const projectTasks = safeTasks.filter(t => t.projectId === project.id);
-             const completedTasks = projectTasks.filter(t => t.status === 'Completed').length;
-             const progress = projectTasks.length > 0 ? (completedTasks / projectTasks.length) * 100 : 0;
-            return (
+          {myProjects.length > 0 ? (
+            myProjects.map(project => {
+              const projectTasks = safeTasks.filter(t => t.projectId === project.id);
+              const completedTasks = projectTasks.filter(t => t.status === 'Completed').length;
+              const progress = projectTasks.length > 0 ? (completedTasks / projectTasks.length) * 100 : 0;
+
+              return (
                 <div key={project.id} className="space-y-2">
-                    <div className="flex justify-between items-center">
-                        <h3 className="font-semibold">{project.name}</h3>
-                         <Button variant="outline" size="sm" asChild>
-                            <Link href={`/projects/${project.id}`}>View Details</Link>
-                        </Button>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <Progress value={progress} className="w-full" />
-                        <span className="text-sm font-medium text-muted-foreground">{Math.round(progress)}%</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                        <div>Status: <Badge variant="outline">{project.status}</Badge></div>
-                         <span>Due: {new Date(project.deadline).toLocaleDateString()}</span>
-                    </div>
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-semibold">{project.name}</h3>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/projects/${project.id}`}>View Details</Link>
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Progress value={progress} className="w-full" />
+                    <span className="text-sm font-medium text-muted-foreground">{Math.round(progress)}%</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <div>Status: <Badge variant="outline">{project.status}</Badge></div>
+                    <span>Due: {new Date(project.deadline).toLocaleDateString()}</span>
+                  </div>
                 </div>
-            )
-          }) : (
+              );
+            })
+          ) : (
             <div className="text-center py-8">
               <p className="text-muted-foreground mb-4">You have no projects yet.</p>
-               <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add First Project
-                    </Button>
-                </AddProjectDialog>
+              <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add First Project
+                </Button>
+              </AddProjectDialog>
             </div>
           )}
         </CardContent>
