@@ -24,7 +24,12 @@ type TeamDashboardProps = {
 
 export function TeamDashboard({ user }: TeamDashboardProps) {
   const { projects, tasks } = useData();
-  const myTasks = tasks.filter(t => t.assignedTo.id === user.id);
+  
+  // Safely handle tasks array being null during initial load
+  const safeTasks = tasks || [];
+  const safeProjects = projects || [];
+  
+  const myTasks = safeTasks.filter(t => t.assignedTo.id === user.id);
   const pendingTasks = myTasks.filter(t => t.status === 'Pending').length;
   const inProgressTasks = myTasks.filter(t => t.status === 'In Progress').length;
   const completedTasks = myTasks.filter(t => t.status === 'Completed').length;
@@ -91,7 +96,7 @@ export function TeamDashboard({ user }: TeamDashboardProps) {
               {myTasks.slice(0, 5).map(task => (
                 <TableRow key={task.id}>
                   <TableCell className="font-medium">{task.title}</TableCell>
-                  <TableCell>{projects.find(p => p.id === task.projectId)?.name}</TableCell>
+                  <TableCell>{safeProjects.find(p => p.id === task.projectId)?.name}</TableCell>
                   <TableCell>
                     <Badge variant={task.status === 'Completed' ? 'secondary' : 'default'}
                       className={
