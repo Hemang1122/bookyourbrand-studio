@@ -1,4 +1,3 @@
-
 'use client';
 import AppLayoutClient from './layout-client';
 import { useEffect, useState, ReactNode } from 'react';
@@ -16,41 +15,42 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
   const [isAppUserLoading, setIsAppUserLoading] = useState(true);
 
   useEffect(() => {
-    if (isAuthLoading) {
+    if (isAuthLoading || !firestore) {
+      // Wait until Firebase auth state is resolved and Firestore is available.
       return;
     }
 
     if (!authUser) {
+      // If no user is authenticated, redirect to login.
       redirect('/login');
       return;
     }
 
-    if (!firestore) {
-        setIsAppUserLoading(false);
-        return;
-    }
-    
+    // Auth user is present, try to fetch their app-specific profile.
     const userRef = doc(firestore, 'users', authUser.uid);
     getDoc(userRef)
       .then(async (userDoc) => {
         if (userDoc.exists()) {
+          // User profile exists in Firestore, use it.
           setAppUser({ id: userDoc.id, ...userDoc.data() } as User);
         } else {
-          // This is a first-time login or sign-up. Create a default profile.
+          // This is a first-time login for this user.
+          // Create a default user profile in Firestore.
           const newUser: User = {
             id: authUser.uid,
             email: authUser.email || 'no-email@example.com',
             name: authUser.displayName || authUser.email?.split('@')[0] || 'New User',
-            role: 'team', // Default role for new sign-ups. Could be 'client'
-            avatar: 'avatar-3', // A default avatar
+            role: 'client', // Default role for new sign-ups. Admins can change this.
+            avatar: `avatar-${Math.ceil(Math.random() * 3)}`,
             username: authUser.email?.split('@')[0] || `user${Date.now()}`,
           };
           await setDoc(userRef, newUser);
-          setAppUser(newUser);
+          setAppUser(newUser); // Use the newly created profile.
         }
       })
       .catch(error => {
         console.error("Error fetching user document:", error);
+        // Handle error, maybe show a message or redirect
         setAppUser(null);
       })
       .finally(() => {
@@ -73,6 +73,7 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
   }
   
   if (!appUser) {
+    // If after all loading, there's still no user, something went wrong.
     redirect('/login');
     return null;
   }
