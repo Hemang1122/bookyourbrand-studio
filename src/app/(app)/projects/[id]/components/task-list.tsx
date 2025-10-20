@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -149,7 +148,7 @@ export function TaskList({ projectId }: TaskListProps) {
   return (
     <>
       <div className="space-y-4">
-        {(user?.role === 'admin' || user?.role === 'client') && (
+        {(user?.role === 'admin' || user?.role === 'client' || user?.role === 'team') && (
           <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsManualTaskOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
