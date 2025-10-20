@@ -74,14 +74,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [firestore, currentUser]));
   
   const { data: firestoreUsers, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !currentUser || currentUser.role !== 'admin') return null;
     return collection(firestore, 'users');
-  }, [firestore]));
+  }, [firestore, currentUser]));
 
   const { data: firestoreClients, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !currentUser || currentUser.role !== 'admin') return null;
     return collection(firestore, 'clients');
-  }, [firestore]));
+  }, [firestore, currentUser]));
   
   const { data: firestoreTasks, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => {
     if (!firestore) return null;
@@ -103,11 +103,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [firestoreTasks]);
 
   useEffect(() => {
-    if (firestoreUsers) setUsers(firestoreUsers);
+    if (firestoreUsers) {
+        setUsers(prevUsers => {
+            const userMap = new Map(prevUsers.map(u => [u.id, u]));
+            firestoreUsers.forEach(u => userMap.set(u.id, u));
+            return Array.from(userMap.values());
+        });
+    }
   }, [firestoreUsers]);
 
   useEffect(() => {
-    if (firestoreClients) setClients(firestoreClients);
+    if (firestoreClients) {
+         setClients(prevClients => {
+            const clientMap = new Map(prevClients.map(c => [c.id, c]));
+            firestoreClients.forEach(c => clientMap.set(c.id, c));
+            return Array.from(clientMap.values());
+        });
+    }
   }, [firestoreClients]);
 
   const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading;
@@ -352,5 +364,3 @@ export function useData() {
   }
   return context;
 }
-
-    
