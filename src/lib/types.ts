@@ -33,8 +33,7 @@ export type Project = {
   client: Client;
   status: ProjectStatus;
   deadline: string;
-  team: User[];
-  team_ids?: string[];
+  team_ids: string[];
   description: string;
   guidelines?: string;
   coverImage: string;

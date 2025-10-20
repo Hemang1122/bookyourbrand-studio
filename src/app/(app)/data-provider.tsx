@@ -43,7 +43,7 @@ type DataContextType = {
   addScrumUpdate: (update: Omit<ScrumUpdate, 'id'>) => void;
   isLoading: boolean;
   deleteProject: (projectId: string) => void;
-  updateProject: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team' | 'coverImage'>>) => void;
+  updateProject: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => void;
   addFile: (file: Omit<ProjectFile, 'id'>) => void;
   addMessage: (message: Omit<ChatMessage, 'id'>) => void;
   markNotificationsAsRead: () => void;
@@ -135,7 +135,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const newProject: Project = {
       id: newProjectId,
       ...projectData,
-      team_ids: projectData.team.map(t => t.id),
       coverImage: `project-${Math.ceil(Math.random() * 3)}`,
     };
     setDocumentNonBlocking(doc(firestore, 'projects', newProject.id), newProject);
@@ -151,7 +150,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addTask = (taskData: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks'>) => {
     if (!firestore || !projects || !currentUser || !users) return;
     const project = projects.find(p => p.id === taskData.projectId);
-    const assignedTo = project?.team[0] || users.find(u => u.role === 'team') || users[0];
+    if (!project) return;
+    const team = users.filter(u => project.team_ids.includes(u.id));
+    const assignedTo = team[0] || users.find(u => u.role === 'team') || users[0];
     if (!assignedTo) {
         toast({title: "Error", description: "No one to assign task to."});
         return;
@@ -179,9 +180,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
     
-    const newTeam = users.filter(u => teamMemberIds.includes(u.id));
     const projectRef = doc(firestore, 'projects', projectId);
-    updateDocumentNonBlocking(projectRef, { team: newTeam, team_ids: teamMemberIds });
+    updateDocumentNonBlocking(projectRef, { team_ids: teamMemberIds });
     
     toast({ title: 'Team Updated', description: `The team for "${project.name}" has been updated.` });
     
@@ -291,7 +291,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     router.push('/projects');
   };
 
-  const updateProject = (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team' | 'coverImage'>>) => {
+  const updateProject = (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => {
     if (!firestore || !projects) return;
     const projectRef = doc(firestore, 'projects', projectId);
     updateDocumentNonBlocking(projectRef, projectData);
@@ -380,5 +380,3 @@ export function useData() {
   }
   return context;
 }
-
-    

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -24,7 +23,7 @@ export default function ProjectDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const { user } = useAuth();
-  const { projects, isLoading, deleteProject, updateProject } = useData();
+  const { projects, isLoading, deleteProject, updateProject, users } = useData();
 
   const project = useMemo(() => {
     return projects.find((p) => p.id === id);
@@ -56,6 +55,8 @@ export default function ProjectDetailPage() {
     // This will be called if the project is not found after loading.
     return notFound();
   }
+  
+  const teamMembers = users.filter(u => project.team_ids.includes(u.id));
 
   return (
     <div className="space-y-6">
@@ -116,7 +117,7 @@ export default function ProjectDetailPage() {
             </div>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            {project.team.map(member => {
+            {teamMembers.map(member => {
                 return (
                     <div key={member.id}>
                         <p className="font-semibold text-sm">{member.name}</p>
@@ -124,6 +125,7 @@ export default function ProjectDetailPage() {
                     </div>
                 )
             })}
+             {teamMembers.length === 0 && <p className="text-sm text-muted-foreground">No team members assigned.</p>}
           </CardContent>
         </Card>
       </div>

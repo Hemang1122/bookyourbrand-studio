@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Project } from '@/lib/types';
@@ -13,7 +12,7 @@ import { useAuth } from '@/lib/auth-client';
 import { useMemo } from 'react';
 
 export function ProjectList() {
-  const { projects } = useData();
+  const { projects, users } = useData();
   const { user } = useAuth();
 
   const filteredProjects = useMemo(() => {
@@ -22,7 +21,7 @@ export function ProjectList() {
       return projects.filter(p => p.client.id === user.id);
     }
     if (user.role === 'team') {
-      return projects.filter(p => p.team.some(teamMember => teamMember.id === user.id));
+      return projects.filter(p => p.team_ids.includes(user.id));
     }
     return projects; // Admins see all projects
   }, [projects, user]);
@@ -31,6 +30,7 @@ export function ProjectList() {
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {filteredProjects.map((project) => {
         const coverImage = PlaceHolderImages.find(img => img.id === project.coverImage);
+        const teamMembers = users.filter(u => project.team_ids.includes(u.id));
         return (
           <Link href={`/projects/${project.id}`} key={project.id}>
             <Card className="overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1">
@@ -56,7 +56,7 @@ export function ProjectList() {
               </CardContent>
               <CardFooter className="flex justify-between p-4 pt-0">
                  <div className="flex -space-x-2 overflow-hidden">
-                    {project.team.map(member => (
+                    {teamMembers.map(member => (
                         <div key={member.id} className="text-xs text-muted-foreground pr-2">
                           {member.name}
                         </div>

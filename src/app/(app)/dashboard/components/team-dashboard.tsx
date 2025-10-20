@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -29,7 +28,7 @@ export function TeamDashboard({ user }: TeamDashboardProps) {
   const safeTasks = tasks || [];
   const safeProjects = projects || [];
   
-  const myTasks = safeTasks.filter(t => t.assignedTo.id === user.id);
+  const myTasks = safeTasks.filter(t => t.assignedTo?.id === user.id);
   const pendingTasks = myTasks.filter(t => t.status === 'Pending').length;
   const inProgressTasks = myTasks.filter(t => t.status === 'In Progress').length;
   const completedTasks = myTasks.filter(t => t.status === 'Completed').length;

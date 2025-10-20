@@ -23,7 +23,7 @@ type ManageTeamDialogProps = {
 
 export function ManageTeamDialog({ project, children }: ManageTeamDialogProps) {
   const [open, setOpen] = useState(false);
-  const [team, setTeam] = useState<string[]>(project.team.map(t => t.id));
+  const [team, setTeam] = useState<string[]>(project.team_ids);
   const { teamMembers, updateProjectTeam } = useData();
   const { toast } = useToast();
 

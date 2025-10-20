@@ -1,4 +1,3 @@
-
 'use client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -39,7 +38,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   const [guidelines, setGuidelines] = useState('');
   const [deadline, setDeadline] = useState<Date>();
   const [selectedClientId, setSelectedClientId] = useState<string | undefined>(preselectedClient?.id);
-  const [team, setTeam] = useState<string[]>([]);
+  const [team_ids, setTeamIds] = useState<string[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
   const { teamMembers, clients, users } = useData();
@@ -70,13 +69,13 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
     }
     
     // Admin validation
-    if (!isClientUser && team.length === 0) {
+    if (!isClientUser && team_ids.length === 0) {
       toast({ title: 'Error', description: 'Please assign at least one team member.', variant: 'destructive' });
       return;
     }
     
     // Admins assign team from the multi-select; for clients, the team is initially empty.
-    const selectedTeam = isClientUser ? [] : users.filter(u => team.includes(u.id));
+    const selectedTeamIds = isClientUser ? [] : team_ids;
 
 
     const newProject = {
@@ -85,8 +84,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
       guidelines,
       deadline: format(deadline, 'yyyy-MM-dd'),
       client: selectedClient,
-      team: selectedTeam,
-      team_ids: selectedTeam.map(t => t.id),
+      team_ids: selectedTeamIds,
       status: 'Active',
     };
     onProjectAdd(newProject);
@@ -98,7 +96,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
     setGuidelines('');
     setDeadline(undefined);
     setSelectedClientId(preselectedClient?.id);
-    setTeam([]);
+    setTeamIds([]);
   };
 
   return (
@@ -140,8 +138,8 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
               <Label>Assign Team Members</Label>
               <MultiSelect
                 options={teamMemberOptions}
-                selected={team}
-                onChange={setTeam}
+                selected={team_ids}
+                onChange={setTeamIds}
                 placeholder="Select team members..."
               />
             </div>
