@@ -23,7 +23,7 @@ import type { Client, Project, User } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { useData } from '../../data-provider';
-import { useAuth } from '@/lib/auth-client';
+import { useAuth } from '@/firebase/provider';
 
 type AddProjectDialogProps = {
   onProjectAdd: (project: Omit<Project, 'id' | 'coverImage'>) => void;
@@ -41,7 +41,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   const [team_ids, setTeamIds] = useState<string[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
-  const { teamMembers, clients, users } = useData();
+  const { teamMembers, clients } = useData();
 
   const teamMemberOptions = teamMembers.map(tm => ({ value: tm.id, label: tm.name }));
   const isClientUser = user?.role === 'client';

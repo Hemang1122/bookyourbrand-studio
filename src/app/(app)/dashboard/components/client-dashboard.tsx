@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -19,9 +18,8 @@ export function ClientDashboard() {
     return null; // Should not happen if layout is correct
   }
   
-  // Find the client record by matching the logged-in user's email.
-  // This is more robust than relying on IDs that might not match.
-  const myClientRecord = clients?.find(c => c.email?.trim().toLowerCase() === user.email?.trim().toLowerCase());
+  // Find the client record by matching the logged-in user's ID to the client ID.
+  const myClientRecord = clients?.find(c => c.id === user.id);
 
   // If no matching client record is found, we can't show projects.
   // This prevents crashes if the client data is not yet loaded or doesn't exist.
@@ -44,7 +42,7 @@ export function ClientDashboard() {
       )
   }
 
-  const myProjects = projects ? projects.filter(p => p.client?.id === myClientRecord?.id) : [];
+  const myProjects = projects ? projects.filter(p => p.client.id === myClientRecord?.id) : [];
   const activeProjects = myProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;
   const completedProjects = myProjects.filter(p => p.status === 'Completed').length;
   const safeTasks = tasks || [];
