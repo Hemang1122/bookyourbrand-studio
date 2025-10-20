@@ -20,8 +20,6 @@ import { DataProvider, useData } from './data-provider';
 import { Button } from '@/components/ui/button';
 import { BookOpenCheck } from 'lucide-react';
 import { DailyReportDialog } from './components/daily-report-dialog';
-import { NotificationSound } from '@/components/ui/notification-sound';
-import { NotificationBell } from './notification-bell';
 import { Logo } from '@/components/logo';
 
 function AppHeader({user}: {user: User}) {
@@ -38,7 +36,6 @@ function AppHeader({user}: {user: User}) {
                 </Button>
               </DailyReportDialog>
             )}
-            <NotificationBell />
             <ModeToggle />
             <UserNavClient user={user} />
         </header>
@@ -50,12 +47,10 @@ function AppLayoutContent({
 }: {
   children: React.ReactNode;
 }) {
-  const { playNotification, notificationPlayed } = useData();
 
   return (
     <>
       {children}
-      <NotificationSound play={playNotification} onPlayed={notificationPlayed} />
     </>
   );
 }

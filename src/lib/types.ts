@@ -94,14 +94,6 @@ export type ScrumUpdate = {
   timestamp: string;
 };
 
-export type Notification = {
-  id: string;
-  message: string;
-  timestamp: Timestamp;
-  projectId: string;
-  read: boolean;
-};
-
 // New types for file uploads
 export type DocumentType = 'aadhar' | 'pan' | 'joiningLetter' | 'agreement' | 'idCard';
 

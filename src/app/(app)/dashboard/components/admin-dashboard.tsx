@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, Users, FolderKanban, CheckCircle2 } from 'lucide-react';
 import type { Client } from '@/lib/types';
 import { OverviewChart } from './overview-chart';
-import { RecentActivity } from './recent-activity';
 import { useData } from '../../data-provider';
 import { DailyStandupCard } from './daily-standup-card';
 
@@ -13,7 +12,7 @@ type AdminDashboardProps = {
 };
 
 export function AdminDashboard({ clients }: AdminDashboardProps) {
-    const { projects, tasks, notifications, isLoading } = useData();
+    const { projects, tasks, isLoading } = useData();
     
     const completedTasks = tasks.filter(t => t.status === 'Completed').length;
 
@@ -77,14 +76,6 @@ export function AdminDashboard({ clients }: AdminDashboardProps) {
         </div>
         <div className="col-span-4 lg:col-span-3 space-y-4">
             <DailyStandupCard />
-            <Card>
-                <CardHeader>
-                    <CardTitle>Recent Activity</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <RecentActivity notifications={notifications} isLoading={isLoading} />
-                </CardContent>
-            </Card>
         </div>
       </div>
     </div>
