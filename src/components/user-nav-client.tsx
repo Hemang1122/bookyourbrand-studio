@@ -15,16 +15,15 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { CreditCard, LogOut, Settings, User as UserIcon } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import type { User } from '@/lib/types';
 import { useRouter } from 'next/navigation';
-import { useAuth as useFirebaseAuth, useAuth } from '@/firebase'; // Using the firebase auth hook
+import { useAuth, useFirebaseServices } from '@/firebase';
 import { signOut } from 'firebase/auth';
 
 
 export function UserNavClient() {
   const { user } = useAuth();
   const router = useRouter();
-  const auth = useFirebaseAuth(); // Get the auth instance
+  const { auth } = useFirebaseServices(); // Correctly get the auth service
   
   if (!user) {
     return null; // Don't render if user data is not available yet
@@ -35,7 +34,7 @@ export function UserNavClient() {
   const handleLogout = async () => {
     try {
       if (auth) {
-        await signOut(auth);
+        await signOut(auth); // Pass the correct auth instance
       }
       router.push('/login');
     } catch (error) {
