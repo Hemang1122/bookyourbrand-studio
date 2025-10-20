@@ -29,7 +29,7 @@ import { useAuth } from '@/lib/auth-client';
 type AddProjectDialogProps = {
   onProjectAdd: (project: Omit<Project, 'id' | 'coverImage'>) => void;
   children: React.ReactNode;
-  client?: Client;
+  client?: Client | null;
 };
 
 export function AddProjectDialog({ onProjectAdd, children, client: preselectedClient }: AddProjectDialogProps) {
@@ -38,7 +38,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   const [description, setDescription] = useState('');
   const [guidelines, setGuidelines] = useState('');
   const [deadline, setDeadline] = useState<Date>();
-  const [client, setClient] = useState<string | undefined>(preselectedClient?.id);
+  const [selectedClientId, setSelectedClientId] = useState<string | undefined>(preselectedClient?.id);
   const [team, setTeam] = useState<string[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -48,12 +48,12 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   const isClientUser = user?.role === 'client';
 
   const handleAddProject = () => {
-    let selectedClient: Client | undefined;
+    let selectedClient: Client | undefined | null;
 
     if (isClientUser) {
-      selectedClient = clients.find(c => c.email === user?.email);
+      selectedClient = preselectedClient;
     } else {
-      selectedClient = clients.find(c => c.id === client);
+      selectedClient = clients.find(c => c.id === selectedClientId);
     }
 
     if (!selectedClient) {
@@ -93,7 +93,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
     setDescription('');
     setGuidelines('');
     setDeadline(undefined);
-    setClient(preselectedClient?.id);
+    setSelectedClientId(preselectedClient?.id);
     setTeam([]);
   };
 
@@ -121,7 +121,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
           {!preselectedClient && !isClientUser && (
             <div className="space-y-2">
                 <Label htmlFor="client">Client</Label>
-                <Select onValueChange={setClient} value={client}>
+                <Select onValueChange={setSelectedClientId} value={selectedClientId}>
                     <SelectTrigger>
                         <SelectValue placeholder="Select a client" />
                     </SelectTrigger>
