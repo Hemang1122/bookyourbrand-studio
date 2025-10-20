@@ -1,5 +1,5 @@
 import type { Notification } from '@/lib/types';
-import { compareDesc, parseISO } from 'date-fns';
+import { compareDesc } from 'date-fns';
 import { formatDistanceToNow } from 'date-fns';
 
 type RecentActivityProps = {
@@ -8,10 +8,10 @@ type RecentActivityProps = {
 
 export function RecentActivity({ notifications }: RecentActivityProps) {
   // Sort notifications by timestamp and take the most recent 5
-  const recentNotifications = [...notifications]
+  const recentNotifications = (notifications || [])
     .sort((a, b) => {
-        const dateA = a.timestamp.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
-        const dateB = b.timestamp.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
+        const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
+        const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
         return compareDesc(dateA, dateB);
     })
     .slice(0, 5);
@@ -20,7 +20,7 @@ export function RecentActivity({ notifications }: RecentActivityProps) {
     <div className="space-y-4">
       {recentNotifications.length > 0 ? (
         recentNotifications.map((notif) => {
-            const timestampDate = notif.timestamp.toDate ? notif.timestamp.toDate() : new Date(notif.timestamp);
+            const timestampDate = notif.timestamp?.toDate ? notif.timestamp.toDate() : new Date(notif.timestamp);
             return (
                 <div key={notif.id} className="flex items-center">
                     <div className="ml-4 space-y-1">

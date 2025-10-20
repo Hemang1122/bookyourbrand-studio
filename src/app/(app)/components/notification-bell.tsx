@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Bell, Check } from 'lucide-react';
@@ -12,7 +11,7 @@ import { useData } from '../data-provider';
 import { useAuth } from '@/lib/auth-client';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, compareDesc } from 'date-fns';
 import { useMemo } from 'react';
 
 export function NotificationBell() {
@@ -34,7 +33,15 @@ export function NotificationBell() {
   }, [user, projects]);
 
   const relevantNotifications = useMemo(() => {
-    return notifications.filter(n => userProjectIds.includes(n.projectId));
+    if (!notifications || !Array.isArray(notifications)) return [];
+
+    return notifications
+      .filter(n => userProjectIds?.includes?.(n.projectId))
+      .sort((a, b) => {
+        const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
+        const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
+        return dateB.getTime() - dateA.getTime();
+      });
   }, [notifications, userProjectIds]);
 
   const unreadCount = relevantNotifications.filter(n => !n.read).length;
@@ -73,14 +80,17 @@ export function NotificationBell() {
         <ScrollArea className="h-96">
           {relevantNotifications.length > 0 ? (
             <div className="divide-y">
-              {relevantNotifications.map(notif => (
-                <div key={notif.id} className="p-4 hover:bg-muted/50">
-                  <p className="text-sm">{notif.message}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {formatDistanceToNow(new Date(notif.timestamp), { addSuffix: true })}
-                  </p>
-                </div>
-              ))}
+              {relevantNotifications.map(notif => {
+                const timestampDate = notif.timestamp?.toDate ? notif.timestamp.toDate() : new Date(notif.timestamp);
+                return (
+                  <div key={notif.id} className={`p-4 ${!notif.read ? 'bg-accent/50' : ''} hover:bg-muted/50`}>
+                    <p className="text-sm">{notif.message}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatDistanceToNow(timestampDate, { addSuffix: true })}
+                    </p>
+                  </div>
+                )
+              })}
             </div>
           ) : (
             <div className="p-8 text-center text-sm text-muted-foreground">
@@ -89,8 +99,8 @@ export function NotificationBell() {
           )}
         </ScrollArea>
         <div className="p-2 border-t text-center">
-            <Button variant="ghost" size="sm" className="w-full text-muted-foreground">
-                <Check className="mr-2 h-4 w-4" /> Clear All (Not implemented)
+            <Button variant="ghost" size="sm" className="w-full text-muted-foreground" disabled>
+                <Check className="mr-2 h-4 w-4" /> Clear All
             </Button>
         </div>
       </PopoverContent>
