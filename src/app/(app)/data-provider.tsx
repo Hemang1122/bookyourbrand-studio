@@ -61,27 +61,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const firestore = useFirestore();
   
-  // Real-time data from Firestore
+  // Real-time data from Firestore for projects
   const { data: firestoreProjects, isLoading: projectsLoading } = useCollection<Project>(useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
     if (currentUser.role === 'admin') {
       return collection(firestore, 'projects');
     }
+    // Clients and Team Members have their data filtered appropriately.
+    // This assumes `currentUser.id` is the correct field for matching.
     if (currentUser.role === 'client') {
+      // Assuming a client's auth ID might be used to identify them in projects.
+      // A more robust way might be a separate 'clients' collection with an auth `uid` field.
       return query(collection(firestore, 'projects'), where('client.id', '==', currentUser.id));
     }
     // Team member
     return query(collection(firestore, 'projects'), where('team', 'array-contains', currentUser.id));
-  }, [firestore, currentUser]));
-  
-  const { data: firestoreUsers, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => {
-    if (!firestore || !currentUser || currentUser.role !== 'admin') return null;
-    return collection(firestore, 'users');
-  }, [firestore, currentUser]));
-
-  const { data: firestoreClients, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => {
-    if (!firestore || !currentUser || currentUser.role !== 'admin') return null;
-    return collection(firestore, 'clients');
   }, [firestore, currentUser]));
   
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
@@ -92,8 +86,26 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [clients, setClients] = useState<Client[]>(initialClients);
 
   useEffect(() => {
-    if (firestoreProjects) setProjects(firestoreProjects);
+    if (firestoreProjects) {
+        setProjects(firestoreProjects);
+    }
   }, [firestoreProjects]);
+
+
+  // Only admins should listen to all users and clients
+  const { data: firestoreUsers, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => {
+    if (firestore && currentUser?.role === 'admin') {
+      return collection(firestore, 'users');
+    }
+    return null; // Non-admins do not fetch all users
+  }, [firestore, currentUser]));
+
+  const { data: firestoreClients, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => {
+    if (firestore && currentUser?.role === 'admin') {
+      return collection(firestore, 'clients');
+    }
+    return null; // Non-admins do not fetch all clients
+  }, [firestore, currentUser]));
 
 
   useEffect(() => {
@@ -130,8 +142,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if(firestore) {
         addDocumentNonBlocking(collection(firestore, 'projects'), newProject);
     }
-    // Optimistically update local state
-    setProjects(prev => [...prev, newProject]);
+    setProjects(prev => [...prev, newProject]); // Optimistic update
     addNotification(`New project "${projectData.name}" was created.`, 'general');
     router.push(`/projects/${newProject.id}`);
   };
@@ -167,7 +178,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const projectRef = doc(firestore, 'projects', projectId);
       updateDocumentNonBlocking(projectRef, { team: newTeam });
     }
-    setProjects(prev => prev.map(p => p.id === projectId ? {...p, team: newTeam} : p));
+    // Optimistic update handled by Firestore listener
     addNotification(`The team for project "${project.name}" has been updated.`, projectId);
   };
 
@@ -225,15 +236,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         addDocumentNonBlocking(collection(firestore, 'clients'), newClient);
         addDocumentNonBlocking(collection(firestore, 'users'), newUser);
     }
-    setClients(prev => [...prev, newClient]);
-    setUsers(prev => [...prev, newUser]);
+    // Optimistic update will be handled by listener if user is admin
   }
   
   const updateClient = (clientId: string, clientData: Partial<Client>) => {
     if (!firestore) return;
     const clientRef = doc(firestore, 'clients', clientId);
     updateDocumentNonBlocking(clientRef, clientData);
-    setClients(prev => prev.map(c => c.id === clientId ? { ...c, ...clientData } : c));
+    // Optimistic update handled by listener if user is admin
   }
 
   const addTeamMember = (memberData: { name: string, email: string, aadharUrl?: string, panUrl?: string, joiningLetterUrl?: string }) => {
@@ -251,14 +261,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
      if (firestore) {
         addDocumentNonBlocking(collection(firestore, 'users'), newMember);
      }
-     setUsers(prev => [...prev, newMember]);
+     // Optimistic update handled by listener if user is admin
   }
 
   const updateTeamMember = (userId: string, memberData: Partial<User>) => {
     if (!firestore) return;
     const userRef = doc(firestore, 'users', userId);
     updateDocumentNonBlocking(userRef, memberData);
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...memberData } : u));
+    // Optimistic update handled by listener if user is admin
   }
   
   const triggerNotification = () => {
@@ -303,7 +313,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!firestore) return;
     const projectRef = doc(firestore, 'projects', projectId);
     deleteDocumentNonBlocking(projectRef);
-    setProjects(prev => prev.filter(p => p.id !== projectId));
+    // Optimistic update handled by listener
     toast({ title: 'Project Deleted', description: 'The project and all its tasks have been removed.' });
     router.push('/projects');
   };
@@ -316,7 +326,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if(project) {
         addNotification(`Project "${project.name}" has been updated.`, projectId);
     }
-    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ...projectData } : p));
+    // Optimistic update handled by listener
   };
 
   return (
