@@ -16,9 +16,7 @@ export function ClientDashboard() {
   const { user: authUser } = useAuth();
   const { projects, clients, tasks, addProject, isLoading } = useData();
 
-  // Safely find the client record that corresponds to the logged-in user
-  const myClientRecord = clients?.find(c => c.email === authUser?.email);
-
+  // Wait for loading to complete before finding the client record
   if (isLoading || !authUser) {
     return (
         <div className="flex items-center justify-center text-center py-12">
@@ -31,8 +29,9 @@ export function ClientDashboard() {
     )
   }
 
-  // This case handles when loading is done but the client record for the user isn't found
-  // (e.g., data mismatch or new client user without a client entry).
+  // Now that loading is complete, safely find the client record.
+  const myClientRecord = clients?.find(c => c.email === authUser?.email);
+  
   if (!myClientRecord) {
       return (
         <div className="text-center py-12">
