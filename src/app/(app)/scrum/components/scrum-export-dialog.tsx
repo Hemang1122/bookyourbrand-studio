@@ -60,6 +60,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
     reader.readAsDataURL(blob);
     reader.onloadend = () => {
         const base64data = reader.result as string;
+        const base64Image = base64data.split(',')[1]; // Get only the base64 part
 
         updatesForSelectedDate.forEach((update, index) => {
             const author = users.find(u => u.id === update.userId);
@@ -70,7 +71,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
             }
 
             // Add letterhead background
-            doc.addImage(base64data, 'PNG', 0, 0, pageWidth, pageHeight);
+            doc.addImage(base64Image, 'PNG', 0, 0, pageWidth, pageHeight);
 
             let y = 240; // Starting Y position inside the bordered box
 
@@ -95,7 +96,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
                 doc.text(title.toUpperCase(), margin, y);
                 y += 15;
                 doc.setFont('helvetica', 'normal');
-                const lines = doc.splitTextToSize(content, contentWidth);
+                const lines = doc.splitTextToSize(content || "N/A", contentWidth);
                  // Add bullet points to each line
                 const bulletedLines = lines.map((line: string) => line.trim().startsWith('-') ? line : `- ${line}`);
                 doc.text(bulletedLines, margin, y);
