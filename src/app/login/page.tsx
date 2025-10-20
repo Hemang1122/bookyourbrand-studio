@@ -12,6 +12,8 @@ import { LoginLogo } from '@/components/login-logo';
 import { LoginForm } from './components/login-form';
 import { Suspense } from 'react';
 import { FirebaseClientProvider } from '@/firebase';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SignupForm } from './components/signup-form';
 
 function LoginPageContent() {
   return (
@@ -64,13 +66,26 @@ function LoginPageContent() {
             </div>
             <CardTitle className="text-2xl font-bold">Welcome!</CardTitle>
             <CardDescription>
-              Enter your credentials to sign in to your account.
+              Sign in or create an account to continue.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Suspense fallback={<div>Loading...</div>}>
-              <LoginForm />
-            </Suspense>
+            <Tabs defaultValue="signin">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="signin">Sign In</TabsTrigger>
+                <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              </TabsList>
+              <TabsContent value="signin">
+                  <Suspense fallback={<div>Loading...</div>}>
+                    <LoginForm />
+                  </Suspense>
+              </TabsContent>
+              <TabsContent value="signup">
+                   <Suspense fallback={<div>Loading...</div>}>
+                    <SignupForm />
+                  </Suspense>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>

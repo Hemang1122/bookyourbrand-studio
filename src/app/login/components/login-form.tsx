@@ -56,7 +56,7 @@ export function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleLogin} className="space-y-4">
+    <form onSubmit={handleLogin} className="space-y-4 pt-4">
         {error && (
             <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
