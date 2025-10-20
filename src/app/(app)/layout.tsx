@@ -7,74 +7,74 @@ import { FirebaseClientProvider, useUser as useFirebaseUser, useFirestore } from
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { AuthProvider } from '@/firebase/provider';
+import { users as initialUsers, clients as initialClients } from '@/lib/data';
+
 
 function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
   const { user: authUser, isUserLoading: isAuthLoading } = useFirebaseUser();
   const firestore = useFirestore();
   const [appUser, setAppUser] = useState<User | null>(null);
-  const [isAppUserLoading, setIsAppUserLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Wait until Firebase auth state is resolved and Firestore is available.
+    // We can't do anything until Firebase auth is resolved and Firestore is ready.
     if (isAuthLoading || !firestore) {
       return;
     }
 
+    // If Firebase says there's no user, they need to log in.
     if (!authUser) {
-      // If no user is authenticated, redirect to login immediately.
       redirect('/login');
       return;
     }
-
-    // Auth user is present, try to fetch their app-specific profile from Firestore.
+    
+    // At this point, we have an authenticated user from Firebase.
+    // Now, we need to get their application-specific profile from Firestore.
     const userRef = doc(firestore, 'users', authUser.uid);
-    getDoc(userRef)
-      .then(async (userDoc) => {
-        if (userDoc.exists()) {
-          // User profile exists in Firestore, use it.
-          const existingUser = { id: userDoc.id, ...userDoc.data() } as User;
-          setAppUser(existingUser);
-        } else {
-          // This is a first-time login for this user.
-          // Create a default user profile in Firestore.
-          const newUser: User = {
-            id: authUser.uid,
-            email: authUser.email || 'no-email@example.com',
-            name: authUser.displayName || authUser.email?.split('@')[0] || 'New User',
-            role: 'client', // Default role for new sign-ups. Admins can change this.
-            avatar: `avatar-${Math.ceil(Math.random() * 3)}`,
-            username: authUser.email?.split('@')[0] || `user${Date.now()}`,
-          };
-          
-          // Also create a corresponding client record if they are a client
-          if (newUser.role === 'client') {
-            const clientRef = doc(firestore, 'clients', newUser.id);
-             const newClient = {
-                id: newUser.id,
-                name: newUser.name,
-                email: newUser.email,
-                company: `${newUser.name}'s Company`,
-                avatar: newUser.avatar,
-             };
-            await setDoc(clientRef, newClient);
-          }
+    
+    getDoc(userRef).then(async (userDoc) => {
+      let finalUser: User;
 
-          await setDoc(userRef, newUser);
-          setAppUser(newUser); // Use the newly created profile.
-        }
-      })
-      .catch(error => {
-        console.error("Error fetching user document:", error);
-        // Handle error, maybe show a message or redirect
-        setAppUser(null);
-      })
-      .finally(() => {
-        setIsAppUserLoading(false);
-      });
+      if (userDoc.exists()) {
+        // The user profile already exists in Firestore, so we'll use it.
+        finalUser = { id: userDoc.id, ...userDoc.data() } as User;
+      } else {
+        // This is a first-time sign-up. We need to create their profile.
+        // We create a default profile. The role is 'client' by default.
+        finalUser = {
+          id: authUser.uid,
+          email: authUser.email!,
+          name: authUser.displayName || 'New User',
+          role: 'client', // Default role for any new sign-up
+          avatar: `avatar-${Math.ceil(Math.random() * 3)}`,
+          username: authUser.email!.split('@')[0],
+        };
+        
+        // Also create a corresponding client record in the 'clients' collection
+        const clientRef = doc(firestore, 'clients', finalUser.id);
+        const newClient = {
+            id: finalUser.id,
+            name: finalUser.name,
+            email: finalUser.email,
+            company: `${finalUser.name}'s Company`,
+            avatar: finalUser.avatar,
+        };
+        await setDoc(clientRef, newClient);
+
+        // Save the new user profile to the 'users' collection
+        await setDoc(userRef, finalUser);
+      }
+      
+      setAppUser(finalUser);
+      setIsLoading(false);
+
+    }).catch(error => {
+        console.error("Error fetching or creating user document:", error);
+        // If something goes wrong, we can't proceed.
+        redirect('/login');
+    });
 
   }, [authUser, isAuthLoading, firestore]);
-
-  const isLoading = isAuthLoading || isAppUserLoading;
 
   if (isLoading) {
     return (
@@ -88,7 +88,7 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
   }
   
   if (!appUser) {
-    // If after all loading, there's still no user, something went wrong.
+    // If we're done loading and still have no app user, something went wrong.
     redirect('/login');
     return null;
   }
