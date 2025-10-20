@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { BookOpenCheck } from 'lucide-react';
 import { DailyReportDialog } from './components/daily-report-dialog';
 import { Logo } from '@/components/logo';
+import { NotificationBell } from './notification-bell';
 
 function AppHeader({user}: {user: User}) {
     const { open, setOpen } = useSidebar();
@@ -36,6 +37,7 @@ function AppHeader({user}: {user: User}) {
                 </Button>
               </DailyReportDialog>
             )}
+            <NotificationBell />
             <ModeToggle />
             <UserNavClient user={user} />
         </header>

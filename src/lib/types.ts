@@ -112,3 +112,12 @@ export type ClientDocument = {
   fileName: string;
   uploadedAt: FieldValue;
 };
+
+export type Notification = {
+  id: string;
+  projectId: string; // "general" for non-project specific
+  message: string;
+  timestamp: Timestamp;
+  read: boolean;
+  recipients: string[]; // Array of user IDs
+}
