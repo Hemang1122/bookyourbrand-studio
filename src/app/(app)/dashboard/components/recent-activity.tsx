@@ -1,29 +1,37 @@
+
 import type { Notification } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useMemo } from 'react';
+import { Loader2 } from 'lucide-react';
 
 type RecentActivityProps = {
   notifications: Notification[] | null | undefined;
   isLoading: boolean;
 };
 
-export function RecentActivity({ notifications, isLoading }: RecentActivityProps) {
-  const safeNotifications = Array.isArray(notifications) ? notifications : [];
+export function RecentActivity({ notifications, isLoading: isDataLoading }: RecentActivityProps) {
+  
+  const isLoading = isDataLoading || !Array.isArray(notifications);
 
   const recentNotifications = useMemo(() => {
-    if (isLoading || safeNotifications.length === 0) return [];
+    if (isLoading) return [];
 
-    return [...safeNotifications]
+    return [...notifications]
       .sort((a, b) => {
         const dateA = a?.timestamp?.toDate ? a.timestamp.toDate() : new Date(a?.timestamp || 0);
         const dateB = b?.timestamp?.toDate ? b.timestamp.toDate() : new Date(b?.timestamp || 0);
         return dateB.getTime() - dateA.getTime();
       })
       .slice(0, 5);
-  }, [safeNotifications, isLoading]);
+  }, [notifications, isLoading]);
 
   if (isLoading) {
-    return <div className="text-center text-muted-foreground p-4">Loading activities...</div>;
+    return (
+        <div className="flex items-center justify-center text-center text-muted-foreground p-4">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Loading activities...
+        </div>
+    );
   }
 
   return (

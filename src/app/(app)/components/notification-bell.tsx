@@ -1,6 +1,7 @@
+
 'use client';
 
-import { Bell, Check } from 'lucide-react';
+import { Bell, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -13,36 +14,35 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatDistanceToNow } from 'date-fns';
 import { useMemo } from 'react';
-import { Loader2 } from 'lucide-react';
 
 export function NotificationBell() {
   const { user } = useAuth();
   const { notifications, projects, markNotificationsAsRead, isLoading: isDataLoading } = useData();
 
-  // Safe fallback for missing data
-  const safeProjects = Array.isArray(projects) ? projects : [];
-
+  // Safely get project IDs for the current user
   const userProjectIds = useMemo(() => {
-    if (!user) return [];
+    if (!user || !Array.isArray(projects)) return [];
     if (user.role === 'admin') {
-      return safeProjects.map((p) => p.id);
+      return projects.map((p) => p.id);
     }
     if (user.role === 'client') {
-      return safeProjects.filter((p) => p.client?.id === user.id).map((p) => p.id);
+      return projects.filter((p) => p.client?.id === user.id).map((p) => p.id);
     }
     if (user.role === 'team') {
-      return safeProjects.filter((p) => p.team?.some?.((tm) => tm.id === user.id)).map((p) => p.id);
+      return projects.filter((p) => p.team?.some?.((tm) => tm.id === user.id)).map((p) => p.id);
     }
     return [];
-  }, [user, safeProjects]);
-
-  const isLoading = isDataLoading || !notifications;
+  }, [user, projects]);
+  
+  // Explicitly handle the loading state before any data processing
+  const isLoading = isDataLoading || !Array.isArray(notifications);
 
   const relevantNotifications = useMemo(() => {
-    if (isLoading || !Array.isArray(notifications)) return [];
+    // If loading or data is not ready, return an empty array
+    if (isLoading) return [];
 
     return notifications
-      .filter((n) => userProjectIds.includes(n?.projectId))
+      .filter((n) => n && n.projectId && userProjectIds.includes(n.projectId))
       .sort((a, b) => {
         const dateA = a?.timestamp?.toDate ? a.timestamp.toDate() : new Date(a?.timestamp || 0);
         const dateB = b?.timestamp?.toDate ? b.timestamp.toDate() : new Date(b?.timestamp || 0);
