@@ -29,6 +29,12 @@ export function LoginForm() {
     setIsLoading(true);
     setError(null);
     
+    if (!auth) {
+      setError("Authentication service is not available. Please try again later.");
+      setIsLoading(false);
+      return;
+    }
+    
     try {
       await signInWithEmailAndPassword(auth, email, password);
       // onAuthStateChanged in the layout will handle the redirect
