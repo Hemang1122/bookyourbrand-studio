@@ -56,7 +56,7 @@ export default function ProjectDetailPage() {
     return notFound();
   }
   
-  const teamMembers = users.filter(u => project.team_ids.includes(u.id));
+  const teamMembers = users.filter(u => project.team_ids && project.team_ids.includes(u.id));
 
   return (
     <div className="space-y-6">

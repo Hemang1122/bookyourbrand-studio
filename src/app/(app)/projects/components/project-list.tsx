@@ -21,7 +21,7 @@ export function ProjectList() {
       return projects.filter(p => p.client.id === user.id);
     }
     if (user.role === 'team') {
-      return projects.filter(p => p.team_ids.includes(user.id));
+      return projects.filter(p => p.team_ids && p.team_ids.includes(user.id));
     }
     return projects; // Admins see all projects
   }, [projects, user]);
@@ -40,7 +40,7 @@ export function ProjectList() {
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {filteredProjects.map((project) => {
         const coverImage = PlaceHolderImages.find(img => img.id === project.coverImage);
-        const teamMembers = users.filter(u => project.team_ids.includes(u.id));
+        const teamMembers = users.filter(u => project.team_ids && project.team_ids.includes(u.id));
         return (
           <Link href={`/projects/${project.id}`} key={project.id}>
             <Card className="overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1">
