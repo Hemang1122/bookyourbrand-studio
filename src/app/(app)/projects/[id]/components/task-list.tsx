@@ -39,7 +39,7 @@ type TaskCardProps = {
 const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
   const { user } = useAuth();
 
-  const canUpdateStatus = (user?.role === 'admin' || (user?.role === 'team' && user.id === task.assignedTo.id));
+  const canUpdateStatus = (user?.role === 'admin' || (user?.role === 'team' && user.id === task.assignedTo?.id));
 
   const nextStatus: TaskStatus | null = task.status === 'Pending' ? 'In Progress' : task.status === 'In Progress' ? 'Completed' : null;
   const nextActionText = task.status === 'Pending' ? 'Start Progress' : 'Mark as Complete';
@@ -106,10 +106,10 @@ const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
-                <span className="text-xs text-muted-foreground">{task.assignedTo.name}</span>
+                <span className="text-xs text-muted-foreground">{task.assignedTo?.name}</span>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Assigned to {task.assignedTo.name}</p>
+                <p>Assigned to {task.assignedTo?.name}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
