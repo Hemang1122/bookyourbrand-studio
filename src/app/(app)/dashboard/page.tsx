@@ -6,16 +6,20 @@ import { TeamDashboard } from './components/team-dashboard';
 import { ClientDashboard } from './components/client-dashboard';
 import { useData } from '../data-provider';
 import { WelcomeHeader } from './components/welcome-header';
+import { Loader2 } from 'lucide-react';
 
 
 export default function DashboardPage() {
-  const { user } = useAuth();
-  const { clients } = useData();
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const { clients, isLoading: isDataLoading } = useData();
 
-  if (!user) return (
-     <div className="flex-1 space-y-4 p-8 pt-6">
-        <div className="flex items-center justify-between space-y-2">
-            <h2 className="text-3xl font-bold tracking-tight">Loading...</h2>
+  const isLoading = isAuthLoading || isDataLoading;
+
+  if (isLoading || !user) return (
+     <div className="flex-1 space-y-4 p-8 pt-6 flex items-center justify-center">
+        <div className="flex items-center text-lg text-muted-foreground">
+            <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+            <span>Loading Dashboard...</span>
         </div>
     </div>
   );
@@ -29,3 +33,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

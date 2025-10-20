@@ -6,8 +6,9 @@ import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectStatu
 import { users as initialUsers, clients as initialClients } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking, useAuth } from '@/firebase';
+import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking } from '@/firebase';
 import { collection, doc, query, where, Timestamp, writeBatch } from 'firebase/firestore';
+import { useAuth } from '@/lib/auth-client';
 
 type DataContextType = {
   projects: Project[];
@@ -139,7 +140,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     setDocumentNonBlocking(doc(firestore, 'projects', newProject.id), newProject);
 
     const admin = users.find(u => u.role === 'admin');
-    if (admin) {
+    if (admin && currentUser.id !== admin.id) {
         addNotification(`New project '${newProject.name}' was created by ${currentUser.name}.`, newProject.id, [admin.id]);
     }
 
@@ -168,9 +169,12 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
     if (project) {
         const admin = users.find(u => u.role === 'admin');
-        const recipients = [project.client.id];
+        const recipients = [project.client.id, ...project.team_ids];
         if (admin) recipients.push(admin.id);
-        addNotification(`New task '${newTask.title}' added to project '${project.name}'.`, project.id, recipients);
+        
+        // Exclude the current user from recipients to avoid self-notification
+        const finalRecipients = recipients.filter(id => id !== currentUser.id);
+        addNotification(`New task '${newTask.title}' added to project '${project.name}'.`, project.id, finalRecipients);
     }
   }
 
@@ -379,3 +383,5 @@ export function useData() {
   }
   return context;
 }
+
+    

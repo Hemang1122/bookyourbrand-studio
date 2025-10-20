@@ -13,12 +13,10 @@ function AppLayoutAuthenticated({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Wait until Firebase Auth is no longer loading.
     if (isAuthLoading) {
       return; 
     }
     
-    // If there is no authenticated user after loading, redirect to login.
     if (!authUser) {
       redirect('/login');
       return;
@@ -33,8 +31,6 @@ function AppLayoutAuthenticated({ children }: { children: React.ReactNode }) {
       if (userSnap.exists()) {
         setUser(userSnap.data() as User);
       } else {
-        // This case might happen if the user document hasn't been created yet.
-        // For now, we can create a temporary user object.
         console.warn("User document not found in Firestore. Creating temporary profile.");
         setUser({
           id: authUser.uid,
@@ -52,7 +48,6 @@ function AppLayoutAuthenticated({ children }: { children: React.ReactNode }) {
 
   }, [authUser, isAuthLoading, firestore]);
 
-  // Combined loading state
   const isStillLoading = loading || isAuthLoading;
 
   if (isStillLoading) {
@@ -64,7 +59,6 @@ function AppLayoutAuthenticated({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    // This could happen if fetching fails, redirect to login as a fallback.
     redirect('/login');
     return null;
   }
@@ -86,3 +80,5 @@ export default function AppLayout({
         </FirebaseClientProvider>
     )
 }
+
+    
