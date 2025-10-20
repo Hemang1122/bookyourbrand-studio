@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,13 +19,30 @@ export function ClientDashboard() {
     return null; // Should not happen if layout is correct
   }
   
-  const myClientRecord = clients?.find(c => c.email?.trim().toLowerCase() === user.email?.trim().toLowerCase()) || {
-      id: user.id,
-      name: user.name || user.email,
-      email: user.email,
-      company: 'New Client',
-      avatar: user.avatar
-  };
+  // Find the client record by matching the logged-in user's email.
+  // This is more robust than relying on IDs that might not match.
+  const myClientRecord = clients?.find(c => c.email?.trim().toLowerCase() === user.email?.trim().toLowerCase());
+
+  // If no matching client record is found, we can't show projects.
+  // This prevents crashes if the client data is not yet loaded or doesn't exist.
+  if (!myClientRecord) {
+      return (
+        <div className="space-y-6">
+            <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold tracking-tight">Client Dashboard</h2>
+            </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle>My Projects Overview</CardTitle>
+                    <CardDescription>Track the progress of your ongoing projects.</CardDescription>
+                </CardHeader>
+                <CardContent className="text-center py-8">
+                     <p className="text-muted-foreground mb-4">Your client profile could not be found. Please contact support.</p>
+                </CardContent>
+            </Card>
+        </div>
+      )
+  }
 
   const myProjects = projects ? projects.filter(p => p.client?.id === myClientRecord?.id) : [];
   const activeProjects = myProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;
