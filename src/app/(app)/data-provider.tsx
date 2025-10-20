@@ -336,8 +336,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   return (
     <DataContext.Provider value={{ 
         projects: projects || [], 
-        tasks, 
-        clients, 
+        tasks: tasks || [], 
+        clients: clients || [], 
         teamMembers, 
         users: users || [], 
         scrumUpdates,
