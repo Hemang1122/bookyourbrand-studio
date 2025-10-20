@@ -16,26 +16,27 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
   const [isAppUserLoading, setIsAppUserLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Wait for Firebase Auth to finish loading.
+    // 1. Exit if Firebase Auth is still loading.
     if (isAuthLoading) {
       return;
     }
 
-    // 2. If Auth is done and there's no user, redirect to login.
+    // 2. If Auth is done and there's no authenticated user, redirect to login.
     if (!authUser) {
+      setIsAppUserLoading(false); // Stop loading
       redirect('/login');
       return;
     }
 
-    // 3. If we have an authUser, fetch their profile from Firestore.
+    // 3. If an authenticated user exists, fetch their profile from Firestore.
     const userRef = doc(firestore, 'users', authUser.uid);
     getDoc(userRef)
       .then(async (userDoc) => {
         if (userDoc.exists()) {
-          // User profile exists, set it as our app user.
+          // A. User profile exists, set it as our application user.
           setAppUser({ id: userDoc.id, ...userDoc.data() } as User);
         } else {
-          // This is a first-time login for this user. Create a default profile.
+          // B. This is a first-time login. Create a default profile.
           const newUser: User = {
             id: authUser.uid,
             email: authUser.email || 'no-email@example.com',
@@ -44,14 +45,14 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
             avatar: 'avatar-4', // A default avatar
             username: authUser.email?.split('@')[0] || `user${Date.now()}`,
           };
-          // Save the new user profile to Firestore.
+          // Save the new profile to Firestore.
           await setDoc(userRef, newUser);
+          // Set the new profile as our application user.
           setAppUser(newUser);
         }
       })
       .catch(error => {
         console.error("Error fetching user document:", error);
-        // Handle error, maybe redirect to an error page or show a message.
         setAppUser(null);
       })
       .finally(() => {
@@ -74,9 +75,9 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
       </div>
     );
   }
-
+  
+  // This can happen if the Firestore fetch fails, or before the redirect effect kicks in.
   if (!appUser) {
-    // This case handles the brief moment before the redirect happens or if something went wrong during profile fetch.
     redirect('/login');
     return null;
   }
