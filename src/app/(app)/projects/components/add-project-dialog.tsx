@@ -86,6 +86,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
       deadline: format(deadline, 'yyyy-MM-dd'),
       client: selectedClient,
       team: selectedTeam,
+      team_ids: selectedTeam.map(t => t.id),
       status: 'Active',
     };
     onProjectAdd(newProject);

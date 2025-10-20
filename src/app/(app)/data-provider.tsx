@@ -19,7 +19,7 @@ type DataContextType = {
   files: ProjectFile[];
   messages: ChatMessage[];
   notifications: Notification[];
-  addProject: (project: Omit<Project, 'id' | 'coverImage' | 'team_ids'>) => void;
+  addProject: (project: Omit<Project, 'id' | 'coverImage' >) => void;
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
   updateTaskStatus: (taskId: string, status: TaskStatus, remark: string) => void;
@@ -78,6 +78,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (currentUser.role === 'client') {
         return query(collection(firestore, 'projects'), where('client.id', '==', currentUser.id));
     }
+    // Corrected query for team members
     return query(collection(firestore, 'projects'), where('team_ids', 'array-contains', currentUser.id));
   }, [firestore, currentUser]);
 
@@ -128,8 +129,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   
   const teamMembers = useMemo(() => (users || []).filter(u => u.role === 'admin' || u.role === 'team'), [users]);
   
-  const addProject = (projectData: Omit<Project, 'id' | 'coverImage' | 'team_ids'>) => {
-    if (!firestore || !currentUser) return;
+  const addProject = (projectData: Omit<Project, 'id' | 'coverImage'>) => {
+    if (!firestore || !currentUser || !users) return;
     const newProjectId = `proj-${Date.now()}`;
     const newProject: Project = {
       id: newProjectId,
@@ -139,7 +140,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     };
     setDocumentNonBlocking(doc(firestore, 'projects', newProject.id), newProject);
 
-    const admin = users?.find(u => u.role === 'admin');
+    const admin = users.find(u => u.role === 'admin');
     if (admin) {
         addNotification(`New project '${newProject.name}' was created by ${currentUser.name}.`, newProject.id, [admin.id]);
     }
@@ -148,7 +149,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addTask = (taskData: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks'>) => {
-    if (!firestore || !projects || !currentUser) return;
+    if (!firestore || !projects || !currentUser || !users) return;
     const project = projects.find(p => p.id === taskData.projectId);
     const assignedTo = project?.team[0] || users.find(u => u.role === 'team') || users[0];
     if (!assignedTo) {
@@ -166,7 +167,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setDocumentNonBlocking(doc(firestore, 'tasks', newTask.id), newTask);
 
     if (project) {
-        const admin = users?.find(u => u.role === 'admin');
+        const admin = users.find(u => u.role === 'admin');
         const recipients = [project.client.id];
         if (admin) recipients.push(admin.id);
         addNotification(`New task '${newTask.title}' added to project '${project.name}'.`, project.id, recipients);
@@ -174,7 +175,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }
 
   const updateProjectTeam = (projectId: string, teamMemberIds: string[]) => {
-    if (!projects || !firestore || !currentUser) return;
+    if (!projects || !firestore || !currentUser || !users) return;
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
     
@@ -259,9 +260,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
      // Firestore does not support `undefined` values.
      // We need to clean the object of any undefined properties before sending.
-     Object.keys(newMember).forEach(key => {
-        if (newMember[key as keyof User] === undefined) {
-            delete newMember[key as keyof User];
+     Object.keys(newMember).forEach(keyStr => {
+        const key = keyStr as keyof User;
+        if (newMember[key] === undefined) {
+            delete newMember[key];
         }
     });
 
