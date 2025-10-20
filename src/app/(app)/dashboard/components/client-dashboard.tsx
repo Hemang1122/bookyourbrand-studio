@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { FolderKanban, Clock, CheckCircle2, Plus, Loader2 } from 'lucide-react';
-import type { Project, User } from '@/lib/types';
+import type { Project } from '@/lib/types';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,8 +15,8 @@ export function ClientDashboard() {
   const { user: authUser } = useAuth();
   const { projects, clients, tasks, addProject, isLoading } = useData();
 
-  // Show loader until authUser and clients are loaded
-  if (isLoading || !authUser || !clients?.length) {
+  // Show loader until auth and core data hooks are resolved.
+  if (isLoading || !authUser) {
     return (
       <div className="flex items-center justify-center text-center py-12">
         <Loader2 className="mr-4 h-6 w-6 animate-spin" />
@@ -28,21 +28,24 @@ export function ClientDashboard() {
     );
   }
 
-  // Find the client record safely using normalized email
-  let myClientRecord = clients.find(
+  // Find the client record safely using normalized email, only if clients are loaded.
+  let myClientRecord = clients?.find(
     c => c.email?.trim().toLowerCase() === authUser.email?.trim().toLowerCase()
   );
 
-  // Fallback: create temporary client record if not found
+  // Fallback: create temporary client record if not found in the database yet.
+  // This allows brand new clients to use the dashboard immediately.
   if (!myClientRecord) {
     myClientRecord = {
-      id: authUser.uid,
+      id: authUser.id,
       name: authUser.name || authUser.email,
       email: authUser.email,
+      company: 'New Client', // default value
+      avatar: authUser.avatar
     };
   }
 
-  const myProjects = projects ? projects.filter(p => p.client?.id === myClientRecord.id) : [];
+  const myProjects = projects ? projects.filter(p => p.client?.id === myClientRecord?.id) : [];
   const activeProjects = myProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;
   const completedProjects = myProjects.filter(p => p.status === 'Completed').length;
   const safeTasks = tasks || [];
