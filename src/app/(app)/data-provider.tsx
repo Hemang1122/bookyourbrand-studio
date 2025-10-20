@@ -2,7 +2,7 @@
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, ChatMessage, Notification } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, ChatMessage, Notification, TaskRemark } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -295,7 +295,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     }
   };
 
-  const addFile = (fileData: Omit<ProjectFile, 'id' | 'uploadedAt'>) => {
+  const addFile = (fileData: Omit<ProjectFile, 'id'>) => {
     if (!firestore || !currentUser) return;
     const newFileId = doc(collection(firestore, 'files')).id;
     const newFile: ProjectFile = {
@@ -319,7 +319,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const project = projects.find(p => p.id === messageData.projectId);
     if (project) {
       const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...users.filter(u=>u.role==='admin').map(u=>u.id)]));
-      addNotification(`New message in project '${project.name}': "${newMessage.message.substring(0, 30)}..."`, project.id, recipients.filter(id => id !== currentUser.id));
+      const finalRecipients = recipients.filter(id => id !== currentUser.id);
+      addNotification(`New message in project '${project.name}': "${newMessage.message.substring(0, 30)}..."`, project.id, finalRecipients);
     }
   }
   

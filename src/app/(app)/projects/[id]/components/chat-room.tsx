@@ -123,7 +123,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
             placeholder="Type a message..."
             autoComplete="off"
           />
-          <Button type="submit" size="icon" disabled={!newMessage}>
+          <Button type="submit" size="icon" disabled={!newMessage.trim()}>
             <Send className="h-5 w-5" />
             <span className="sr-only">Send message</span>
           </Button>
