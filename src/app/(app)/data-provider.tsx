@@ -72,11 +72,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     // Team member
     return query(collection(firestore, 'projects'), where('team', 'array-contains', currentUser.id));
   }, [firestore, currentUser]));
-
-  const { data: firestoreTasks, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'tasks');
-  }, [firestore]));
   
   const { data: firestoreUsers, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => {
     if (!firestore) return null;
@@ -88,6 +83,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return collection(firestore, 'clients');
   }, [firestore]));
   
+  const { data: firestoreTasks, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'tasks');
+  }, [firestore]));
+
   // Combine initial data with firestore data, giving precedence to firestore
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
@@ -352,3 +352,5 @@ export function useData() {
   }
   return context;
 }
+
+    
