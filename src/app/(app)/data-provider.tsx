@@ -271,10 +271,17 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }
 
   const addScrumUpdate = (update: Omit<ScrumUpdate, 'id'>) => {
-    if (!firestore) return;
+    if (!firestore || !currentUser || !users) return;
     const newUpdateId = doc(collection(firestore, 'scrum-updates')).id;
     const newUpdate: ScrumUpdate = { ...update, id: newUpdateId, timestamp: new Date().toISOString() };
     setDocumentNonBlocking(doc(firestore, 'scrum-updates', newUpdate.id), newUpdate);
+
+    // Notify admins
+    const admins = users.filter(u => u.role === 'admin');
+    if (admins.length > 0) {
+      const adminIds = admins.map(a => a.id);
+      addNotification(`${currentUser.name} has submitted their daily scrum update.`, 'general', adminIds);
+    }
   };
 
   const deleteProject = (projectId: string) => {
