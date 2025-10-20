@@ -1,3 +1,4 @@
+
 'use client';
 import AppLayoutClient from './layout-client';
 import { useEffect, useState, ReactNode } from 'react';
@@ -7,7 +8,6 @@ import { FirebaseClientProvider, useUser as useFirebaseUser, useFirestore } from
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { AuthProvider } from '@/firebase/provider';
-import { users as initialUsers, clients as initialClients } from '@/lib/data';
 
 
 function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
