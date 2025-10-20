@@ -1,4 +1,3 @@
-
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
@@ -248,18 +247,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addTeamMember = (memberData: { name: string, email: string, aadharUrl?: string, panUrl?: string, joiningLetterUrl?: string }) => {
     if (!firestore) return;
      const newMemberId = `user-${Date.now()}`;
-     const newMember: User = {
+     const newMember: Partial<User> = {
         id: newMemberId,
         name: memberData.name,
         email: memberData.email,
-        aadharUrl: memberData.aadharUrl,
-        panUrl: memberData.panUrl,
-        joiningLetterUrl: memberData.joiningLetterUrl,
         role: 'team',
         username: memberData.name.toLowerCase().replace(/\s/g, ''),
-        avatar: ''
+        avatar: '',
+        ...memberData,
      };
-    setDocumentNonBlocking(doc(firestore, 'users', newMember.id), newMember);
+
+     // Firestore does not support `undefined` values.
+     // We need to clean the object of any undefined properties before sending.
+     Object.keys(newMember).forEach(key => {
+        if (newMember[key as keyof User] === undefined) {
+            delete newMember[key as keyof User];
+        }
+    });
+
+    setDocumentNonBlocking(doc(firestore, 'users', newMemberId), newMember);
   }
 
   const updateTeamMember = (userId: string, memberData: Partial<User>) => {
@@ -372,3 +378,5 @@ export function useData() {
   }
   return context;
 }
+
+    
