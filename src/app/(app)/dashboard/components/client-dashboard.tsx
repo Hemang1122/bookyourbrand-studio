@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -15,8 +16,23 @@ export function ClientDashboard() {
   const { user: authUser } = useAuth();
   const { projects, clients, tasks, addProject, isLoading } = useData();
 
-  // Wait for loading to complete before processing
-  if (isLoading || !authUser || !clients) {
+  // Find the client record that corresponds to the logged-in user (case-insensitive)
+  const myClientRecord = clients?.find(
+    c => c.email?.trim().toLowerCase() === authUser?.email?.trim().toLowerCase()
+  );
+
+  // Wait for loading to complete AND for the client record to be found.
+  if (isLoading || !authUser || !myClientRecord) {
+    // If loading is finished but we still can't find the record, show an error.
+    if (!isLoading && authUser) {
+      return (
+        <div className="text-center py-12">
+          <h2 className="text-2xl font-semibold">Welcome, {authUser.name}</h2>
+          <p className="text-red-600 mt-2">Your client profile could not be found. Please contact support.</p>
+        </div>
+      );
+    }
+    // Otherwise, show the loading state.
     return (
       <div className="flex items-center justify-center text-center py-12">
         <Loader2 className="mr-4 h-6 w-6 animate-spin" />
@@ -24,20 +40,6 @@ export function ClientDashboard() {
           <h2 className="text-2xl font-semibold">Loading Dashboard...</h2>
           <p className="text-muted-foreground mt-2">Please wait while we fetch your project data.</p>
         </div>
-      </div>
-    );
-  }
-
-  // Case-insensitive lookup for client record
-  const myClientRecord = clients.find(
-    c => c.email?.trim().toLowerCase() === authUser.email?.trim().toLowerCase()
-  );
-
-  if (!myClientRecord) {
-    return (
-      <div className="text-center py-12">
-        <h2 className="text-2xl font-semibold">Welcome, {authUser.name}</h2>
-        <p className="text-red-600 mt-2">Your client profile could not be found. Please contact support.</p>
       </div>
     );
   }
