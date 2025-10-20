@@ -12,20 +12,17 @@ export function RecentActivity({ notifications, isLoading: isDataLoading }: Rece
   
   // isLoading is true if data provider is loading OR if notifications haven't been fetched yet.
   const isLoading = isDataLoading || !notifications;
-  const safeNotifications = Array.isArray(notifications) ? notifications : [];
 
   const recentNotifications = useMemo(() => {
-    // Do not process until loading is complete
-    if (isLoading || safeNotifications.length === 0) return [];
-
-    return safeNotifications
+    // Using optional chaining and defaulting to an empty array for safety
+    return (notifications || [])
       .sort((a, b) => {
         const dateA = a?.timestamp?.toDate ? a.timestamp.toDate() : new Date(a?.timestamp || 0);
         const dateB = b?.timestamp?.toDate ? b.timestamp.toDate() : new Date(b?.timestamp || 0);
         return dateB.getTime() - dateA.getTime();
       })
       .slice(0, 5);
-  }, [safeNotifications, isLoading]);
+  }, [notifications]);
 
   if (isLoading) {
     return (

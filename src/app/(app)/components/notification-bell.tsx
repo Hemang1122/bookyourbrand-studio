@@ -40,22 +40,19 @@ export function NotificationBell() {
   const isLoading = isDataLoading || !notifications;
 
   const relevantNotifications = useMemo(() => {
-    // Do not process until loading is complete and data is valid
-    if (isLoading || safeNotifications.length === 0) return [];
-
-    return safeNotifications
+    // Using optional chaining and defaulting to an empty array
+    return (notifications || [])
       .filter((n) => n?.projectId && userProjectIds.includes(n.projectId))
       .sort((a, b) => {
         const dateA = a?.timestamp?.toDate ? a.timestamp.toDate() : new Date(a?.timestamp || 0);
         const dateB = b?.timestamp?.toDate ? b.timestamp.toDate() : new Date(b?.timestamp || 0);
         return dateB.getTime() - dateA.getTime();
       });
-  }, [safeNotifications, userProjectIds, isLoading]);
+  }, [notifications, userProjectIds]);
 
   const unreadCount = useMemo(() => {
-    if (isLoading) return 0;
     return relevantNotifications.filter((n) => !n.read).length;
-  }, [relevantNotifications, isLoading]);
+  }, [relevantNotifications]);
 
   const handleOpenChange = (open: boolean) => {
     if (!open && unreadCount > 0) {
