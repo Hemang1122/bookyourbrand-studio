@@ -1,4 +1,4 @@
-import { FieldValue } from 'firebase/firestore';
+import { FieldValue, Timestamp } from 'firebase/firestore';
 
 export type UserRole = 'admin' | 'team' | 'client';
 
@@ -34,6 +34,7 @@ export type Project = {
   status: ProjectStatus;
   deadline: string;
   team: User[];
+  team_ids: string[];
   description: string;
   guidelines?: string;
   coverImage: string;
@@ -62,24 +63,25 @@ export type Task = {
 };
 
 export type ChatMessage = {
-  id?: string; // Optional because it's assigned by Firestore
+  id: string;
+  projectId: string;
   senderId: string;
-  senderName?: string; // Made optional as it can be retrieved via senderId
-  senderAvatar?: string; // Made optional as it can be retrieved via senderId
+  senderName: string;
+  senderAvatar: string;
   message: string;
-  timestamp: FieldValue;
+  timestamp: Timestamp;
   fileUrl: string | null;
-  receiverId?: string; // This is optional now
 };
 
 export type ProjectFile = {
   id: string;
+  projectId: string;
   name:string;
   url: string;
   uploadedById: string;
   uploadedByName: string;
   uploadedByAvatar: string;
-  uploadedAt: FieldValue | Date;
+  uploadedAt: Timestamp;
   size?: string;
   type?: string;
 };
@@ -95,7 +97,7 @@ export type ScrumUpdate = {
 export type Notification = {
   id: string;
   message: string;
-  timestamp: string;
+  timestamp: Timestamp;
   projectId: string;
   read: boolean;
 };

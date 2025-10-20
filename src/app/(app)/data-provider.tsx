@@ -1,14 +1,13 @@
-
 'use client';
 
 import { createContext, useContext, useState, useMemo, useEffect } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, Notification, ProjectStatus, TaskRemark } from '@/lib/types';
-import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, Notification, ProjectStatus, TaskRemark, ProjectFile, ChatMessage } from '@/lib/types';
+import { users as initialUsers, clients as initialClients } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
 import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, doc, query, where } from 'firebase/firestore';
+import { collection, doc, query, where, Timestamp } from 'firebase/firestore';
 
 type DataContextType = {
   projects: Project[];
@@ -18,6 +17,8 @@ type DataContextType = {
   users: User[];
   scrumUpdates: ScrumUpdate[];
   notifications: Notification[];
+  files: ProjectFile[];
+  messages: ChatMessage[];
   addProject: (project: Omit<Project, 'id' | 'coverImage'>) => void;
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
@@ -48,102 +49,96 @@ type DataContextType = {
   isLoading: boolean;
   deleteProject: (projectId: string) => void;
   updateProject: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team' | 'coverImage'>>) => void;
+  addFile: (file: Omit<ProjectFile, 'id'>) => void;
+  addMessage: (message: Omit<ChatMessage, 'id'>) => void;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [scrumUpdates, setScrumUpdates] = useState<ScrumUpdate[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
   const [playNotification, setPlayNotification] = useState(false);
   const router = useRouter();
   const firestore = useFirestore();
   
-  // Real-time data from Firestore for projects
-  const { data: firestoreProjects, isLoading: projectsLoading } = useCollection<Project>(useMemoFirebase(() => {
+  // Real-time data from Firestore
+  const projectsQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
     if (currentUser.role === 'admin') {
       return collection(firestore, 'projects');
     }
-    // Clients and Team Members have their data filtered appropriately.
-    // This assumes `currentUser.id` is the correct field for matching.
     if (currentUser.role === 'client') {
-      // Assuming a client's auth ID might be used to identify them in projects.
-      // A more robust way might be a separate 'clients' collection with an auth `uid` field.
-      return query(collection(firestore, 'projects'), where('client.id', '==', currentUser.id));
+        return query(collection(firestore, 'projects'), where('client.id', '==', currentUser.id));
     }
-    // Team member
-    return query(collection(firestore, 'projects'), where('team', 'array-contains', currentUser.id));
-  }, [firestore, currentUser]));
+    return query(collection(firestore, 'projects'), where('team_ids', 'array-contains', currentUser.id));
+  }, [firestore, currentUser]);
+
+  const { data: projects = [], isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
+
+  const tasksQuery = useMemoFirebase(() => {
+    if (!firestore || !currentUser) return null;
+    const projectIds = projects.map(p => p.id);
+    if (projectIds.length === 0) return null; // No projects, no tasks to fetch.
+    return query(collection(firestore, 'tasks'), where('projectId', 'in', projectIds));
+  }, [firestore, currentUser, projects]);
+
+  const { data: tasks = [], isLoading: tasksLoading } = useCollection<Task>(tasksQuery);
   
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const filesQuery = useMemoFirebase(() => {
+    if (!firestore || !currentUser) return null;
+    const projectIds = projects.map(p => p.id);
+    if (projectIds.length === 0) return null;
+    return query(collection(firestore, 'files'), where('projectId', 'in', projectIds));
+  }, [firestore, currentUser, projects]);
 
-  // Combine initial data with firestore data, giving precedence to firestore
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
-  const [users, setUsers] = useState<User[]>(initialUsers);
-  const [clients, setClients] = useState<Client[]>(initialClients);
+  const { data: files = [], isLoading: filesLoading } = useCollection<ProjectFile>(filesQuery);
 
-  useEffect(() => {
-    if (firestoreProjects) {
-        setProjects(firestoreProjects);
-    }
-  }, [firestoreProjects]);
+  const messagesQuery = useMemoFirebase(() => {
+    if (!firestore || !currentUser) return null;
+    const projectIds = projects.map(p => p.id);
+    if (projectIds.length === 0) return null;
+    return query(collection(firestore, 'messages'), where('projectId', 'in', projectIds));
+  }, [firestore, currentUser, projects]);
+  
+  const { data: messages = [], isLoading: messagesLoading } = useCollection<ChatMessage>(messagesQuery);
+  
+  const { data: notifications = [], isLoading: notificationsLoading } = useCollection<Notification>(useMemoFirebase(() => firestore ? collection(firestore, 'notifications') : null, [firestore]));
+  
+  const { data: users = initialUsers, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
 
+  const { data: clients = initialClients, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
 
-  // Only admins should listen to all users and clients
-  const { data: firestoreUsers, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => {
-    if (firestore && currentUser?.role === 'admin') {
-      return collection(firestore, 'users');
-    }
-    return null; // Non-admins do not fetch all users
-  }, [firestore, currentUser]));
-
-  const { data: firestoreClients, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => {
-    if (firestore && currentUser?.role === 'admin') {
-      return collection(firestore, 'clients');
-    }
-    return null; // Non-admins do not fetch all clients
-  }, [firestore, currentUser]));
-
-
-  useEffect(() => {
-    if (firestoreUsers) {
-        setUsers(prevUsers => {
-            const userMap = new Map(prevUsers.map(u => [u.id, u]));
-            firestoreUsers.forEach(u => userMap.set(u.id, u));
-            return Array.from(userMap.values());
-        });
-    }
-  }, [firestoreUsers]);
-
-  useEffect(() => {
-    if (firestoreClients) {
-         setClients(prevClients => {
-            const clientMap = new Map(prevClients.map(c => [c.id, c]));
-            firestoreClients.forEach(c => clientMap.set(c.id, c));
-            return Array.from(clientMap.values());
-        });
-    }
-  }, [firestoreClients]);
-
-  const isLoading = projectsLoading || usersLoading || clientsLoading;
+  const [scrumUpdates, setScrumUpdates] = useState<ScrumUpdate[]>([]);
+  
+  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || messagesLoading || notificationsLoading;
   
   const teamMembers = useMemo(() => users.filter(u => u.role === 'admin' || u.role === 'team'), [users]);
 
-
-  const addProject = (projectData: Omit<Project, 'id' | 'coverImage'>) => {
+  const addNotification = (message: string, projectId: string) => {
+    if (!currentUser || !firestore) return;
+    const notification: Notification = {
+      id: `notif-${Date.now()}`,
+      message: message,
+      timestamp: Timestamp.now(),
+      projectId: projectId,
+      read: false,
+    };
+    addDocumentNonBlocking(collection(firestore, 'notifications'), notification);
+    triggerNotification();
+  };
+  
+  const addProject = (projectData: Omit<Project, 'id' | 'coverImage' | 'team_ids'>) => {
     const newProject: Project = {
       id: `proj-${Date.now()}`,
       ...projectData,
+      team_ids: projectData.team.map(t => t.id),
       coverImage: `project-${Math.ceil(Math.random() * 3)}`,
     };
     if(firestore) {
-        addDocumentNonBlocking(collection(firestore, 'projects'), newProject);
+        setDocumentNonBlocking(doc(firestore, 'projects', newProject.id), newProject, { merge: false });
     }
-    setProjects(prev => [...prev, newProject]); // Optimistic update
-    addNotification(`New project "${projectData.name}" was created.`, 'general');
+    addNotification(`New project "${projectData.name}" was created by ${projectData.client.name}.`, newProject.id);
     router.push(`/projects/${newProject.id}`);
   };
 
@@ -162,28 +157,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       remarks: [],
     };
     if (firestore) {
-        addDocumentNonBlocking(collection(firestore, 'tasks'), newTask);
+        setDocumentNonBlocking(doc(firestore, 'tasks', newTask.id), newTask, { merge: false });
     }
-    setTasks(prev => [...prev, newTask]);
     addNotification(`New task "${newTask.title}" added to project "${project?.name}".`, newTask.projectId);
   }
 
   const updateProjectTeam = (projectId: string, teamMemberIds: string[]) => {
     const project = projects.find(p => p.id === projectId);
-    if (!project) return;
+    if (!project || !firestore) return;
     
     const newTeam = users.filter(u => teamMemberIds.includes(u.id));
-
-    if (firestore) {
-      const projectRef = doc(firestore, 'projects', projectId);
-      updateDocumentNonBlocking(projectRef, { team: newTeam });
-    }
-    // Optimistic update handled by Firestore listener
+    const projectRef = doc(firestore, 'projects', projectId);
+    updateDocumentNonBlocking(projectRef, { team: newTeam, team_ids: teamMemberIds });
+    
     addNotification(`The team for project "${project.name}" has been updated.`, projectId);
   };
 
   const updateTaskStatus = (taskId: string, status: TaskStatus, remark: string) => {
-    if (!currentUser) return;
+    if (!currentUser || !firestore) return;
 
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
@@ -197,14 +188,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       toStatus: status,
     };
     
-    if (firestore) {
-      const taskRef = doc(firestore, 'tasks', taskId);
-      updateDocumentNonBlocking(taskRef, {
-        status: status,
-        remarks: [...task.remarks, newRemark]
-      });
-    }
-    setTasks(prev => prev.map(t => t.id === taskId ? {...t, status, remarks: [...t.remarks, newRemark]} : t));
+    const taskRef = doc(firestore, 'tasks', taskId);
+    updateDocumentNonBlocking(taskRef, {
+      status: status,
+      remarks: [...task.remarks, newRemark]
+    });
 
     const project = projects.find(p => p.id === task.projectId);
     if(project) {
@@ -233,17 +221,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         avatar: ''
     }
     if (firestore) {
-        addDocumentNonBlocking(collection(firestore, 'clients'), newClient);
-        addDocumentNonBlocking(collection(firestore, 'users'), newUser);
+        setDocumentNonBlocking(doc(firestore, 'clients', newClient.id), newClient, { merge: false });
+        setDocumentNonBlocking(doc(firestore, 'users', newUser.id), newUser, { merge: false });
     }
-    // Optimistic update will be handled by listener if user is admin
   }
   
   const updateClient = (clientId: string, clientData: Partial<Client>) => {
     if (!firestore) return;
     const clientRef = doc(firestore, 'clients', clientId);
     updateDocumentNonBlocking(clientRef, clientData);
-    // Optimistic update handled by listener if user is admin
   }
 
   const addTeamMember = (memberData: { name: string, email: string, aadharUrl?: string, panUrl?: string, joiningLetterUrl?: string }) => {
@@ -259,16 +245,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         avatar: ''
      };
      if (firestore) {
-        addDocumentNonBlocking(collection(firestore, 'users'), newMember);
+        setDocumentNonBlocking(doc(firestore, 'users', newMember.id), newMember, { merge: false });
      }
-     // Optimistic update handled by listener if user is admin
   }
 
   const updateTeamMember = (userId: string, memberData: Partial<User>) => {
     if (!firestore) return;
     const userRef = doc(firestore, 'users', userId);
     updateDocumentNonBlocking(userRef, memberData);
-    // Optimistic update handled by listener if user is admin
   }
   
   const triggerNotification = () => {
@@ -287,33 +271,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setScrumUpdates(prev => [...prev, newUpdate]);
   };
 
-  const addNotification = (message: string, projectId: string) => {
-    if (!currentUser) return;
-    const notification: Notification = {
-      id: `notif-${Date.now()}`,
-      message: `${currentUser.name} ${message}`,
-      timestamp: new Date().toISOString(),
-      projectId: projectId,
-      read: false,
-    };
-    setNotifications(prev => [notification, ...prev]);
-    triggerNotification();
-  };
 
   const markNotificationsAsRead = (projectId?: string) => {
-    setNotifications(prev => prev.map(n => {
-        if (!n.read && (!projectId || n.projectId === projectId)) {
-            return {...n, read: true};
-        }
-        return n;
-    }));
+    if (!firestore) return;
+    notifications.forEach(n => {
+      if (!n.read && (!projectId || n.projectId === projectId)) {
+        const notifRef = doc(firestore, 'notifications', n.id);
+        updateDocumentNonBlocking(notifRef, { read: true });
+      }
+    });
   };
 
   const deleteProject = (projectId: string) => {
     if (!firestore) return;
     const projectRef = doc(firestore, 'projects', projectId);
     deleteDocumentNonBlocking(projectRef);
-    // Optimistic update handled by listener
     toast({ title: 'Project Deleted', description: 'The project and all its tasks have been removed.' });
     router.push('/projects');
   };
@@ -326,8 +298,33 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if(project) {
         addNotification(`Project "${project.name}" has been updated.`, projectId);
     }
-    // Optimistic update handled by listener
   };
+
+  const addFile = (fileData: Omit<ProjectFile, 'id' | 'uploadedAt'>) => {
+    if (!firestore || !currentUser) return;
+    const newFile: ProjectFile = {
+      id: `file-${Date.now()}`,
+      ...fileData,
+      uploadedAt: Timestamp.now(),
+    };
+    setDocumentNonBlocking(doc(firestore, 'files', newFile.id), newFile, { merge: false });
+    const project = projects.find(p => p.id === newFile.projectId);
+    addNotification(`New file "${newFile.name}" added to project "${project?.name}".`, newFile.projectId);
+  }
+
+  const addMessage = (messageData: Omit<ChatMessage, 'id' | 'timestamp'>) => {
+    if (!firestore || !currentUser) return;
+    const newMessage: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      ...messageData,
+      timestamp: Timestamp.now(),
+    };
+    setDocumentNonBlocking(doc(firestore, 'messages', newMessage.id), newMessage, { merge: false });
+    const project = projects.find(p => p.id === newMessage.projectId);
+    if (project) {
+        addNotification(`New message in project "${project.name}".`, newMessage.projectId);
+    }
+  }
 
   return (
     <DataContext.Provider value={{ 
@@ -338,6 +335,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         users, 
         scrumUpdates,
         notifications,
+        files,
+        messages,
         addProject, 
         addTask, 
         updateProjectTeam, 
@@ -354,7 +353,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         notificationPlayed,
         isLoading,
         deleteProject,
-        updateProject
+        updateProject,
+        addFile,
+        addMessage,
     }}>
       {children}
     </DataContext.Provider>
@@ -368,5 +369,3 @@ export function useData() {
   }
   return context;
 }
-
-    

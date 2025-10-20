@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -10,91 +9,45 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/lib/auth-client';
 import { useData } from '../../../data-provider';
 import { AddChatAttachmentDialog } from './add-chat-attachment-dialog';
-import { FieldValue } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
-import { addDocumentNonBlocking } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 
 
 type ChatRoomProps = {
   projectId: string;
 };
 
-// For simplicity, we'll use a fixed chat ID per project.
-const CHAT_ID = 'main-chat';
-
 export function ChatRoom({ projectId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const { user: currentUser } = useAuth();
-  const { triggerNotification, addNotification, projects, users } = useData();
-  const prevMessagesCount = useRef(0);
-  const project = projects.find(p => p.id === projectId);
-  const firestore = useFirestore();
-
-  // Simulate receiving messages
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!project || !currentUser) return;
-      const participants = [...project.team, project.client];
-      const otherParticipant = participants.find(p => p.id !== currentUser.id && p.role !== 'admin');
-      
-      if (otherParticipant && Math.random() > 0.8) {
-        const newMessage: ChatMessage = {
-          id: `msg-${Date.now()}`,
-          senderId: otherParticipant.id,
-          senderName: otherParticipant.name,
-          message: `This is a simulated message about project ${project.name}.`,
-          timestamp: new Date() as unknown as FieldValue,
-          fileUrl: null,
-        };
-        addDocumentNonBlocking(collection(firestore, 'messages'), newMessage);
-        setMessages(prev => [...prev, newMessage]);
-      }
-    }, 5000); // Add a new message every 5 seconds on average
-
-    return () => clearInterval(interval);
-  }, [project, currentUser]);
-
+  const { messages, addMessage } = useData();
   
-  useEffect(() => {
-    if (messages && messages.length > prevMessagesCount.current) {
-        const lastMessage = messages[messages.length - 1];
-        if (lastMessage.senderId !== currentUser?.id) {
-            triggerNotification();
-        }
-    }
-    prevMessagesCount.current = messages ? messages.length : 0;
-  }, [messages, currentUser, triggerNotification]);
-
-
-  const sendMessage = (message: string, fileUrl?: string) => {
-     if (!currentUser || !project) return;
-     
-     const messagePayload: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      senderId: currentUser.id,
-      senderName: currentUser.name,
-      message: message,
-      timestamp: new Date() as unknown as FieldValue,
-      fileUrl: fileUrl || null,
-    };
-    
-    addDocumentNonBlocking(collection(firestore, 'messages'), messagePayload);
-    setMessages(prev => [...prev, messagePayload]);
-    addNotification(`sent a new message in project "${project.name}".`, projectId);
-  }
-
+  const projectMessages = messages.filter(m => m.projectId === projectId)
+    .sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis());
 
   const handleSendTextMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newMessage.trim() === '') return;
-    sendMessage(newMessage);
+    if (newMessage.trim() === '' || !currentUser) return;
+    addMessage({
+        projectId,
+        senderId: currentUser.id,
+        senderName: currentUser.name,
+        senderAvatar: currentUser.avatar,
+        message: newMessage,
+        fileUrl: null,
+    });
     setNewMessage('');
   };
 
   const handleAddAttachment = (url: string, message: string) => {
-    sendMessage(message || "shared a file", url);
+    if (!currentUser) return;
+    addMessage({
+        projectId,
+        senderId: currentUser.id,
+        senderName: currentUser.name,
+        senderAvatar: currentUser.avatar,
+        message: message || "Shared a file.",
+        fileUrl: url,
+    });
   }
   
   if (!currentUser) return null;
@@ -103,9 +56,9 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     <div className="flex h-[60vh] flex-col">
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
-          {messages.map((msg) => {
+          {projectMessages.map((msg) => {
             const isCurrentUser = msg.senderId === currentUser.id;
-            const messageDate = new Date(); // Simplified for mock
+            const messageDate = msg.timestamp.toDate();
 
             return (
               <div

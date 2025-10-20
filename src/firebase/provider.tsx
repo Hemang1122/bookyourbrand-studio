@@ -8,9 +8,9 @@ import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
 
 interface FirebaseProviderProps {
   children: ReactNode;
-  firebaseApp: FirebaseApp;
-  firestore: Firestore;
-  auth: Auth;
+  firebaseApp: FirebaseApp | null;
+  firestore: Firestore | null;
+  auth: Auth | null;
 }
 
 // Internal state for user authentication
@@ -136,16 +136,28 @@ export const useFirebase = (): FirebaseServicesAndUser => {
   };
 };
 
-/** Hook to access Firebase Auth instance. */
+/** Hook to access Firebase Auth instance. Throws an error if Auth is not available. */
 export const useAuth = (): Auth => {
-  const { auth } = useFirebase();
-  return auth;
+    const context = useContext(FirebaseContext);
+    if (context === undefined) {
+        throw new Error('useAuth must be used within a FirebaseProvider.');
+    }
+    if (!context.auth) {
+        throw new Error('Auth service not available. Check FirebaseProvider setup.');
+    }
+    return context.auth;
 };
 
-/** Hook to access Firestore instance. */
+/** Hook to access Firestore instance. Throws an error if Firestore is not available. */
 export const useFirestore = (): Firestore => {
-  const { firestore } = useFirebase();
-  return firestore;
+    const context = useContext(FirebaseContext);
+    if (context === undefined) {
+        throw new Error('useFirestore must be used within a FirebaseProvider.');
+    }
+    if (!context.firestore) {
+        throw new Error('Firestore service not available. Check FirebaseProvider setup.');
+    }
+    return context.firestore;
 };
 
 /** Hook to access Firebase App instance. */
@@ -160,7 +172,11 @@ export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | 
   const memoized = useMemo(factory, deps);
   
   if(typeof memoized !== 'object' || memoized === null) return memoized;
-  (memoized as MemoFirebase<T>).__memo = true;
+  if(!memoized) return memoized;
+
+  try {
+    (memoized as MemoFirebase<T>).__memo = true;
+  } catch {}
   
   return memoized;
 }

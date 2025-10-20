@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -19,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { AddFileLinkDialog } from './add-file-link-dialog';
 import { useData } from '../../../data-provider';
-import { FieldValue } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { addDocumentNonBlocking } from '@/firebase';
 import { collection } from 'firebase/firestore';
@@ -31,27 +30,22 @@ type FileManagerProps = {
 export function FileManager({ projectId }: FileManagerProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { addNotification, projects } = useData();
-  const project = projects.find(p => p.id === projectId);
-  const [files, setFiles] = useState<ProjectFile[]>([]);
-  const firestore = useFirestore();
+  const { addFile, files: allFiles } = useData();
+
+  const files = allFiles.filter(f => f.projectId === projectId);
 
   const handleAddFileLink = (name: string, url: string) => {
-    if (!user || !project) return;
+    if (!user) return;
 
-    const fileData: ProjectFile = {
-      id: `file-${Date.now()}`,
-      name: name,
-      url: url,
+    addFile({
+      projectId,
+      name,
+      url,
       uploadedById: user.id,
       uploadedByName: user.name,
       uploadedByAvatar: user.avatar,
-      uploadedAt: new Date() as unknown as FieldValue,
       type: 'link',
-    };
-    addDocumentNonBlocking(collection(firestore, 'files'), fileData);
-    setFiles(prev => [...prev, fileData]);
-    addNotification(`added a new file link "${name}" to project "${project.name}".`, projectId);
+    });
 
     toast({ title: 'File Link Added', description: `${name} has been added to the project.` });
   };
@@ -79,7 +73,7 @@ export function FileManager({ projectId }: FileManagerProps) {
           </TableHeader>
           <TableBody>
             {files.map((file) => {
-              const uploadedAtDate = new Date();
+              const uploadedAtDate = file.uploadedAt.toDate ? file.uploadedAt.toDate() : new Date(file.uploadedAt);
               return (
                 <TableRow key={file.id}>
                   <TableCell className="font-medium flex items-center gap-2">
@@ -119,5 +113,3 @@ export function FileManager({ projectId }: FileManagerProps) {
     </div>
   );
 }
-
-    

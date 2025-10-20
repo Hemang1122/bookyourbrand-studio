@@ -1,39 +1,42 @@
-import type { Task, Project } from '@/lib/types';
+import type { Notification } from '@/lib/types';
 import { compareDesc, parseISO } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 
 type RecentActivityProps = {
-    tasks: Task[];
-    projects: Project[];
+    notifications: Notification[];
 }
 
-export function RecentActivity({ tasks, projects }: RecentActivityProps) {
-  const recentCompletedTasks = tasks
-    .filter((task) => task.status === 'Completed')
-    .sort((a, b) => compareDesc(parseISO(a.dueDate), parseISO(b.dueDate)))
+export function RecentActivity({ notifications }: RecentActivityProps) {
+  // Sort notifications by timestamp and take the most recent 5
+  const recentNotifications = [...notifications]
+    .sort((a, b) => {
+        const dateA = a.timestamp.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
+        const dateB = b.timestamp.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
+        return compareDesc(dateA, dateB);
+    })
     .slice(0, 5);
 
   return (
-    <div className="space-y-8">
-      {recentCompletedTasks.length > 0 ? (
-        recentCompletedTasks.map((task) => {
-            const project = projects.find(p => p.id === task.projectId);
+    <div className="space-y-4">
+      {recentNotifications.length > 0 ? (
+        recentNotifications.map((notif) => {
+            const timestampDate = notif.timestamp.toDate ? notif.timestamp.toDate() : new Date(notif.timestamp);
             return (
-                <div key={task.id} className="flex items-center">
+                <div key={notif.id} className="flex items-center">
                     <div className="ml-4 space-y-1">
                     <p className="text-sm font-medium leading-none">
-                        <span className="font-semibold">{task.assignedTo.name}</span> completed a task.
+                        {notif.message}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                        "{task.title}" in project "{project?.name}"
+                        {formatDistanceToNow(timestampDate, { addSuffix: true })}
                     </p>
                     </div>
-                    <div className="ml-auto text-sm text-muted-foreground">{new Date(task.dueDate).toLocaleDateString()}</div>
                 </div>
             )
         })
       ) : (
         <div className="text-center text-muted-foreground p-4">
-            No recent completed tasks.
+            No recent activity.
         </div>
       )}
     </div>
