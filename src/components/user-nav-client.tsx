@@ -17,18 +17,26 @@ import { CreditCard, LogOut, Settings, User as UserIcon } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import type { User } from '@/lib/types';
 import { useRouter } from 'next/navigation';
-import { useAuth as useFirebaseAuth } from '@/firebase'; // Using the firebase auth hook
+import { useAuth as useFirebaseAuth, useAuth } from '@/firebase'; // Using the firebase auth hook
 import { signOut } from 'firebase/auth';
 
 
-export function UserNavClient({ user }: { user: User }) {
-  const userAvatar = PlaceHolderImages.find(img => img.id === user.avatar);
+export function UserNavClient() {
+  const { user } = useAuth();
   const router = useRouter();
   const auth = useFirebaseAuth(); // Get the auth instance
+  
+  if (!user) {
+    return null; // Don't render if user data is not available yet
+  }
+
+  const userAvatar = PlaceHolderImages.find(img => img.id === user.avatar);
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      if (auth) {
+        await signOut(auth);
+      }
       router.push('/login');
     } catch (error) {
       console.error("Logout failed", error);

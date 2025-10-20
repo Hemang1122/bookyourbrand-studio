@@ -52,8 +52,14 @@ export default function AppLayoutClient({
 }) {
   const { user } = useAuth();
 
+  // This check is crucial to ensure we don't render the DataProvider and layout
+  // for a null user, which can happen during the redirect phase after logout.
+  if (!user) {
+    return null;
+  }
+
   return (
-    <DataProvider>
+    <DataProvider user={user}>
       <SidebarProvider>
       <div className="flex min-h-screen w-full flex-col bg-muted/40">
           <Sidebar>
@@ -62,7 +68,7 @@ export default function AppLayoutClient({
           </SidebarHeader>
           <SidebarContent>
               <ScrollArea className="h-full">
-                  <MainNav userRole={user!.role} />
+                  <MainNav userRole={user.role} />
               </ScrollArea>
           </SidebarContent>
           <SidebarFooter>
