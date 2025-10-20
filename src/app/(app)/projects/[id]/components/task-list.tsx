@@ -130,7 +130,7 @@ export function TaskList({ projectId }: TaskListProps) {
   const [isAiTaskOpen, setIsAiTaskOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
 
-  const projectTasks = tasks.filter((t) => t.projectId === projectId);
+  const projectTasks = (tasks || []).filter((t) => t.projectId === projectId);
 
   const columns = {
     Pending: projectTasks.filter((t) => t.status === 'Pending'),
