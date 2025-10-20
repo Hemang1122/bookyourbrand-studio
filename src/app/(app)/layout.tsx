@@ -1,4 +1,3 @@
-
 'use client';
 import AppLayoutClient from './layout-client';
 import { useEffect, useState, ReactNode } from 'react';
@@ -16,24 +15,18 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
   const [isAppUserLoading, setIsAppUserLoading] = useState(true);
 
   useEffect(() => {
-    // Only proceed when Firebase Auth is done loading.
+    // 1. Wait for Firebase Auth to finish loading.
     if (isAuthLoading) {
       return;
     }
 
-    // If auth is done and there's no user, redirect to login.
+    // 2. If Auth is done and there's no user, redirect to login.
     if (!authUser) {
       redirect('/login');
       return;
     }
 
-    // If we already have the app user, no need to fetch again.
-    if (appUser && appUser.id === authUser.uid) {
-        setIsAppUserLoading(false);
-        return;
-    }
-
-    // Firebase Auth user exists, now fetch our application-specific user profile from Firestore.
+    // 3. If we have an authUser, fetch their profile from Firestore.
     const userRef = doc(firestore, 'users', authUser.uid);
     getDoc(userRef)
       .then(async (userDoc) => {
@@ -41,7 +34,7 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
           // User profile exists, set it as our app user.
           setAppUser({ id: userDoc.id, ...userDoc.data() } as User);
         } else {
-          // First time login for this user, create a default profile.
+          // This is a first-time login for this user. Create a default profile.
           const newUser: User = {
             id: authUser.uid,
             email: authUser.email || 'no-email@example.com',
@@ -57,16 +50,17 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
       })
       .catch(error => {
         console.error("Error fetching user document:", error);
-        // Handle error, maybe redirect to an error page.
+        // Handle error, maybe redirect to an error page or show a message.
         setAppUser(null);
       })
       .finally(() => {
+        // 4. Mark our application's user loading as complete.
         setIsAppUserLoading(false);
       });
 
-  }, [authUser, isAuthLoading, firestore, appUser]);
+  }, [authUser, isAuthLoading, firestore]);
 
-  // Combined loading state.
+  // The final loading state depends on both Firebase Auth and our Firestore fetch.
   const isLoading = isAuthLoading || isAppUserLoading;
 
   if (isLoading) {
@@ -81,18 +75,12 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
   }
 
   if (!appUser) {
-    // This case handles the brief moment before the redirect happens or if something went wrong.
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
-        <div className="flex items-center text-lg text-muted-foreground">
-            <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-            <span>Finalizing...</span>
-        </div>
-      </div>
-    );
+    // This case handles the brief moment before the redirect happens or if something went wrong during profile fetch.
+    redirect('/login');
+    return null;
   }
   
-  // Once we have the full user profile, we provide it to the rest of the app.
+  // 5. Once we have the full appUser profile, provide it to the rest of the app.
   return (
     <AuthProvider user={appUser}>
       <AppLayoutClient>
