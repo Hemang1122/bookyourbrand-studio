@@ -9,13 +9,13 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
-import { useAuth } from '@/firebase'; // Use the Firebase auth hook
+import { useFirebaseServices } from '@/firebase'; // Use the Firebase services hook
 import { signInWithEmailAndPassword } from 'firebase/auth';
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const auth = useAuth(); // Get the Firebase Auth instance
+  const { auth } = useFirebaseServices(); // Get the Firebase Auth instance
   const { toast } = useToast();
   const [email, setEmail] = useState('himmat@example.com');
   const [password, setPassword] = useState('himmat@1234');
