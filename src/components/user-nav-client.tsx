@@ -17,17 +17,22 @@ import { CreditCard, LogOut, Settings, User as UserIcon } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import type { User } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import { useAuth as useFirebaseAuth } from '@/firebase'; // Using the firebase auth hook
+import { signOut } from 'firebase/auth';
 
 
 export function UserNavClient({ user }: { user: User }) {
   const userAvatar = PlaceHolderImages.find(img => img.id === user.avatar);
   const router = useRouter();
+  const auth = useFirebaseAuth(); // Get the auth instance
 
-  const handleLogout = () => {
-    // In a real app, this would clear the session.
-    // For this mock, we clear sessionStorage.
-    sessionStorage.removeItem('mockUserId');
-    router.push('/login');
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.push('/login');
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
   };
   
   return (
@@ -35,8 +40,8 @@ export function UserNavClient({ user }: { user: User }) {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            <AvatarImage src={userAvatar?.imageUrl} alt={user.name} data-ai-hint={userAvatar?.imageHint} />
-            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+            {user.avatar && userAvatar && <AvatarImage src={userAvatar.imageUrl} alt={user.name} data-ai-hint={userAvatar?.imageHint} />}
+            <AvatarFallback>{user.name?.charAt(0) || 'U'}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>

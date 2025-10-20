@@ -1,45 +1,56 @@
 
 'use client';
-import { users } from '@/lib/data';
 import AppLayoutClient from './layout-client';
 import { useEffect, useState } from 'react';
 import type { User } from '@/lib/types';
 import { redirect } from 'next/navigation';
-import { FirebaseClientProvider } from '@/firebase/client-provider';
+import { FirebaseClientProvider, useAuth as useFirebaseAuth, useFirestore } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
-export default function AppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function AppLayoutAuthenticated({ children }: { children: React.ReactNode }) {
+  const { user: authUser, isUserLoading: isAuthLoading } = useFirebaseAuth();
+  const firestore = useFirestore();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // This is a mock authentication guard using sessionStorage.
-    // In a real app, you would use a proper authentication solution like httpOnly cookies.
-    const mockUserId = sessionStorage.getItem('mockUserId');
+    if (isAuthLoading) {
+      return; // Wait until Firebase Auth has initialized
+    }
     
-    if (!mockUserId) {
+    if (!authUser) {
       redirect('/login');
       return;
     }
 
-    const foundUser = users.find((u) => u.id === mockUserId);
-    
-    if (foundUser) {
-      setUser(foundUser);
-    } else {
-      // If user ID from session is invalid, clear it and redirect
-      sessionStorage.removeItem('mockUserId');
-      redirect('/login');
-      return;
-    }
+    const fetchUserDoc = async () => {
+      if (!firestore) return;
+      const userRef = doc(firestore, 'users', authUser.uid);
+      const userSnap = await getDoc(userRef);
 
-    setLoading(false);
-  }, []);
+      if (userSnap.exists()) {
+        setUser(userSnap.data() as User);
+      } else {
+        // This case might happen if the user document hasn't been created yet.
+        // For now, we can create a temporary user object.
+        console.warn("User document not found in Firestore. Creating temporary profile.");
+        setUser({
+          id: authUser.uid,
+          email: authUser.email || 'No Email',
+          name: authUser.displayName || 'New User',
+          role: 'client', // Default role
+          avatar: '',
+          username: authUser.email?.split('@')[0] || 'newuser',
+        });
+      }
+      setLoading(false);
+    };
 
-  if (loading) {
+    fetchUserDoc();
+
+  }, [authUser, isAuthLoading, firestore]);
+
+  if (loading || isAuthLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <p>Loading...</p>
@@ -48,13 +59,25 @@ export default function AppLayout({
   }
 
   if (!user) {
-    // This should be handled by the redirect in useEffect, but as a fallback:
+    // This could happen if fetching fails, redirect to login as a fallback.
+    redirect('/login');
     return null;
   }
 
-  return (
-    <FirebaseClientProvider>
-        <AppLayoutClient user={user}>{children}</AppLayoutClient>
-    </FirebaseClientProvider>
-  );
+  return <AppLayoutClient user={user}>{children}</AppLayoutClient>;
+}
+
+
+export default function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+    return (
+        <FirebaseClientProvider>
+            <AppLayoutAuthenticated>
+                {children}
+            </AppLayoutAuthenticated>
+        </FirebaseClientProvider>
+    )
 }

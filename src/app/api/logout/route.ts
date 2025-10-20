@@ -1,10 +1,8 @@
 
-import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
+// This file is no longer used for session management and can be safely removed.
+// The new authentication flow relies on the Firebase client-side SDK's persistence.
+import { NextResponse } from 'next/server';
 
-export async function POST(request: NextRequest, response: NextResponse) {
-  //Add the cookie to the browser
-  cookies().delete('session');
-
-  return NextResponse.json({}, { status: 200 });
+export async function POST() {
+    return NextResponse.json({ message: 'This endpoint is deprecated.' }, { status: 410 });
 }

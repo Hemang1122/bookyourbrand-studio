@@ -9,14 +9,16 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
-import { users } from '@/lib/data';
+import { useAuth } from '@/firebase'; // Use the Firebase auth hook
+import { signInWithEmailAndPassword } from 'firebase/auth';
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const auth = useAuth(); // Get the Firebase Auth instance
   const { toast } = useToast();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('himmat@example.com');
+  const [password, setPassword] = useState('himmat@1234');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -27,21 +29,24 @@ export function LoginForm() {
     setIsLoading(true);
     setError(null);
     
-    // This is mock authentication.
-    // In a real app, you would validate against a database or auth service.
-    setTimeout(() => {
-        const user = users.find(u => u.email === email);
-        // We're not checking the password for this mock.
-        if(user) {
-            // In a real app, you'd set a session cookie here.
-            // For this mock, we'll use sessionStorage to persist the logged-in user's ID.
-            sessionStorage.setItem('mockUserId', user.id);
-            router.push(from);
-        } else {
-             setError('Invalid email or password. Please check your credentials.');
-        }
-        setIsLoading(false);
-    }, 1000);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged in the layout will handle the redirect
+      router.push(from);
+    } catch (err: any) {
+      // Handle Firebase auth errors
+      switch (err.code) {
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential':
+          setError('Invalid email or password. Please check your credentials.');
+          break;
+        default:
+          setError('An unexpected error occurred. Please try again.');
+          break;
+      }
+       setIsLoading(false);
+    }
   };
 
   return (

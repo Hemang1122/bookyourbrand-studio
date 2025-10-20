@@ -1,12 +1,12 @@
+
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
 import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectStatus, TaskRemark, ProjectFile, ChatMessage, Notification } from '@/lib/types';
 import { users as initialUsers, clients as initialClients } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
-import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking } from '@/firebase';
+import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking, useAuth } from '@/firebase';
 import { collection, doc, query, where, Timestamp, writeBatch } from 'firebase/firestore';
 
 type DataContextType = {
@@ -51,9 +51,8 @@ type DataContextType = {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-export function DataProvider({ children }: { children: React.ReactNode }) {
+export function DataProvider({ children, user: currentUser }: { children: React.ReactNode, user:User }) {
   const { toast } = useToast();
-  const { user: currentUser } = useAuth();
   const router = useRouter();
   const firestore = useFirestore();
 
@@ -302,7 +301,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addFile = (fileData: Omit<ProjectFile, 'id' | 'uploadedAt'>) => {
-    if (!firestore || !currentUser || !projects) return;
+    if (!firestore || !currentUser) return;
     const newFileId = `file-${Date.now()}`;
     const newFile: ProjectFile = {
       id: newFileId,
@@ -313,7 +312,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }
 
   const addMessage = (messageData: Omit<ChatMessage, 'id' | 'timestamp'>) => {
-    if (!firestore || !currentUser || !projects) return;
+    if (!firestore || !currentUser) return;
     const newMessageId = `msg-${Date.now()}`;
     const newMessage: ChatMessage = {
       id: newMessageId,
