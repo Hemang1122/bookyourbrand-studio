@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -16,23 +15,8 @@ export function ClientDashboard() {
   const { user: authUser } = useAuth();
   const { projects, clients, tasks, addProject, isLoading } = useData();
 
-  // Find the client record that corresponds to the logged-in user (case-insensitive)
-  const myClientRecord = clients?.find(
-    c => c.email?.trim().toLowerCase() === authUser?.email?.trim().toLowerCase()
-  );
-
-  // Wait for loading to complete AND for the client record to be found.
-  if (isLoading || !authUser || !myClientRecord) {
-    // If loading is finished but we still can't find the record, show an error.
-    if (!isLoading && authUser) {
-      return (
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-semibold">Welcome, {authUser.name}</h2>
-          <p className="text-red-600 mt-2">Your client profile could not be found. Please contact support.</p>
-        </div>
-      );
-    }
-    // Otherwise, show the loading state.
+  // Show loader until authUser and clients are loaded
+  if (isLoading || !authUser || !clients?.length) {
     return (
       <div className="flex items-center justify-center text-center py-12">
         <Loader2 className="mr-4 h-6 w-6 animate-spin" />
@@ -44,7 +28,21 @@ export function ClientDashboard() {
     );
   }
 
-  const myProjects = projects?.filter(p => p.client?.id === myClientRecord.id) || [];
+  // Find the client record safely using normalized email
+  let myClientRecord = clients.find(
+    c => c.email?.trim().toLowerCase() === authUser.email?.trim().toLowerCase()
+  );
+
+  // Fallback: create temporary client record if not found
+  if (!myClientRecord) {
+    myClientRecord = {
+      id: authUser.uid,
+      name: authUser.name || authUser.email,
+      email: authUser.email,
+    };
+  }
+
+  const myProjects = projects ? projects.filter(p => p.client?.id === myClientRecord.id) : [];
   const activeProjects = myProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;
   const completedProjects = myProjects.filter(p => p.status === 'Completed').length;
   const safeTasks = tasks || [];
@@ -72,6 +70,7 @@ export function ClientDashboard() {
             <p className="text-xs text-muted-foreground">{myProjects.length} total projects</p>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Projects on Hold</CardTitle>
@@ -82,6 +81,7 @@ export function ClientDashboard() {
             <p className="text-xs text-muted-foreground">Waiting for feedback or assets</p>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Completed Projects</CardTitle>
@@ -109,7 +109,6 @@ export function ClientDashboard() {
               const projectTasks = safeTasks.filter(t => t.projectId === project.id);
               const completedTasks = projectTasks.filter(t => t.status === 'Completed').length;
               const progress = projectTasks.length > 0 ? (completedTasks / projectTasks.length) * 100 : 0;
-
               return (
                 <div key={project.id} className="space-y-2">
                   <div className="flex justify-between items-center">
