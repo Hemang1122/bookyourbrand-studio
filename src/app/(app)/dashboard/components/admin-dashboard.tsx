@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +14,10 @@ type AdminDashboardProps = {
 export function AdminDashboard({ clients }: AdminDashboardProps) {
     const { projects, tasks, isLoading } = useData();
     
-    const completedTasks = tasks.filter(t => t.status === 'Completed').length;
+    const completedTasks = (tasks || []).filter(t => t.status === 'Completed').length;
+    const activeProjects = (projects || []).filter(p => p.status === 'Active').length;
+    const totalProjects = projects?.length || 0;
+    const totalTasks = tasks?.length || 0;
 
   return (
     <div className="space-y-4">
@@ -39,8 +41,8 @@ export function AdminDashboard({ clients }: AdminDashboardProps) {
             <FolderKanban className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{projects.filter(p => p.status === 'Active').length}</div>
-            <p className="text-xs text-muted-foreground">{projects.length} total projects</p>
+            <div className="text-2xl font-bold">{activeProjects}</div>
+            <p className="text-xs text-muted-foreground">{totalProjects} total projects</p>
           </CardContent>
         </Card>
         <Card>
@@ -50,7 +52,7 @@ export function AdminDashboard({ clients }: AdminDashboardProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">+{completedTasks}</div>
-            <p className="text-xs text-muted-foreground">{tasks.length} total tasks</p>
+            <p className="text-xs text-muted-foreground">{totalTasks} total tasks</p>
           </CardContent>
         </Card>
         <Card>
@@ -71,7 +73,7 @@ export function AdminDashboard({ clients }: AdminDashboardProps) {
                 <CardTitle>Task Progress</CardTitle>
             </CardHeader>
             <CardContent className="pl-2">
-                <OverviewChart tasks={tasks} />
+                <OverviewChart tasks={tasks || []} />
             </CardContent>
             </Card>
         </div>
