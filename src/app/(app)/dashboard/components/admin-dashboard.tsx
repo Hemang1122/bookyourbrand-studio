@@ -14,10 +14,14 @@ type AdminDashboardProps = {
 export function AdminDashboard({ clients }: AdminDashboardProps) {
     const { projects, tasks, isLoading } = useData();
     
-    const completedTasks = (tasks || []).filter(t => t.status === 'Completed').length;
-    const activeProjects = (projects || []).filter(p => p.status === 'Active').length;
-    const totalProjects = projects?.length || 0;
-    const totalTasks = tasks?.length || 0;
+    const safeTasks = tasks || [];
+    const safeProjects = projects || [];
+    const safeClients = clients || [];
+
+    const completedTasks = safeTasks.filter(t => t.status === 'Completed').length;
+    const activeProjects = safeProjects.filter(p => p.status === 'Active').length;
+    const totalProjects = safeProjects.length;
+    const totalTasks = safeTasks.length;
 
   return (
     <div className="space-y-4">
@@ -31,7 +35,7 @@ export function AdminDashboard({ clients }: AdminDashboardProps) {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{clients.length}</div>
+            <div className="text-2xl font-bold">{isLoading ? '...' : safeClients.length}</div>
             <p className="text-xs text-muted-foreground">+2 since last month</p>
           </CardContent>
         </Card>
@@ -41,7 +45,7 @@ export function AdminDashboard({ clients }: AdminDashboardProps) {
             <FolderKanban className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{activeProjects}</div>
+            <div className="text-2xl font-bold">{isLoading ? '...' : activeProjects}</div>
             <p className="text-xs text-muted-foreground">{totalProjects} total projects</p>
           </CardContent>
         </Card>
@@ -51,7 +55,7 @@ export function AdminDashboard({ clients }: AdminDashboardProps) {
             <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+{completedTasks}</div>
+            <div className="text-2xl font-bold">+{isLoading ? '...' : completedTasks}</div>
             <p className="text-xs text-muted-foreground">{totalTasks} total tasks</p>
           </CardContent>
         </Card>
@@ -73,7 +77,7 @@ export function AdminDashboard({ clients }: AdminDashboardProps) {
                 <CardTitle>Task Progress</CardTitle>
             </CardHeader>
             <CardContent className="pl-2">
-                <OverviewChart tasks={tasks || []} />
+                <OverviewChart tasks={safeTasks} />
             </CardContent>
             </Card>
         </div>
