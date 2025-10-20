@@ -1,4 +1,3 @@
-
 'use client';
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -17,7 +16,7 @@ import { Loader2, Download } from 'lucide-react';
 import { format, isSameDay } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import jsPDF from 'jspdf';
-import type { ScrumUpdate, User, Project } from '@/lib/types';
+import type { ScrumUpdate, User } from '@/lib/types';
 import { useData } from '../../data-provider';
 
 type ScrumExportDialogProps = {
@@ -31,7 +30,6 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const { toast } = useToast();
-  const { projects } = useData();
 
   const getUpdatesForDate = (date: Date | undefined) => {
     if (!date) return [];
@@ -53,76 +51,105 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
     const margin = 60;
     const contentWidth = pageWidth - margin * 2;
     
-    // Convert image to base64
-    const response = await fetch('/letterhead.png');
-    const blob = await response.blob();
-    const reader = new FileReader();
-    reader.readAsDataURL(blob);
-    reader.onloadend = () => {
-        const base64data = reader.result as string;
-        const base64Image = base64data.split(',')[1]; // Get only the base64 part
+    const drawLetterhead = () => {
+        // Draw border
+        doc.setDrawColor(0);
+        doc.setLineWidth(1.5);
+        doc.rect(20, 20, pageWidth - 40, pageHeight - 40);
 
-        updatesForSelectedDate.forEach((update, index) => {
-            const author = users.find(u => u.id === update.userId);
-            if (!author) return;
+        // Add "BookYourBrands" Title
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(22);
+        doc.text("BookYourBrands", pageWidth / 2, 70, { align: 'center' });
 
-            if (index > 0) {
+        // Add a line under the title
+        doc.setLineWidth(0.5);
+        doc.line(margin, 90, pageWidth - margin, 90);
+    }
+
+    updatesForSelectedDate.forEach((update, index) => {
+        const author = users.find(u => u.id === update.userId);
+        if (!author) return;
+
+        if (index > 0) {
+            doc.addPage();
+        }
+
+        drawLetterhead();
+        
+        let y = 120; 
+
+        // --- Report Header ---
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Date:`, margin, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`${format(selectedDate, 'PPP')}`, margin + 80, y);
+        y += 15;
+
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Project Name:`, margin, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`General Update`, margin + 80, y);
+        y += 15;
+        
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Team Members:`, margin, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(author.name, margin + 80, y);
+        y += 30;
+
+        // --- Report Body ---
+        const addSection = (title: string, content: string) => {
+            if (y > pageHeight - 150) { // Check if new page is needed
                 doc.addPage();
+                drawLetterhead();
+                y = 120;
             }
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.text(title.toUpperCase(), margin, y);
+            y += 20;
 
-            // Add letterhead background
-            doc.addImage(base64Image, 'PNG', 0, 0, pageWidth, pageHeight);
-
-            let y = 240; // Starting Y position inside the bordered box
-
-            // --- Report Header ---
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(10);
-            doc.setTextColor(0, 0, 0);
-            doc.text(`Date: ${format(selectedDate, 'PPP')}`, margin, y);
-            y += 15;
+            const lines = doc.splitTextToSize(content || "N/A", contentWidth);
+            const bulletedLines = lines.map((line: string) => line.trim().startsWith('-') ? line : `- ${line}`);
+            
+            bulletedLines.forEach((line: string) => {
+                 if (y > pageHeight - 80) { // Check before printing each line
+                    doc.addPage();
+                    drawLetterhead();
+                    y = 120;
+                 }
+                 doc.text(line, margin, y);
+                 y += 15;
+            });
+            y += 15; // Extra space after section
+        };
 
-            // Try to find a project based on what was worked on
-            const firstProjectTask = update.yesterday.split('\n')[0];
-            doc.text(`Project Name: General Update`, margin, y);
-            y += 15;
+        addSection("1. TASKS COMPLETED YESTERDAY:", update.yesterday);
+        addSection("2. TASKS PLANNED FOR TODAY:", update.today);
+        addSection("3. BLOCKERS / ISSUES:", "None reported.");
+        addSection("4. NOTES / UPDATES:", "All tasks are on track.");
 
-            doc.text(`Team Members: ${author.name}`, margin, y);
-            y += 30;
+        // --- Signature ---
+        y = pageHeight - 140; // Position signature block towards the bottom
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Reported by: ${author.name}`, margin, y);
+        y += 20;
+        doc.text(`Position: ${author.role}`, margin, y);
+        y += 20;
+        doc.text("Signature: _______________________", margin, y);
+    });
 
-            // --- Report Body ---
-            const addSection = (title: string, content: string) => {
-                doc.setFont('helvetica', 'bold');
-                doc.text(title.toUpperCase(), margin, y);
-                y += 15;
-                doc.setFont('helvetica', 'normal');
-                const lines = doc.splitTextToSize(content || "N/A", contentWidth);
-                 // Add bullet points to each line
-                const bulletedLines = lines.map((line: string) => line.trim().startsWith('-') ? line : `- ${line}`);
-                doc.text(bulletedLines, margin, y);
-                y += (bulletedLines.length * 12) + 20;
-            };
-
-            addSection("1. TASKS COMPLETED YESTERDAY:", update.yesterday);
-            addSection("2. TASKS PLANNED FOR TODAY:", update.today);
-            addSection("3. BLOCKERS / ISSUES:", "None reported.");
-            addSection("4. NOTES / UPDATES:", "All tasks are on track.");
-
-            // --- Signature ---
-            y = 680; // Position signature block towards the bottom
-            doc.setFont('helvetica', 'normal');
-            doc.text(`Reported by: ${author.name}`, margin, y);
-            y += 15;
-            doc.text(`Position: ${author.role}`, margin, y);
-            y += 15;
-            doc.text("Signature: _______________________", margin, y);
-        });
-
-        doc.save(`scrum_report_${format(selectedDate, 'yyyy-MM-dd')}.pdf`);
-        
-        setIsLoading(false);
-        setOpen(false);
-    }
+    doc.save(`scrum_report_${format(selectedDate, 'yyyy-MM-dd')}.pdf`);
+    
+    setIsLoading(false);
+    setOpen(false);
   };
 
   const handleClose = () => {
