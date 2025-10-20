@@ -4,7 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useMemo } from 'react';
 
 type RecentActivityProps = {
-    notifications: Notification[];
+    notifications: Notification[] | null;
 }
 
 export function RecentActivity({ notifications }: RecentActivityProps) {
@@ -16,7 +16,7 @@ export function RecentActivity({ notifications }: RecentActivityProps) {
       .sort((a, b) => {
           const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
           const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
-          return compareDesc(dateA, dateB);
+          return dateB.getTime() - dateA.getTime();
       })
       .slice(0, 5);
   }, [notifications]);
