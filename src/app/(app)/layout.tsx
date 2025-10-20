@@ -1,23 +1,24 @@
-
 'use client';
 import AppLayoutClient from './layout-client';
 import { useEffect, useState } from 'react';
 import type { User } from '@/lib/types';
 import { redirect } from 'next/navigation';
-import { FirebaseClientProvider, useAuth as useFirebaseAuth, useFirestore } from '@/firebase';
+import { FirebaseClientProvider, useUser as useFirebaseUser, useFirestore } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
 function AppLayoutAuthenticated({ children }: { children: React.ReactNode }) {
-  const { user: authUser, isUserLoading: isAuthLoading } = useFirebaseAuth();
+  const { user: authUser, isUserLoading: isAuthLoading } = useFirebaseUser();
   const firestore = useFirestore();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Wait until Firebase Auth is no longer loading.
     if (isAuthLoading) {
-      return; // Wait until Firebase Auth has initialized
+      return; 
     }
     
+    // If there is no authenticated user after loading, redirect to login.
     if (!authUser) {
       redirect('/login');
       return;
@@ -25,6 +26,7 @@ function AppLayoutAuthenticated({ children }: { children: React.ReactNode }) {
 
     const fetchUserDoc = async () => {
       if (!firestore) return;
+      setLoading(true);
       const userRef = doc(firestore, 'users', authUser.uid);
       const userSnap = await getDoc(userRef);
 
@@ -50,7 +52,10 @@ function AppLayoutAuthenticated({ children }: { children: React.ReactNode }) {
 
   }, [authUser, isAuthLoading, firestore]);
 
-  if (loading || isAuthLoading) {
+  // Combined loading state
+  const isStillLoading = loading || isAuthLoading;
+
+  if (isStillLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <p>Loading...</p>
