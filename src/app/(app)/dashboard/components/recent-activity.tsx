@@ -11,20 +11,19 @@ type RecentActivityProps = {
 
 export function RecentActivity({ notifications, isLoading: isDataLoading }: RecentActivityProps) {
   
-  const isLoading = isDataLoading || !Array.isArray(notifications);
-  const safeNotifications = Array.isArray(notifications) ? notifications : [];
+  const isLoading = isDataLoading || !notifications;
 
   const recentNotifications = useMemo(() => {
-    if (isLoading) return [];
-
-    return [...safeNotifications]
-      .sort((a, b) => {
+    // Use optional chaining `?.` which returns undefined if notifications is null/undefined.
+    const sorted = notifications?.sort((a, b) => {
         const dateA = a?.timestamp?.toDate ? a.timestamp.toDate() : new Date(a?.timestamp || 0);
         const dateB = b?.timestamp?.toDate ? b.timestamp.toDate() : new Date(b?.timestamp || 0);
         return dateB.getTime() - dateA.getTime();
-      })
-      .slice(0, 5);
-  }, [safeNotifications, isLoading]);
+      });
+
+    // If sorted is undefined, return an empty array, otherwise slice it.
+    return sorted ? sorted.slice(0, 5) : [];
+  }, [notifications]);
 
   if (isLoading) {
     return (

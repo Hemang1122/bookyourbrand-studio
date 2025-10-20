@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Bell, Check, Loader2 } from 'lucide-react';
@@ -19,9 +18,6 @@ export function NotificationBell() {
   const { user } = useAuth();
   const { notifications, projects, markNotificationsAsRead, isLoading: isDataLoading } = useData();
 
-  // Null-safe notifications array
-  const safeNotifications = Array.isArray(notifications) ? notifications : [];
-
   const userProjectIds = useMemo(() => {
     if (!user || !Array.isArray(projects)) return [];
 
@@ -37,24 +33,25 @@ export function NotificationBell() {
     return [];
   }, [user, projects]);
   
-  const isLoading = isDataLoading || !Array.isArray(notifications);
+  const isLoading = isDataLoading || !notifications;
 
   const relevantNotifications = useMemo(() => {
-    if (isLoading) return [];
+    // Use optional chaining `?.` to safely call filter. If notifications is null/undefined, it returns undefined.
+    const filtered = notifications?.filter((n) => n?.projectId && userProjectIds.includes(n.projectId));
+    
+    // If filtered is undefined (because notifications was null), return an empty array.
+    if (!filtered) return [];
 
-    return safeNotifications
-      .filter((n) => n?.projectId && userProjectIds.includes(n.projectId))
-      .sort((a, b) => {
+    return filtered.sort((a, b) => {
         const dateA = a?.timestamp?.toDate ? a.timestamp.toDate() : new Date(a?.timestamp || 0);
         const dateB = b?.timestamp?.toDate ? b.timestamp.toDate() : new Date(b?.timestamp || 0);
         return dateB.getTime() - dateA.getTime();
       });
-  }, [safeNotifications, userProjectIds, isLoading]);
+  }, [notifications, userProjectIds]);
 
   const unreadCount = useMemo(() => {
-    if (isLoading) return 0;
     return relevantNotifications.filter((n) => !n.read).length;
-  }, [relevantNotifications, isLoading]);
+  }, [relevantNotifications]);
 
   const handleOpenChange = (open: boolean) => {
     if (!open && unreadCount > 0) {
