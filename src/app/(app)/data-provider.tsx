@@ -2,13 +2,13 @@
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectStatus, TaskRemark, ProjectFile, ChatMessage, Notification } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, ChatMessage, Notification } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking } from '@/firebase';
 import { collection, doc, query, where, Timestamp, writeBatch } from 'firebase/firestore';
-import { useAuth } from '@/lib/auth-client';
+import { useAuth } from '@/firebase/provider';
 
 type DataContextType = {
   projects: Project[];
@@ -78,7 +78,25 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: filesData = [], isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? collection(firestore, 'files') : null, [firestore]));
   const files = filesData;
 
-  const { data: messagesData = [], isLoading: messagesLoading } = useCollection<ChatMessage>(useMemoFirebase(() => firestore ? collection(firestore, 'messages') : null, [firestore]));
+  const projectMessagesQuery = useMemoFirebase(() => {
+    if (!firestore || !currentUser) return null;
+    if (currentUser.role === 'admin') {
+      return collection(firestore, 'messages');
+    }
+    if (currentUser.role === 'client') {
+      const myProjectIds = projects.filter(p => p.client.id === currentUser.id).map(p => p.id);
+      if (myProjectIds.length === 0) return null;
+      return query(collection(firestore, 'messages'), where('projectId', 'in', myProjectIds));
+    }
+    if (currentUser.role === 'team') {
+        const myProjectIds = projects.filter(p => p.team_ids.includes(currentUser.id)).map(p => p.id);
+        if (myProjectIds.length === 0) return null;
+        return query(collection(firestore, 'messages'), where('projectId', 'in', myProjectIds));
+    }
+    return null;
+  }, [firestore, currentUser, projects]);
+
+  const { data: messagesData = [], isLoading: messagesLoading } = useCollection<ChatMessage>(projectMessagesQuery);
   const messages = messagesData;
     
   const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
@@ -93,15 +111,16 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }, [firestore, currentUser]));
   const notifications = notificationsData;
 
-  const [scrumUpdates, setScrumUpdates] = useState<ScrumUpdate[]>([]);
+  const { data: scrumUpdatesData, isLoading: scrumUpdatesLoading } = useCollection<ScrumUpdate>(useMemoFirebase(() => firestore ? collection(firestore, 'scrum-updates') : null, [firestore]));
+  const scrumUpdates = scrumUpdatesData || [];
   
-  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || messagesLoading || notificationsLoading;
+  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || messagesLoading || notificationsLoading || scrumUpdatesLoading;
   
   const teamMembers = useMemo(() => (users || []).filter(u => u.role === 'admin' || u.role === 'team'), [users]);
   
   const addProject = (projectData: Omit<Project, 'id' | 'coverImage'>) => {
     if (!firestore || !currentUser || !users) return;
-    const newProjectId = `proj-${Date.now()}`;
+    const newProjectId = doc(collection(firestore, 'projects')).id;
     const newProject: Project = {
       id: newProjectId,
       ...projectData,
@@ -113,6 +132,9 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     if (admin && currentUser.id !== admin.id) {
         addNotification(`New project '${newProject.name}' was created by ${currentUser.name}.`, newProject.id, [admin.id]);
     }
+    if (projectData.team_ids.length > 0) {
+        addNotification(`You have been assigned to the new project: '${newProject.name}'.`, newProject.id, projectData.team_ids);
+    }
 
     router.push(`/projects/${newProject.id}`);
   };
@@ -121,13 +143,16 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     if (!firestore || !projects || !currentUser || !users) return;
     const project = projects.find(p => p.id === taskData.projectId);
     if (!project) return;
-    const team = users.filter(u => project.team_ids.includes(u.id));
-    const assignedTo = team[0] || users.find(u => u.role === 'team') || users[0];
+    
+    // Default assignment to the first team member or admin if no team is assigned yet.
+    const assignedToId = project.team_ids[0] || (teamMembers.find(tm => tm.id !== currentUser.id))?.id || currentUser.id;
+    const assignedTo = users.find(u => u.id === assignedToId);
+
     if (!assignedTo) {
-        toast({title: "Error", description: "No one to assign task to."});
+        toast({title: "Error", description: "No one available to assign the task to.", variant: 'destructive'});
         return;
     }
-    const newTaskId = `task-${Date.now()}`;
+    const newTaskId = doc(collection(firestore, 'tasks')).id;
     const newTask: Task = {
       id: newTaskId,
       ...taskData,
@@ -137,14 +162,9 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     };
     setDocumentNonBlocking(doc(firestore, 'tasks', newTask.id), newTask);
 
-    if (project) {
-        const admin = users.find(u => u.role === 'admin');
-        const recipients = [project.client.id, ...project.team_ids];
-        if (admin) recipients.push(admin.id);
-        
-        const finalRecipients = recipients.filter(id => id !== currentUser.id);
-        addNotification(`New task '${newTask.title}' added to project '${project.name}'.`, project.id, finalRecipients);
-    }
+    const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...teamMembers.filter(u=>u.role === 'admin').map(u=>u.id)]));
+    const finalRecipients = recipients.filter(id => id !== currentUser.id);
+    addNotification(`New task '${newTask.title}' added to project '${project.name}'.`, project.id, finalRecipients);
   }
 
   const updateProjectTeam = (projectId: string, teamMemberIds: string[]) => {
@@ -157,15 +177,17 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
     toast({ title: 'Team Updated', description: `The team for "${project.name}" has been updated.` });
     
-    const recipients = [...teamMemberIds, project.client.id];
-    addNotification(`The team for project '${project.name}' has been updated.`, projectId, recipients);
+    const recipients = Array.from(new Set([...teamMemberIds, project.client.id, ...users.filter(u=>u.role==='admin').map(u=>u.id)]));
+    addNotification(`The team for project '${project.name}' has been updated.`, projectId, recipients.filter(id => id !== currentUser.id));
   };
 
   const updateTaskStatus = (taskId: string, status: TaskStatus, remark: string) => {
-    if (!currentUser || !firestore || !tasks) return;
+    if (!currentUser || !firestore || !tasks || !projects || !users) return;
 
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
+    const project = projects.find(p => p.id === task.projectId);
+    if(!project) return;
 
     const newRemark: TaskRemark = {
       userId: currentUser.id,
@@ -183,6 +205,9 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     });
     
     toast({ title: 'Task Updated', description: `Task status changed to "${status}".` });
+    
+    const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...users.filter(u=>u.role==='admin').map(u=>u.id)]));
+    addNotification(`Task '${task.title}' in project '${project.name}' was updated to '${status}'.`, project.id, recipients.filter(id => id !== currentUser.id));
   }
 
   const addClient = (clientData: {name: string, company: string, email: string, founderDetails: string, agreementUrl?: string, idCardUrl?: string}) => {
@@ -247,9 +272,9 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   const addScrumUpdate = (update: Omit<ScrumUpdate, 'id'>) => {
     if (!firestore) return;
-    const newUpdate: ScrumUpdate = { ...update, id: `scrum-${Date.now()}`, timestamp: new Date().toISOString() };
-    addDocumentNonBlocking(collection(firestore, 'scrum-updates'), newUpdate);
-    setScrumUpdates(prev => [...prev, newUpdate]);
+    const newUpdateId = doc(collection(firestore, 'scrum-updates')).id;
+    const newUpdate: ScrumUpdate = { ...update, id: newUpdateId, timestamp: new Date().toISOString() };
+    setDocumentNonBlocking(doc(firestore, 'scrum-updates', newUpdate.id), newUpdate);
   };
 
   const deleteProject = (projectId: string) => {
@@ -272,7 +297,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   const addFile = (fileData: Omit<ProjectFile, 'id' | 'uploadedAt'>) => {
     if (!firestore || !currentUser) return;
-    const newFileId = `file-${Date.now()}`;
+    const newFileId = doc(collection(firestore, 'files')).id;
     const newFile: ProjectFile = {
       id: newFileId,
       ...fileData,
@@ -282,14 +307,20 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }
 
   const addMessage = (messageData: Omit<ChatMessage, 'id' | 'timestamp'>) => {
-    if (!firestore || !currentUser) return;
-    const newMessageId = `msg-${Date.now()}`;
+    if (!firestore || !currentUser || !users || !projects ) return;
+    const newMessageId = doc(collection(firestore, 'messages')).id;
     const newMessage: ChatMessage = {
       id: newMessageId,
       ...messageData,
       timestamp: Timestamp.now(),
     };
     setDocumentNonBlocking(doc(firestore, 'messages', newMessage.id), newMessage);
+
+    const project = projects.find(p => p.id === messageData.projectId);
+    if (project) {
+      const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...users.filter(u=>u.role==='admin').map(u=>u.id)]));
+      addNotification(`New message in project '${project.name}': "${newMessage.message.substring(0, 30)}..."`, project.id, recipients.filter(id => id !== currentUser.id));
+    }
   }
   
   const markNotificationsAsRead = useCallback(() => {

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -6,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Send, Paperclip, Link as LinkIcon, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useAuth } from '@/lib/auth-client';
+import { useAuth } from '@/firebase/provider';
 import { useData } from '../../../data-provider';
 import { AddChatAttachmentDialog } from './add-chat-attachment-dialog';
 import { Timestamp } from 'firebase/firestore';
@@ -19,10 +20,24 @@ type ChatRoomProps = {
 export function ChatRoom({ projectId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
-  const { messages, addMessage } = useData();
+  const { messages, addMessage, users } = useData();
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   const projectMessages = messages.filter(m => m.projectId === projectId)
-    .sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis());
+    .sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
+
+  const scrollToBottom = () => {
+    if (scrollAreaRef.current) {
+        const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+        if (viewport) {
+            viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+        }
+    }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [projectMessages]);
 
   const handleSendTextMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,11 +69,11 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
 
   return (
     <div className="flex h-[60vh] flex-col">
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
         <div className="space-y-4">
           {projectMessages.map((msg) => {
             const isCurrentUser = msg.senderId === currentUser.id;
-            const messageDate = msg.timestamp.toDate();
+            const messageDate = msg.timestamp?.toDate ? msg.timestamp.toDate() : new Date();
 
             return (
               <div
@@ -78,7 +93,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                                 </div>
                                 <LinkIcon className="h-4 w-4 text-muted-foreground"/>
                              </a>
-                             {msg.message && msg.message !== msg.fileUrl && <p className="text-sm">{msg.message}</p>}
+                             {msg.message && msg.message !== "Shared a file." && <p className="text-sm">{msg.message}</p>}
                            </div>
                         ) : (
                             <p className="text-sm">{msg.message}</p>

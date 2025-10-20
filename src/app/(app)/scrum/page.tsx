@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/lib/auth-client';
+import { useAuth } from '@/firebase/provider';
 import type { ScrumUpdate } from '@/lib/types';
 import { useData } from '../data-provider';
 import { format, isToday } from 'date-fns';
@@ -35,22 +35,19 @@ export default function ScrumPage() {
     }
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      addScrumUpdate({
-        userId: user.id,
-        yesterday,
-        today,
-        timestamp: new Date().toISOString(),
-      });
-      setYesterday('');
-      setToday('');
-      toast({
-        title: 'Update Submitted',
-        description: 'Your daily update has been recorded.',
-      });
-      setIsLoading(false);
-    }, 500);
+    addScrumUpdate({
+      userId: user.id,
+      yesterday,
+      today,
+      timestamp: new Date().toISOString(),
+    });
+    setYesterday('');
+    setToday('');
+    toast({
+      title: 'Update Submitted',
+      description: 'Your daily update has been recorded.',
+    });
+    setIsLoading(false);
   };
   
   const updatesForToday = scrumUpdates.filter(u => isToday(new Date(u.timestamp)));
@@ -162,5 +159,3 @@ export default function ScrumPage() {
     </div>
   );
 }
-
-    

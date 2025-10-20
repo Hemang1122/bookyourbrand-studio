@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -8,7 +9,7 @@ import { AddTaskDialog } from './add-task-dialog';
 import { Button } from '@/components/ui/button';
 import { Plus, Wand2, CheckCircle, Play, History, MoreHorizontal } from 'lucide-react';
 import { useData } from '../../../data-provider';
-import { useAuth } from '@/lib/auth-client';
+import { useAuth } from '@/firebase/provider';
 import {
   Tooltip,
   TooltipContent,
@@ -148,7 +149,7 @@ export function TaskList({ projectId }: TaskListProps) {
   return (
     <>
       <div className="space-y-4">
-        {(user?.role === 'admin' || user?.role === 'team') && (
+        {(user?.role === 'admin' || user?.role === 'client') && (
           <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsManualTaskOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
