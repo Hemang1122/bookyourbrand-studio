@@ -16,7 +16,7 @@ import { ModeToggle } from '@/components/mode-toggle';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MainNav } from '@/components/main-nav';
 import { AuthProvider } from '@/lib/auth-client';
-import { DataProvider, useData } from './data-provider';
+import { DataProvider } from './data-provider';
 import { Button } from '@/components/ui/button';
 import { BookOpenCheck } from 'lucide-react';
 import { DailyReportDialog } from './components/daily-report-dialog';
