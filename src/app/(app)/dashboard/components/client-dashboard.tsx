@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,10 +10,15 @@ import { Progress } from '@/components/ui/progress';
 import { AddProjectDialog } from '../../projects/components/add-project-dialog';
 import { useData } from '../../data-provider';
 import { useAuth } from '@/firebase/provider';
+import type { Client } from '@/lib/types';
 
 export function ClientDashboard() {
   const { user } = useAuth();
-  const { projects, clients, tasks, addProject, isLoading } = useData();
+  const { projects, tasks, addProject, isLoading } = useData();
+
+  // The user object for a client *is* their client record for dashboard purposes.
+  // We can treat the User as a Client here if the roles match.
+  const myClientRecord = user as unknown as Client;
 
   if (!user || isLoading) {
     return (
@@ -32,31 +38,8 @@ export function ClientDashboard() {
         </div>
       )
   }
-  
-  // Find the client record by matching the logged-in user's ID to the client ID.
-  const myClientRecord = clients?.find(c => c.id === user.id);
 
-  // If no matching client record is found, we can't show projects.
-  // This prevents crashes if the client data is not yet loaded or doesn't exist.
-  if (!myClientRecord) {
-      return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold tracking-tight">Client Dashboard</h2>
-            </div>
-            <Card>
-                <CardHeader>
-                    <CardTitle>My Projects Overview</CardTitle>
-                    <CardDescription>Track the progress of your ongoing projects.</CardDescription>
-                </CardHeader>
-                <CardContent className="text-center py-8">
-                     <p className="text-muted-foreground mb-4">Your client profile could not be found. Please contact support.</p>
-                </CardContent>
-            </Card>
-        </div>
-      )
-  }
-
+  // Find projects where the client ID matches the logged-in user's ID
   const myProjects = projects ? projects.filter(p => p.client.id === myClientRecord?.id) : [];
   const activeProjects = myProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;
   const completedProjects = myProjects.filter(p => p.status === 'Completed').length;

@@ -1,3 +1,4 @@
+
 'use client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -45,45 +46,39 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
 
   const teamMemberOptions = teamMembers.map(tm => ({ value: tm.id, label: tm.name }));
   const isClientUser = user?.role === 'client';
+  
+  // When a client is creating a project, the client is them.
+  const clientForProject = isClientUser 
+    ? (user as unknown as Client) 
+    : clients.find(c => c.id === selectedClientId);
 
   const handleAddProject = () => {
-    let selectedClient: Client | undefined | null;
-
-    if (isClientUser) {
-      // If the user is a client, use the pre-selected client record passed via props.
-      selectedClient = preselectedClient;
-    } else {
-      // If the user is an admin, find the client from the full list based on the dropdown selection.
-      selectedClient = clients.find(c => c.id === selectedClientId);
-    }
-    
     // Universal validation
     if (!name || !description || !deadline) {
       toast({ title: 'Error', description: 'Project name, description, and deadline are required.', variant: 'destructive' });
       return;
     }
 
-    if (!selectedClient) {
+    if (!clientForProject) {
       toast({ title: 'Error', description: 'Selected client not found. Please ensure a client is selected.', variant: 'destructive' });
       return;
     }
     
-    // Admin validation
+    // Admin-specific validation
     if (!isClientUser && team_ids.length === 0) {
       toast({ title: 'Error', description: 'Please assign at least one team member.', variant: 'destructive' });
       return;
     }
     
-    // Admins assign team from the multi-select; for clients, the team is initially empty.
+    // Admins assign team from the multi-select; for clients, the team is initially empty and assigned by an admin later.
     const selectedTeamIds = isClientUser ? [] : team_ids;
-
 
     const newProject = {
       name,
       description,
       guidelines,
       deadline: format(deadline, 'yyyy-MM-dd'),
-      client: selectedClient,
+      client: clientForProject,
       team_ids: selectedTeamIds,
       status: 'Active',
     };
