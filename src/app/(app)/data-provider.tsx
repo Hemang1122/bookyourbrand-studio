@@ -77,7 +77,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
   const tasksQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUser || !projects) return null; // Added null check for projects
+    if (!firestore || !currentUser || !projects) return null;
     const projectIds = projects.map(p => p.id);
     if (projectIds.length === 0) return null; // No projects, no tasks to fetch.
     return query(collection(firestore, 'tasks'), where('projectId', 'in', projectIds));
@@ -86,7 +86,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const { data: tasks = [], isLoading: tasksLoading } = useCollection<Task>(tasksQuery);
   
   const filesQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUser || !projects) return null; // Added null check for projects
+    if (!firestore || !currentUser || !projects) return null;
     const projectIds = projects.map(p => p.id);
     if (projectIds.length === 0) return null;
     return query(collection(firestore, 'files'), where('projectId', 'in', projectIds));
@@ -95,7 +95,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const { data: files = [], isLoading: filesLoading } = useCollection<ProjectFile>(filesQuery);
 
   const messagesQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUser || !projects) return null; // Added null check for projects
+    if (!firestore || !currentUser || !projects) return null;
     const projectIds = projects.map(p => p.id);
     if (projectIds.length === 0) return null;
     return query(collection(firestore, 'messages'), where('projectId', 'in', projectIds));
@@ -113,7 +113,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   
   const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || messagesLoading || notificationsLoading;
   
-  const teamMembers = useMemo(() => users.filter(u => u.role === 'admin' || u.role === 'team'), [users]);
+  const teamMembers = useMemo(() => (users || []).filter(u => u.role === 'admin' || u.role === 'team'), [users]);
 
   const addNotification = (message: string, projectId: string) => {
     if (!currentUser || !firestore) return;
@@ -335,7 +335,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         tasks, 
         clients, 
         teamMembers, 
-        users, 
+        users: users || [], 
         scrumUpdates,
         notifications,
         files,
@@ -372,3 +372,5 @@ export function useData() {
   }
   return context;
 }
+
+    
