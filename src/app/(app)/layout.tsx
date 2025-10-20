@@ -16,18 +16,24 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
   const [isAppUserLoading, setIsAppUserLoading] = useState(true);
 
   useEffect(() => {
-    // Wait until Firebase Auth has resolved.
-    if (isAuthLoading || !firestore) {
+    // Only proceed when Firebase Auth is done loading.
+    if (isAuthLoading) {
       return;
     }
-    
-    // If no user is authenticated after loading, redirect to login.
+
+    // If auth is done and there's no user, redirect to login.
     if (!authUser) {
       redirect('/login');
       return;
     }
 
-    // Auth user exists, now fetch or create our application user profile.
+    // If we already have the app user, no need to fetch again.
+    if (appUser && appUser.id === authUser.uid) {
+        setIsAppUserLoading(false);
+        return;
+    }
+
+    // Firebase Auth user exists, now fetch our application-specific user profile from Firestore.
     const userRef = doc(firestore, 'users', authUser.uid);
     getDoc(userRef)
       .then(async (userDoc) => {
@@ -52,12 +58,13 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
       .catch(error => {
         console.error("Error fetching user document:", error);
         // Handle error, maybe redirect to an error page.
+        setAppUser(null);
       })
       .finally(() => {
         setIsAppUserLoading(false);
       });
 
-  }, [authUser, isAuthLoading, firestore]);
+  }, [authUser, isAuthLoading, firestore, appUser]);
 
   // Combined loading state.
   const isLoading = isAuthLoading || isAppUserLoading;
