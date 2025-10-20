@@ -1,3 +1,4 @@
+
 'use client';
 
 import { createContext, useContext, useState, useMemo, useEffect } from 'react';
@@ -83,14 +84,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return collection(firestore, 'clients');
   }, [firestore, currentUser]));
   
-  const { data: firestoreTasks, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'tasks');
-  }, [firestore]));
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
 
   // Combine initial data with firestore data, giving precedence to firestore
   const [projects, setProjects] = useState<Project[]>(initialProjects);
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [clients, setClients] = useState<Client[]>(initialClients);
 
@@ -98,9 +95,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (firestoreProjects) setProjects(firestoreProjects);
   }, [firestoreProjects]);
 
-  useEffect(() => {
-    if (firestoreTasks) setTasks(firestoreTasks);
-  }, [firestoreTasks]);
 
   useEffect(() => {
     if (firestoreUsers) {
@@ -122,7 +116,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [firestoreClients]);
 
-  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading;
+  const isLoading = projectsLoading || usersLoading || clientsLoading;
   
   const teamMembers = useMemo(() => users.filter(u => u.role === 'admin' || u.role === 'team'), [users]);
 
@@ -364,3 +358,5 @@ export function useData() {
   }
   return context;
 }
+
+    
