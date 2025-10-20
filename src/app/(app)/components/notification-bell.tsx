@@ -16,7 +16,7 @@ import { useMemo } from 'react';
 
 export function NotificationBell() {
   const { user } = useAuth();
-  const { notifications, projects, markNotificationsAsRead } = useData();
+  const { notifications, projects, markNotificationsAsRead, isLoading: isDataLoading } = useData();
 
   const userProjectIds = useMemo(() => {
     if (!user) return [];
@@ -32,19 +32,30 @@ export function NotificationBell() {
     return [];
   }, [user, projects]);
 
+  const isLoading = isDataLoading || !Array.isArray(notifications);
+
   const relevantNotifications = useMemo(() => {
-    if (!notifications || !Array.isArray(notifications)) return [];
+    if (isLoading) return [];
 
     return notifications
       .filter(n => userProjectIds?.includes?.(n.projectId))
       .sort((a, b) => {
-        const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
-        const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
+        const dateA = a?.timestamp?.toDate
+          ? a.timestamp.toDate()
+          : new Date(a?.timestamp || 0);
+        const dateB = b?.timestamp?.toDate
+          ? b.timestamp.toDate()
+          : new Date(b?.timestamp || 0);
         return dateB.getTime() - dateA.getTime();
       });
-  }, [notifications, userProjectIds]);
+  }, [notifications, userProjectIds, isLoading]);
 
-  const unreadCount = relevantNotifications.filter(n => !n.read).length;
+
+  const unreadCount = useMemo(() => {
+    if (isLoading) return 0;
+    return relevantNotifications.filter(n => !n.read).length;
+  }, [relevantNotifications, isLoading]);
+
 
   const handleOpenChange = (open: boolean) => {
     if (!open && unreadCount > 0) {
@@ -78,7 +89,11 @@ export function NotificationBell() {
           )}
         </div>
         <ScrollArea className="h-96">
-          {relevantNotifications.length > 0 ? (
+          {isLoading ? (
+            <div className="p-8 text-center text-sm text-muted-foreground">
+              Loading notifications...
+            </div>
+          ) : relevantNotifications.length > 0 ? (
             <div className="divide-y">
               {relevantNotifications.map(notif => {
                 const timestampDate = notif.timestamp?.toDate ? notif.timestamp.toDate() : new Date(notif.timestamp);

@@ -13,7 +13,7 @@ type AdminDashboardProps = {
 };
 
 export function AdminDashboard({ clients }: AdminDashboardProps) {
-    const { projects, tasks, notifications } = useData();
+    const { projects, tasks, notifications, isLoading } = useData();
     
     const completedTasks = tasks.filter(t => t.status === 'Completed').length;
 
@@ -82,7 +82,7 @@ export function AdminDashboard({ clients }: AdminDashboardProps) {
                     <CardTitle>Recent Activity</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <RecentActivity notifications={notifications} />
+                    <RecentActivity notifications={notifications} isLoading={isLoading} />
                 </CardContent>
             </Card>
         </div>

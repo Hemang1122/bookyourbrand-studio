@@ -1,27 +1,27 @@
 import type { Notification } from '@/lib/types';
-import { compareDesc } from 'date-fns';
 import { formatDistanceToNow } from 'date-fns';
 import { useMemo } from 'react';
 
 type RecentActivityProps = {
     notifications: Notification[] | null;
+    isLoading: boolean;
 }
 
-export function RecentActivity({ notifications }: RecentActivityProps) {
+export function RecentActivity({ notifications, isLoading }: RecentActivityProps) {
 
   const recentNotifications = useMemo(() => {
-    if (!notifications || !Array.isArray(notifications)) return [];
+    if (isLoading || !notifications) return [];
     
     return notifications
       .sort((a, b) => {
-          const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
-          const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
+          const dateA = a?.timestamp?.toDate ? a.timestamp.toDate() : new Date(a?.timestamp || 0);
+          const dateB = b?.timestamp?.toDate ? b.timestamp.toDate() : new Date(b?.timestamp || 0);
           return dateB.getTime() - dateA.getTime();
       })
       .slice(0, 5);
-  }, [notifications]);
+  }, [notifications, isLoading]);
 
-  if (!notifications) {
+  if (isLoading) {
     return (
         <div className="text-center text-muted-foreground p-4">
             Loading activities...
