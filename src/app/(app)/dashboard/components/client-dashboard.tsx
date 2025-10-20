@@ -14,15 +14,24 @@ import { useAuth } from '@/lib/auth-client';
 
 export function ClientDashboard() {
   const { user: authUser } = useAuth();
-  const { projects, clients, tasks, addProject } = useData();
+  const { projects, clients, tasks, addProject, isLoading } = useData();
 
   if (!authUser) {
     return null; // Or a loading state
   }
 
-  // Find the client record that corresponds to the logged-in user
-  const myClientRecord = clients.find(c => c.email === authUser.email);
-  const myProjects = myClientRecord ? projects.filter(p => p.client.id === myClientRecord.id) : [];
+  // Safely find the client record that corresponds to the logged-in user
+  const myClientRecord = clients?.find(c => c.email === authUser.email);
+  const myProjects = myClientRecord && projects ? projects.filter(p => p.client.id === myClientRecord.id) : [];
+
+  if (isLoading) {
+    return (
+        <div className="text-center py-12">
+            <h2 className="text-2xl font-semibold">Loading Dashboard...</h2>
+            <p className="text-muted-foreground mt-2">Please wait while we fetch your project data.</p>
+        </div>
+    )
+  }
 
   if (!myClientRecord) {
       return (
@@ -43,6 +52,7 @@ export function ClientDashboard() {
 
   const activeProjects = myProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;
   const completedProjects = myProjects.filter(p => p.status === 'Completed').length;
+  const safeTasks = tasks || [];
 
   return (
     <div className="space-y-6">
@@ -101,8 +111,8 @@ export function ClientDashboard() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {myProjects.map(project => {
-             const projectTasks = tasks.filter(t => t.projectId === project.id);
+          {myProjects.length > 0 ? myProjects.map(project => {
+             const projectTasks = safeTasks.filter(t => t.projectId === project.id);
              const completedTasks = projectTasks.filter(t => t.status === 'Completed').length;
              const progress = projectTasks.length > 0 ? (completedTasks / projectTasks.length) * 100 : 0;
             return (
@@ -123,7 +133,11 @@ export function ClientDashboard() {
                     </div>
                 </div>
             )
-          })}
+          }) : (
+            <div className="text-center py-8 text-muted-foreground">
+              You have no projects yet.
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
