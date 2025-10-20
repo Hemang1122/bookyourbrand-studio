@@ -58,7 +58,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const firestore = useFirestore();
 
   const addNotification = useCallback((message: string, projectId: string, recipients: string[]) => {
-    if (!firestore) return;
+    if (!firestore || recipients.length === 0) return;
     const newNotif: Omit<Notification, 'id'> = {
       message,
       projectId,
@@ -78,25 +78,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: filesData = [], isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? collection(firestore, 'files') : null, [firestore]));
   const files = filesData;
 
-  const projectMessagesQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUser) return null;
-    if (currentUser.role === 'admin') {
-      return collection(firestore, 'messages');
-    }
-    if (currentUser.role === 'client') {
-      const myProjectIds = projects.filter(p => p.client.id === currentUser.id).map(p => p.id);
-      if (myProjectIds.length === 0) return null;
-      return query(collection(firestore, 'messages'), where('projectId', 'in', myProjectIds));
-    }
-    if (currentUser.role === 'team') {
-        const myProjectIds = projects.filter(p => p.team_ids.includes(currentUser.id)).map(p => p.id);
-        if (myProjectIds.length === 0) return null;
-        return query(collection(firestore, 'messages'), where('projectId', 'in', myProjectIds));
-    }
-    return null;
-  }, [firestore, currentUser, projects]);
-
-  const { data: messagesData = [], isLoading: messagesLoading } = useCollection<ChatMessage>(projectMessagesQuery);
+  const { data: messagesData = [], isLoading: messagesLoading } = useCollection<ChatMessage>(useMemoFirebase(() => firestore ? collection(firestore, 'messages') : null, [firestore]));
   const messages = messagesData;
     
   const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
@@ -279,7 +261,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     // Notify admins
     const admins = users.filter(u => u.role === 'admin');
     if (admins.length > 0) {
-      const adminIds = admins.map(a => a.id);
+      const adminIds = admins.map(a => a.id).filter(id => id !== currentUser.id);
       addNotification(`${currentUser.name} has submitted their daily scrum update.`, 'general', adminIds);
     }
   };

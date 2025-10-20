@@ -9,7 +9,8 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import type { Project, Task, User } from '@/lib/types';
+import type { Project, Task, User, ChatMessage } from '@/lib/types';
+import { isSameDay, parseISO } from 'date-fns';
 
 // Define the detailed input schema for the flow
 const GenerateActivityReportInputSchema = z.object({
@@ -17,6 +18,7 @@ const GenerateActivityReportInputSchema = z.object({
   projects: z.array(z.any()).describe('An array of all project objects.'),
   tasks: z.array(z.any()).describe('An array of all task objects.'),
   users: z.array(z.any()).describe('An array of all user objects.'),
+  messages: z.array(z.any()).describe('An array of all chat message objects.'),
 });
 export type GenerateActivityReportInput = z.infer<typeof GenerateActivityReportInputSchema>;
 
@@ -41,14 +43,14 @@ const generateActivityReportPrompt = ai.definePrompt({
   prompt: `You are an expert project management assistant. Your task is to generate a daily activity summary for a creative agency.
   The date for this report is {{date}}.
 
-  You will be provided with JSON data for all projects, tasks, and users.
+  You will be provided with JSON data for all projects, tasks, users, and chat messages.
   Analyze the provided data and generate a concise, well-structured report in Markdown format.
 
-  The report should include the following sections:
-  1.  **Tasks Completed**: List all tasks that were marked as 'Completed' on the report date. Include the task title, the project it belongs to, and the team member who completed it.
-  2.  **New Tasks Created**: List any new tasks that were created on the report date.
-  3.  **Project Updates**: Mention any changes in project statuses (e.g., moved to 'In Progress', 'Completed', 'On Hold').
-  4.  **Team Activity**: Summarize which team members were active based on task completions.
+  The report should include the following sections if there is relevant activity:
+  1.  **Project Updates**: List any new projects created on the report date or projects whose status changed.
+  2.  **Task Updates**: List new tasks created and tasks that were updated (e.g., moved to 'In Progress', 'Completed'). Mention who made the update.
+  3.  **Chat Activity**: Summarize key conversations. List each message with its sender and timestamp.
+  4.  **Team Activity**: Summarize which team members were active based on task updates and messages sent.
 
   If no significant activity occurred on the given day, state that "No significant activity was recorded for this day."
 
@@ -56,6 +58,7 @@ const generateActivityReportPrompt = ai.definePrompt({
   - Projects: {{{json projects}}}
   - Tasks: {{{json tasks}}}
   - Users: {{{json users}}}
+  - Messages: {{{json messages}}}
 
   Please generate the report now.
   `,
@@ -70,23 +73,34 @@ const generateActivityReportFlow = ai.defineFlow(
     outputSchema: GenerateActivityReportOutputSchema,
   },
   async (input) => {
-    // For the purpose of this prompt, we're assuming task completion/creation dates can be inferred from the data.
-    // In a real app, tasks would have `createdAt` and `completedAt` timestamps.
-    // We will filter tasks based on the `dueDate` for demonstration.
-    const reportDate = new Date(input.date);
+    const reportDate = parseISO(input.date);
 
     const relevantTasks = input.tasks.filter(task => {
-        const taskDate = new Date((task as Task).dueDate);
-        return taskDate.getFullYear() === reportDate.getFullYear() &&
-               taskDate.getMonth() === reportDate.getMonth() &&
-               taskDate.getDate() === reportDate.getDate();
+        const anyRemarkOnDate = (task as Task).remarks?.some(remark => isSameDay(parseISO(remark.timestamp), reportDate));
+        // Assuming tasks have a `createdAt` field, which we'll simulate with `dueDate` for now
+        const createdOnDate = isSameDay(parseISO((task as Task).dueDate), reportDate); 
+        return anyRemarkOnDate || createdOnDate;
+    });
+
+    const relevantMessages = input.messages.filter(msg => {
+        const msgTimestamp = (msg as ChatMessage).timestamp;
+        if (!msgTimestamp || !msgTimestamp.toDate) return false;
+        return isSameDay(msgTimestamp.toDate(), reportDate);
     });
     
-    if (relevantTasks.length === 0) {
+    // In a real app, projects would have `createdAt` and `updatedAt`. We'll just pass them all.
+    const relevantProjects = input.projects;
+
+    if (relevantTasks.length === 0 && relevantMessages.length === 0) {
         return { report: "No significant activity was recorded for this day." };
     }
 
-    const { output } = await generateActivityReportPrompt({ ...input, tasks: relevantTasks });
+    const { output } = await generateActivityReportPrompt({ 
+        ...input, 
+        tasks: relevantTasks,
+        messages: relevantMessages,
+        projects: relevantProjects,
+    });
     return output!;
   }
 );

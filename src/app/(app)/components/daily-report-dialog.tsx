@@ -31,7 +31,7 @@ export function DailyReportDialog({ children }: DailyReportDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const { toast } = useToast();
-  const { projects, tasks, users } = useData();
+  const { projects, tasks, users, messages } = useData();
   const reportContentRef = useRef<HTMLDivElement>(null);
 
   const handleGenerateReport = async () => {
@@ -47,9 +47,18 @@ export function DailyReportDialog({ children }: DailyReportDialogProps) {
         projects,
         tasks,
         users,
+        messages,
       };
       const result = await generateActivityReport(input);
-      setReport(result.report);
+      // Basic markdown to HTML
+      const htmlReport = result.report
+        .replace(/### (.*)/g, '<h3 class="font-semibold text-lg mt-4 mb-2">$1</h3>')
+        .replace(/## (.*)/g, '<h2 class="font-bold text-xl mt-6 mb-3 border-b pb-2">$1</h2>')
+        .replace(/# (.*)/g, '<h1 class="font-extrabold text-2xl mt-8 mb-4">$1</h1>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br />');
+
+      setReport(htmlReport);
     } catch (error) {
       console.error(error);
       toast({ title: 'AI Error', description: 'Failed to generate the report.', variant: 'destructive' });
@@ -59,18 +68,44 @@ export function DailyReportDialog({ children }: DailyReportDialogProps) {
   };
 
   const handleDownloadPdf = () => {
-    if (reportContentRef.current) {
-      html2canvas(reportContentRef.current).then((canvas) => {
+    const reportNode = reportContentRef.current;
+    if (reportNode) {
+      // Temporarily increase width for better canvas capture
+      reportNode.style.width = '1000px';
+
+      html2canvas(reportNode, { scale: 2 }).then((canvas) => {
+         reportNode.style.width = ''; // Reset style
+
         const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdf = new jsPDF({
+            orientation: 'p',
+            unit: 'px',
+            format: 'a4'
+        });
+
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = canvas.width;
-        const imgHeight = canvas.height;
-        const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-        const imgX = (pdfWidth - imgWidth * ratio) / 2;
-        const imgY = 30;
-        pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+        
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+
+        const ratio = canvasWidth / canvasHeight;
+        let imgWidth = pdfWidth - 20; // with margin
+        let imgHeight = imgWidth / ratio;
+        
+        let heightLeft = imgHeight;
+        let position = 10; // top margin
+
+        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+
+        while (heightLeft >= 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+            heightLeft -= pdfHeight;
+        }
+
         pdf.save(`daily_report_${format(selectedDate || new Date(), 'yyyy-MM-dd')}.pdf`);
       });
     }
@@ -84,9 +119,9 @@ export function DailyReportDialog({ children }: DailyReportDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[625px]">
+      <DialogContent className="sm:max-w-[725px] md:max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Bot className="h-6 w-6 text-primary" />
@@ -96,36 +131,42 @@ export function DailyReportDialog({ children }: DailyReportDialogProps) {
             Select a date to generate an AI-powered summary of all project activities.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4 md:grid-cols-2">
-          <div className="flex justify-center">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={setSelectedDate}
-              className="rounded-md border"
-            />
-          </div>
+        <div className="grid gap-6 py-4 md:grid-cols-2 flex-1 min-h-0">
           <div className="flex flex-col gap-4">
-             <Button onClick={handleGenerateReport} disabled={isLoading || !selectedDate} className="w-full">
+              <div className="flex justify-center">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  className="rounded-md border"
+                />
+              </div>
+              <Button onClick={handleGenerateReport} disabled={isLoading || !selectedDate} className="w-full">
                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarIcon className="mr-2 h-4 w-4" />}
                 Generate for {selectedDate ? format(selectedDate, 'PPP') : '...'}
             </Button>
-            <ScrollArea className="h-72 w-full rounded-md border bg-muted/50 p-4">
-              {isLoading && (
-                <div className="flex items-center justify-center h-full">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+
+          <div className="flex flex-col gap-4 min-h-0">
+             <h3 className="font-semibold text-lg">Generated Report</h3>
+            <ScrollArea className="flex-1 w-full rounded-md border bg-muted/50">
+                <div className='p-4'>
+                {isLoading && (
+                    <div className="flex items-center justify-center h-full min-h-[300px]">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                )}
+                {report ? (
+                    <div
+                        id="report-content"
+                        ref={reportContentRef}
+                        className="prose prose-sm dark:prose-invert max-w-none"
+                        dangerouslySetInnerHTML={{ __html: report }}
+                    />
+                ) : (
+                    !isLoading && <p className="text-center text-sm text-muted-foreground pt-12">Your report will appear here.</p>
+                )}
                 </div>
-              )}
-              {report ? (
-                 <div
-                    id="report-content"
-                    ref={reportContentRef}
-                    className="prose prose-sm dark:prose-invert max-w-none"
-                    dangerouslySetInnerHTML={{ __html: report.replace(/\n/g, '<br />') }}
-                  />
-              ) : (
-                !isLoading && <p className="text-center text-sm text-muted-foreground">Your report will appear here.</p>
-              )}
             </ScrollArea>
              <Button onClick={handleDownloadPdf} disabled={!report || isLoading} className="w-full">
                 <Download className="mr-2 h-4 w-4" />
