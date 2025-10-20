@@ -1,11 +1,10 @@
-
 'use client';
 
 import { ProjectList } from './components/project-list';
 import { AddProjectDialog } from './components/add-project-dialog';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
-import { useAuth } from '@/lib/auth-client';
+import { useAuth } from '@/firebase/provider';
 import { useData } from '../data-provider';
 
 

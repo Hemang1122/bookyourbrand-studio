@@ -8,7 +8,7 @@ import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Button } from '@/components/ui/button';
 import { useData } from '../../data-provider';
-import { useAuth } from '@/lib/auth-client';
+import { useAuth } from '@/firebase/provider';
 import { useMemo } from 'react';
 
 export function ProjectList() {

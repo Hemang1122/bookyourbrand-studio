@@ -2,7 +2,6 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ListTodo, Clock, CheckCircle2 } from 'lucide-react';
-import type { User } from '@/lib/types';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,13 +15,17 @@ import {
 } from '@/components/ui/table';
 import { useData } from '../../data-provider';
 import { DailyStandupCard } from './daily-standup-card';
+import { useAuth } from '@/firebase/provider';
+import type { User } from '@/lib/types';
 
-type TeamDashboardProps = {
-  user: User;
-};
 
-export function TeamDashboard({ user }: TeamDashboardProps) {
+export function TeamDashboard() {
+  const { user } = useAuth();
   const { projects, tasks } = useData();
+
+  if (!user) {
+    return null;
+  }
   
   // Safely handle tasks array being null during initial load
   const safeTasks = tasks || [];

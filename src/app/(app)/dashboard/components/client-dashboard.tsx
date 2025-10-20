@@ -1,49 +1,30 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { FolderKanban, Clock, CheckCircle2, Plus, Loader2 } from 'lucide-react';
-import type { Project } from '@/lib/types';
+import { FolderKanban, Clock, CheckCircle2, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { AddProjectDialog } from '../../projects/components/add-project-dialog';
 import { useData } from '../../data-provider';
-import { useAuth } from '@/lib/auth-client';
+import { useAuth } from '@/firebase/provider';
 
 export function ClientDashboard() {
-  const { user: authUser } = useAuth();
-  const { projects, clients, tasks, addProject, isLoading } = useData();
+  const { user } = useAuth();
+  const { projects, clients, tasks, addProject } = useData();
 
-  // Show loader until auth and core data hooks are resolved.
-  if (isLoading || !authUser) {
-    return (
-      <div className="flex items-center justify-center text-center py-12">
-        <Loader2 className="mr-4 h-6 w-6 animate-spin" />
-        <div>
-          <h2 className="text-2xl font-semibold">Loading Dashboard...</h2>
-          <p className="text-muted-foreground mt-2">Please wait while we fetch your project data.</p>
-        </div>
-      </div>
-    );
+  if (!user) {
+    return null; // Should not happen if layout is correct
   }
-
-  // Find the client record safely using normalized email, only if clients are loaded.
-  let myClientRecord = clients?.find(
-    c => c.email?.trim().toLowerCase() === authUser.email?.trim().toLowerCase()
-  );
-
-  // Fallback: create temporary client record if not found in the database yet.
-  // This allows brand new clients to use the dashboard immediately.
-  if (!myClientRecord) {
-    myClientRecord = {
-      id: authUser.id,
-      name: authUser.name || authUser.email,
-      email: authUser.email,
-      company: 'New Client', // default value
-      avatar: authUser.avatar
-    };
-  }
+  
+  const myClientRecord = clients?.find(c => c.email?.trim().toLowerCase() === user.email?.trim().toLowerCase()) || {
+      id: user.id,
+      name: user.name || user.email,
+      email: user.email,
+      company: 'New Client',
+      avatar: user.avatar
+  };
 
   const myProjects = projects ? projects.filter(p => p.client?.id === myClientRecord?.id) : [];
   const activeProjects = myProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;

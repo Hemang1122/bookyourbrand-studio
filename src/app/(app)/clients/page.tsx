@@ -3,12 +3,12 @@
 
 import { columns } from './components/columns';
 import { DataTable } from './components/data-table';
-import { useAuth } from '@/lib/auth-client';
-import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { AddClientDialog } from './components/add-client-dialog';
 import { useData } from '../data-provider';
+import { useAuth } from '@/firebase/provider';
+import { redirect } from 'next/navigation';
 
 export default function ClientsPage() {
   const { user } = useAuth();

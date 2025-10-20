@@ -1,9 +1,8 @@
-
 'use client';
 
 import { columns } from './components/columns';
 import { DataTable } from './components/data-table';
-import { useAuth } from '@/lib/auth-client';
+import { useAuth } from '@/firebase/provider';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';

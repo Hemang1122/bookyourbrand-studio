@@ -2,32 +2,26 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, Users, FolderKanban, CheckCircle2 } from 'lucide-react';
-import type { Client } from '@/lib/types';
 import { OverviewChart } from './overview-chart';
 import { useData } from '../../data-provider';
 import { DailyStandupCard } from './daily-standup-card';
+import type { Client } from '@/lib/types';
 
-type AdminDashboardProps = {
-  clients: Client[];
-};
 
-export function AdminDashboard({ clients }: AdminDashboardProps) {
-    const { projects, tasks, isLoading } = useData();
+export function AdminDashboard() {
+    const { projects, tasks, isLoading, clients } = useData();
     
     const safeTasks = tasks || [];
     const safeProjects = projects || [];
     const safeClients = clients || [];
 
     const completedTasks = safeTasks.filter(t => t.status === 'Completed').length;
-    const activeProjects = safeProjects.filter(p => p.status === 'Active').length;
+    const activeProjects = safeProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;
     const totalProjects = safeProjects.length;
     const totalTasks = safeTasks.length;
 
   return (
     <div className="space-y-4">
-        <div className="flex items-center justify-between space-y-2">
-            <h2 className="text-2xl font-bold tracking-tight">Admin Dashboard</h2>
-        </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

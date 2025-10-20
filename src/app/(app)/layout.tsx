@@ -1,52 +1,67 @@
-
 'use client';
 import AppLayoutClient from './layout-client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, ReactNode } from 'react';
 import type { User } from '@/lib/types';
 import { redirect } from 'next/navigation';
 import { FirebaseClientProvider, useUser as useFirebaseUser, useFirestore } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
+import { AuthProvider } from '@/firebase/provider';
 
-function AppLayoutAuthenticated({ children }: { children: React.ReactNode }) {
+function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
   const { user: authUser, isUserLoading: isAuthLoading } = useFirebaseUser();
   const firestore = useFirestore();
-  const [user, setUser] = useState<User | null>(null);
-  const [isUserDocLoading, setIsUserDocLoading] = useState(true);
+  const [appUser, setAppUser] = useState<User | null>(null);
+  const [isAppUserLoading, setIsAppUserLoading] = useState(true);
 
   useEffect(() => {
+    // Wait until Firebase Auth has resolved.
     if (isAuthLoading) {
-      return; 
+      return;
     }
     
+    // If no user is authenticated, redirect to login.
     if (!authUser) {
       redirect('/login');
       return;
     }
 
+    // Auth user exists, now fetch or create our application user profile.
     const userRef = doc(firestore, 'users', authUser.uid);
-    getDoc(userRef).then(userDoc => {
+    getDoc(userRef)
+      .then(async (userDoc) => {
         if (userDoc.exists()) {
-            setUser({ id: userDoc.id, ...userDoc.data() } as User);
+          // User profile exists, set it as our app user.
+          setAppUser({ id: userDoc.id, ...userDoc.data() } as User);
         } else {
-             setUser({
-                id: authUser.uid,
-                email: authUser.email || 'No Email',
-                name: authUser.displayName || 'New User',
-                role: 'client',
-                avatar: '',
-                username: authUser.email?.split('@')[0] || 'newuser',
-            });
+          // First time login for this user, create a default profile.
+          const newUser: User = {
+            id: authUser.uid,
+            email: authUser.email || 'no-email@example.com',
+            name: authUser.displayName || 'New User',
+            role: 'client', // Default role for new sign-ups.
+            avatar: 'avatar-4', // A default avatar
+            username: authUser.email?.split('@')[0] || `user${Date.now()}`,
+          };
+          // Save the new user profile to Firestore.
+          await setDoc(userRef, newUser);
+          setAppUser(newUser);
         }
-    }).finally(() => {
-        setIsUserDocLoading(false);
-    });
+      })
+      .catch(error => {
+        console.error("Error fetching user document:", error);
+        // Handle error, maybe redirect to an error page.
+      })
+      .finally(() => {
+        setIsAppUserLoading(false);
+      });
 
   }, [authUser, isAuthLoading, firestore]);
 
-  const isStillLoading = isAuthLoading || isUserDocLoading;
+  // Combined loading state.
+  const isLoading = isAuthLoading || isAppUserLoading;
 
-  if (isStillLoading || !user) {
+  if (isLoading || !appUser) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="flex items-center text-lg text-muted-foreground">
@@ -57,15 +72,18 @@ function AppLayoutAuthenticated({ children }: { children: React.ReactNode }) {
     );
   }
   
-  return <AppLayoutClient user={user}>{children}</AppLayoutClient>;
+  // Once we have the full user profile, we provide it to the rest of the app.
+  return (
+    <AuthProvider user={appUser}>
+      <AppLayoutClient>
+        {children}
+      </AppLayoutClient>
+    </AuthProvider>
+  );
 }
 
 
-export default function AppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AppLayout({ children }: { children: ReactNode }) {
     return (
         <FirebaseClientProvider>
             <AppLayoutAuthenticated>
