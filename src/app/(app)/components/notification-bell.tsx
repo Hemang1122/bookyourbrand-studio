@@ -18,6 +18,9 @@ export function NotificationBell() {
   const { user } = useAuth();
   const { notifications, projects, markNotificationsAsRead, isLoading: isDataLoading } = useData();
 
+  // Safely handle notifications array to prevent crashes
+  const safeNotifications = Array.isArray(notifications) ? notifications : [];
+
   const userProjectIds = useMemo(() => {
     if (!user || !Array.isArray(projects)) return [];
 
@@ -33,25 +36,26 @@ export function NotificationBell() {
     return [];
   }, [user, projects]);
   
+  // isLoading is true if data provider is loading OR if notifications haven't been fetched yet.
   const isLoading = isDataLoading || !notifications;
 
   const relevantNotifications = useMemo(() => {
-    // Use optional chaining `?.` to safely call filter. If notifications is null/undefined, it returns undefined.
-    const filtered = notifications?.filter((n) => n?.projectId && userProjectIds.includes(n.projectId));
-    
-    // If filtered is undefined (because notifications was null), return an empty array.
-    if (!filtered) return [];
+    // Do not process until loading is complete and data is valid
+    if (isLoading || safeNotifications.length === 0) return [];
 
-    return filtered.sort((a, b) => {
+    return safeNotifications
+      .filter((n) => n?.projectId && userProjectIds.includes(n.projectId))
+      .sort((a, b) => {
         const dateA = a?.timestamp?.toDate ? a.timestamp.toDate() : new Date(a?.timestamp || 0);
         const dateB = b?.timestamp?.toDate ? b.timestamp.toDate() : new Date(b?.timestamp || 0);
         return dateB.getTime() - dateA.getTime();
       });
-  }, [notifications, userProjectIds]);
+  }, [safeNotifications, userProjectIds, isLoading]);
 
   const unreadCount = useMemo(() => {
+    if (isLoading) return 0;
     return relevantNotifications.filter((n) => !n.read).length;
-  }, [relevantNotifications]);
+  }, [relevantNotifications, isLoading]);
 
   const handleOpenChange = (open: boolean) => {
     if (!open && unreadCount > 0) {
@@ -64,7 +68,7 @@ export function NotificationBell() {
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
+          {unreadCount > 0 && !isLoading && (
             <Badge
               variant="destructive"
               className="absolute -top-1 -right-1 h-5 w-5 justify-center rounded-full p-0"

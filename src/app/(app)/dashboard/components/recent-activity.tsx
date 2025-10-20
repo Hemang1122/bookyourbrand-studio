@@ -1,4 +1,3 @@
-
 import type { Notification } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useMemo } from 'react';
@@ -11,19 +10,22 @@ type RecentActivityProps = {
 
 export function RecentActivity({ notifications, isLoading: isDataLoading }: RecentActivityProps) {
   
+  // isLoading is true if data provider is loading OR if notifications haven't been fetched yet.
   const isLoading = isDataLoading || !notifications;
+  const safeNotifications = Array.isArray(notifications) ? notifications : [];
 
   const recentNotifications = useMemo(() => {
-    // Use optional chaining `?.` which returns undefined if notifications is null/undefined.
-    const sorted = notifications?.sort((a, b) => {
+    // Do not process until loading is complete
+    if (isLoading || safeNotifications.length === 0) return [];
+
+    return safeNotifications
+      .sort((a, b) => {
         const dateA = a?.timestamp?.toDate ? a.timestamp.toDate() : new Date(a?.timestamp || 0);
         const dateB = b?.timestamp?.toDate ? b.timestamp.toDate() : new Date(b?.timestamp || 0);
         return dateB.getTime() - dateA.getTime();
-      });
-
-    // If sorted is undefined, return an empty array, otherwise slice it.
-    return sorted ? sorted.slice(0, 5) : [];
-  }, [notifications]);
+      })
+      .slice(0, 5);
+  }, [safeNotifications, isLoading]);
 
   if (isLoading) {
     return (
