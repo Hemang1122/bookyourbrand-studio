@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { FolderKanban, Clock, CheckCircle2, Plus } from 'lucide-react';
+import { FolderKanban, Clock, CheckCircle2, Plus, Loader2 } from 'lucide-react';
 import type { Project, User } from '@/lib/types';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -16,43 +16,37 @@ export function ClientDashboard() {
   const { user: authUser } = useAuth();
   const { projects, clients, tasks, addProject, isLoading } = useData();
 
-  if (!authUser) {
-    return null; // Or a loading state
-  }
-
   // Safely find the client record that corresponds to the logged-in user
-  const myClientRecord = clients?.find(c => c.email === authUser.email);
-  const myProjects = myClientRecord && projects ? projects.filter(p => p.client.id === myClientRecord.id) : [];
+  const myClientRecord = clients?.find(c => c.email === authUser?.email);
 
-  if (isLoading) {
+  if (isLoading || !authUser) {
     return (
-        <div className="text-center py-12">
-            <h2 className="text-2xl font-semibold">Loading Dashboard...</h2>
-            <p className="text-muted-foreground mt-2">Please wait while we fetch your project data.</p>
+        <div className="flex items-center justify-center text-center py-12">
+            <Loader2 className="mr-4 h-6 w-6 animate-spin" />
+            <div>
+                <h2 className="text-2xl font-semibold">Loading Dashboard...</h2>
+                <p className="text-muted-foreground mt-2">Please wait while we fetch your project data.</p>
+            </div>
         </div>
     )
   }
 
+  // This case handles when loading is done but the client record for the user isn't found
+  // (e.g., data mismatch or new client user without a client entry).
   if (!myClientRecord) {
       return (
         <div className="text-center py-12">
             <h2 className="text-2xl font-semibold">Welcome, {authUser.name}</h2>
-            <p className="text-muted-foreground mt-2">There are no projects associated with your account yet.</p>
-             <div className="mt-4">
-                <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add First Project
-                    </Button>
-                </AddProjectDialog>
-             </div>
+            <p className="text-muted-foreground mt-2">Your client profile could not be loaded. Please contact support.</p>
         </div>
       )
   }
-
+  
+  const myProjects = projects ? projects.filter(p => p.client.id === myClientRecord.id) : [];
   const activeProjects = myProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;
   const completedProjects = myProjects.filter(p => p.status === 'Completed').length;
   const safeTasks = tasks || [];
+
 
   return (
     <div className="space-y-6">
@@ -134,8 +128,14 @@ export function ClientDashboard() {
                 </div>
             )
           }) : (
-            <div className="text-center py-8 text-muted-foreground">
-              You have no projects yet.
+            <div className="text-center py-8">
+              <p className="text-muted-foreground mb-4">You have no projects yet.</p>
+               <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add First Project
+                    </Button>
+                </AddProjectDialog>
             </div>
           )}
         </CardContent>

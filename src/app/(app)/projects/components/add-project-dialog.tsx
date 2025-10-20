@@ -51,13 +51,21 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
     let selectedClient: Client | undefined | null;
 
     if (isClientUser) {
+      // If the user is a client, use the pre-selected client record passed via props.
       selectedClient = preselectedClient;
     } else {
+      // If the user is an admin, find the client from the full list based on the dropdown selection.
       selectedClient = clients.find(c => c.id === selectedClientId);
+    }
+    
+    // Universal validation
+    if (!name || !description || !deadline) {
+      toast({ title: 'Error', description: 'Project name, description, and deadline are required.', variant: 'destructive' });
+      return;
     }
 
     if (!selectedClient) {
-      toast({ title: 'Error', description: 'Selected client not found.', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Selected client not found. Please ensure a client is selected.', variant: 'destructive' });
       return;
     }
     
@@ -66,13 +74,8 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
       toast({ title: 'Error', description: 'Please assign at least one team member.', variant: 'destructive' });
       return;
     }
-    // Universal validation
-    if (!name || !description || !deadline) {
-      toast({ title: 'Error', description: 'Project name, description, and deadline are required.', variant: 'destructive' });
-      return;
-    }
     
-    // Admins assign team, clients submit with their own team (which is empty initially)
+    // Admins assign team from the multi-select; for clients, the team is initially empty.
     const selectedTeam = isClientUser ? [] : users.filter(u => team.includes(u.id));
 
 
@@ -118,7 +121,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
             <Label htmlFor="guidelines">Project Guidelines</Label>
             <Textarea id="guidelines" value={guidelines} onChange={(e) => setGuidelines(e.target.value)} placeholder="Provide specific instructions or guidelines for the team." />
           </div>
-          {!preselectedClient && !isClientUser && (
+          {!isClientUser && (
             <div className="space-y-2">
                 <Label htmlFor="client">Client</Label>
                 <Select onValueChange={setSelectedClientId} value={selectedClientId}>
