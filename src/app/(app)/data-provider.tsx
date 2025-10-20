@@ -3,7 +3,7 @@
 
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
 import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectStatus, TaskRemark, ProjectFile, ChatMessage, Notification } from '@/lib/types';
-import { users as initialUsers, clients as initialClients } from '@/lib/data';
+import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking } from '@/firebase';
@@ -69,59 +69,29 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     addDocumentNonBlocking(collection(firestore, 'notifications'), newNotif);
   }, [firestore]);
   
-  // Real-time data from Firestore
-  const projectsQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUser) return null;
-    if (currentUser.role === 'admin') {
-      return collection(firestore, 'projects');
-    }
-    if (currentUser.role === 'client') {
-        return query(collection(firestore, 'projects'), where('client.id', '==', currentUser.id));
-    }
-    // Corrected query for team members
-    return query(collection(firestore, 'projects'), where('team_ids', 'array-contains', currentUser.id));
-  }, [firestore, currentUser]);
+  const { data: projectsData, isLoading: projectsLoading } = useCollection<Project>(useMemoFirebase(() => firestore ? collection(firestore, 'projects') : null, [firestore]));
+  const projects = projectsData || initialProjects;
 
-  const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
-
-  const tasksQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUser || !projects) return null;
-    const projectIds = projects?.map(p => p.id) || [];
-    if (projectIds.length === 0) return null; // No projects, no tasks to fetch.
-    return query(collection(firestore, 'tasks'), where('projectId', 'in', projectIds));
-  }, [firestore, currentUser, projects]);
-
-  const { data: tasks = [], isLoading: tasksLoading } = useCollection<Task>(tasksQuery);
+  const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
+  const tasks = tasksData || initialTasks;
   
-  const filesQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUser || !projects) return null;
-    const projectIds = projects?.map(p => p.id) || [];
-    if (projectIds.length === 0) return null;
-    return query(collection(firestore, 'files'), where('projectId', 'in', projectIds));
-  }, [firestore, currentUser, projects]);
+  const { data: filesData = [], isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? collection(firestore, 'files') : null, [firestore]));
+  const files = filesData;
 
-  const { data: files = [], isLoading: filesLoading } = useCollection<ProjectFile>(filesQuery);
-
-  const messagesQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUser || !projects) return null;
-    const projectIds = projects?.map(p => p.id) || [];
-    if (projectIds.length === 0) return null;
-    return query(collection(firestore, 'messages'), where('projectId', 'in', projectIds));
-  }, [firestore, currentUser, projects]);
-  
-  const { data: messages = [], isLoading: messagesLoading } = useCollection<ChatMessage>(messagesQuery);
+  const { data: messagesData = [], isLoading: messagesLoading } = useCollection<ChatMessage>(useMemoFirebase(() => firestore ? collection(firestore, 'messages') : null, [firestore]));
+  const messages = messagesData;
     
-  const { data: users = initialUsers, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
+  const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
+  const users = usersData || initialUsers;
 
-  const { data: clients = initialClients, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
+  const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
+  const clients = clientsData || initialClients;
   
-  const notificationsQuery = useMemoFirebase(() => {
+  const { data: notificationsData = [], isLoading: notificationsLoading } = useCollection<Notification>(useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
     return query(collection(firestore, 'notifications'), where('recipients', 'array-contains', currentUser.id));
-  }, [firestore, currentUser]);
-  
-  const { data: notifications = [], isLoading: notificationsLoading } = useCollection<Notification>(notificationsQuery);
-
+  }, [firestore, currentUser]));
+  const notifications = notificationsData;
 
   const [scrumUpdates, setScrumUpdates] = useState<ScrumUpdate[]>([]);
   
@@ -172,7 +142,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         const recipients = [project.client.id, ...project.team_ids];
         if (admin) recipients.push(admin.id);
         
-        // Exclude the current user from recipients to avoid self-notification
         const finalRecipients = recipients.filter(id => id !== currentUser.id);
         addNotification(`New task '${newTask.title}' added to project '${project.name}'.`, project.id, finalRecipients);
     }
@@ -188,7 +157,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
     toast({ title: 'Team Updated', description: `The team for "${project.name}" has been updated.` });
     
-    // Notify team members and client
     const recipients = [...teamMemberIds, project.client.id];
     addNotification(`The team for project '${project.name}' has been updated.`, projectId, recipients);
   };
@@ -261,8 +229,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         ...memberData,
      };
 
-     // Firestore does not support `undefined` values.
-     // We need to clean the object of any undefined properties before sending.
      Object.keys(newMember).forEach(keyStr => {
         const key = keyStr as keyof User;
         if (newMember[key] === undefined) {
@@ -346,11 +312,11 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   return (
     <DataContext.Provider value={{ 
-        projects: projects || [], 
-        tasks: tasks || [], 
-        clients: clients || [], 
+        projects,
+        tasks,
+        clients,
         teamMembers, 
-        users: users || [], 
+        users,
         scrumUpdates,
         files,
         messages,
@@ -383,5 +349,3 @@ export function useData() {
   }
   return context;
 }
-
-    
