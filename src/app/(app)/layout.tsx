@@ -15,24 +15,25 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
   const [isAppUserLoading, setIsAppUserLoading] = useState(true);
 
   useEffect(() => {
+    // Wait until Firebase auth state is resolved and Firestore is available.
     if (isAuthLoading || !firestore) {
-      // Wait until Firebase auth state is resolved and Firestore is available.
       return;
     }
 
     if (!authUser) {
-      // If no user is authenticated, redirect to login.
+      // If no user is authenticated, redirect to login immediately.
       redirect('/login');
       return;
     }
 
-    // Auth user is present, try to fetch their app-specific profile.
+    // Auth user is present, try to fetch their app-specific profile from Firestore.
     const userRef = doc(firestore, 'users', authUser.uid);
     getDoc(userRef)
       .then(async (userDoc) => {
         if (userDoc.exists()) {
           // User profile exists in Firestore, use it.
-          setAppUser({ id: userDoc.id, ...userDoc.data() } as User);
+          const existingUser = { id: userDoc.id, ...userDoc.data() } as User;
+          setAppUser(existingUser);
         } else {
           // This is a first-time login for this user.
           // Create a default user profile in Firestore.
@@ -44,6 +45,20 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
             avatar: `avatar-${Math.ceil(Math.random() * 3)}`,
             username: authUser.email?.split('@')[0] || `user${Date.now()}`,
           };
+          
+          // Also create a corresponding client record if they are a client
+          if (newUser.role === 'client') {
+            const clientRef = doc(firestore, 'clients', newUser.id);
+             const newClient = {
+                id: newUser.id,
+                name: newUser.name,
+                email: newUser.email,
+                company: `${newUser.name}'s Company`,
+                avatar: newUser.avatar,
+             };
+            await setDoc(clientRef, newClient);
+          }
+
           await setDoc(userRef, newUser);
           setAppUser(newUser); // Use the newly created profile.
         }

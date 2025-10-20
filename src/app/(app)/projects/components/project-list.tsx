@@ -12,11 +12,11 @@ import { useAuth } from '@/firebase/provider';
 import { useMemo } from 'react';
 
 export function ProjectList() {
-  const { projects, users } = useData();
+  const { projects, users, isLoading } = useData();
   const { user } = useAuth();
 
   const filteredProjects = useMemo(() => {
-    if (!user) return [];
+    if (!user || !projects) return [];
     if (user.role === 'client') {
       return projects.filter(p => p.client.id === user.id);
     }
@@ -25,6 +25,16 @@ export function ProjectList() {
     }
     return projects; // Admins see all projects
   }, [projects, user]);
+
+  if (isLoading) {
+    return (
+         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Card><CardHeader><div className="h-48 w-full bg-muted animate-pulse"></div></CardHeader><CardContent><div className="h-6 w-3/4 bg-muted animate-pulse rounded"></div><div className="h-4 w-1/2 mt-2 bg-muted animate-pulse rounded"></div></CardContent></Card>
+            <Card><CardHeader><div className="h-48 w-full bg-muted animate-pulse"></div></CardHeader><CardContent><div className="h-6 w-3/4 bg-muted animate-pulse rounded"></div><div className="h-4 w-1/2 mt-2 bg-muted animate-pulse rounded"></div></CardContent></Card>
+            <Card><CardHeader><div className="h-48 w-full bg-muted animate-pulse"></div></CardHeader><CardContent><div className="h-6 w-3/4 bg-muted animate-pulse rounded"></div><div className="h-4 w-1/2 mt-2 bg-muted animate-pulse rounded"></div></CardContent></Card>
+         </div>
+    )
+  }
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

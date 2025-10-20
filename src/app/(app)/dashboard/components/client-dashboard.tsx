@@ -12,10 +12,25 @@ import { useAuth } from '@/firebase/provider';
 
 export function ClientDashboard() {
   const { user } = useAuth();
-  const { projects, clients, tasks, addProject } = useData();
+  const { projects, clients, tasks, addProject, isLoading } = useData();
 
-  if (!user) {
-    return null; // Should not happen if layout is correct
+  if (!user || isLoading) {
+    return (
+        <div className="space-y-6">
+            <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold tracking-tight">Client Dashboard</h2>
+            </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle>My Projects Overview</CardTitle>
+                    <CardDescription>Track the progress of your ongoing projects.</CardDescription>
+                </CardHeader>
+                <CardContent className="text-center py-8">
+                     <p className="text-muted-foreground mb-4">Loading client data...</p>
+                </CardContent>
+            </Card>
+        </div>
+      )
   }
   
   // Find the client record by matching the logged-in user's ID to the client ID.
