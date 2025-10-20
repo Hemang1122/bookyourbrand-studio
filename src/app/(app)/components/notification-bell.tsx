@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Bell, Check, Loader2 } from 'lucide-react';
@@ -19,9 +18,12 @@ export function NotificationBell() {
   const { user } = useAuth();
   const { notifications, projects, markNotificationsAsRead, isLoading: isDataLoading } = useData();
 
-  // Safely get project IDs for the current user
+  // Null-safe notifications array
+  const safeNotifications = Array.isArray(notifications) ? notifications : [];
+
   const userProjectIds = useMemo(() => {
     if (!user || !Array.isArray(projects)) return [];
+
     if (user.role === 'admin') {
       return projects.map((p) => p.id);
     }
@@ -34,25 +36,23 @@ export function NotificationBell() {
     return [];
   }, [user, projects]);
   
-  // Explicitly handle the loading state before any data processing
   const isLoading = isDataLoading || !Array.isArray(notifications);
 
   const relevantNotifications = useMemo(() => {
-    // If loading or data is not ready, return an empty array
     if (isLoading) return [];
 
-    return notifications
-      .filter((n) => n && n.projectId && userProjectIds.includes(n.projectId))
+    return safeNotifications
+      .filter((n) => n?.projectId && userProjectIds.includes(n.projectId))
       .sort((a, b) => {
         const dateA = a?.timestamp?.toDate ? a.timestamp.toDate() : new Date(a?.timestamp || 0);
         const dateB = b?.timestamp?.toDate ? b.timestamp.toDate() : new Date(b?.timestamp || 0);
         return dateB.getTime() - dateA.getTime();
       });
-  }, [notifications, userProjectIds, isLoading]);
+  }, [safeNotifications, userProjectIds, isLoading]);
 
   const unreadCount = useMemo(() => {
     if (isLoading) return 0;
-    return relevantNotifications.filter((n) => !n?.read).length;
+    return relevantNotifications.filter((n) => !n.read).length;
   }, [relevantNotifications, isLoading]);
 
   const handleOpenChange = (open: boolean) => {

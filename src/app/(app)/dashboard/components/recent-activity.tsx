@@ -12,18 +12,19 @@ type RecentActivityProps = {
 export function RecentActivity({ notifications, isLoading: isDataLoading }: RecentActivityProps) {
   
   const isLoading = isDataLoading || !Array.isArray(notifications);
+  const safeNotifications = Array.isArray(notifications) ? notifications : [];
 
   const recentNotifications = useMemo(() => {
     if (isLoading) return [];
 
-    return [...notifications]
+    return [...safeNotifications]
       .sort((a, b) => {
         const dateA = a?.timestamp?.toDate ? a.timestamp.toDate() : new Date(a?.timestamp || 0);
         const dateB = b?.timestamp?.toDate ? b.timestamp.toDate() : new Date(b?.timestamp || 0);
         return dateB.getTime() - dateA.getTime();
       })
       .slice(0, 5);
-  }, [notifications, isLoading]);
+  }, [safeNotifications, isLoading]);
 
   if (isLoading) {
     return (
