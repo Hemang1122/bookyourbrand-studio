@@ -113,7 +113,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     try {
         toast({ title: "Uploading...", description: "Your voice message is being sent." });
         const audioFile = new File([audioBlob], 'voice-message.webm', { type: 'audio/webm' });
-        const downloadURL = await uploadFile(audioFile, `voice-messages/${projectId}`, () => {});
+        const downloadURL = await uploadFile(audioFile, `voice-messages/${projectId}`);
         
         addMessage({
             projectId,

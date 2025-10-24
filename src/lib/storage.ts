@@ -9,7 +9,6 @@ let storageInstance: FirebaseStorage | null = null;
 const getStorageInstance = (): FirebaseStorage => {
     if (!storageInstance) {
          try {
-            // Ensure Firebase is initialized
             if (!getApps().length) {
                 initializeFirebase();
             }

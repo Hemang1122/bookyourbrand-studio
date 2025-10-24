@@ -60,10 +60,10 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
       let idCardUrl: string | undefined;
 
       if (agreementFile) {
-        agreementUrl = await uploadFile(agreementFile, `documents/clients/${name}`, () => {});
+        agreementUrl = await uploadFile(agreementFile, `documents/clients/${name}`);
       }
       if (idCardFile) {
-        idCardUrl = await uploadFile(idCardFile, `documents/clients/${name}`, () => {});
+        idCardUrl = await uploadFile(idCardFile, `documents/clients/${name}`);
       }
 
       onClientAdd({ name, company, email, founderDetails, agreementUrl, idCardUrl });

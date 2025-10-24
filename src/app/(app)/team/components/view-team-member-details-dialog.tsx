@@ -36,7 +36,7 @@ export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMe
   const handleFileUpload = async (file: File, type: 'aadhar' | 'pan' | 'joiningLetter') => {
     setIsUploading(type);
     try {
-      const url = await uploadFile(file, `documents/team/${teamMember.id}`, () => {});
+      const url = await uploadFile(file, `documents/team/${teamMember.id}`);
       const fieldToUpdate = `${type}Url` as const;
       
       updateTeamMember(teamMember.id, { [fieldToUpdate]: url });
