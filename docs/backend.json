@@ -243,6 +243,50 @@
         "fileType",
         "fileURL"
       ]
+    },
+    "Notification": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Notification",
+      "type": "object",
+      "description": "Represents a notification for a user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the notification."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Reference to the project the notification is about. Can be 'general'."
+        },
+        "message": {
+          "type": "string",
+          "description": "The content of the notification."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the notification was created."
+        },
+        "read": {
+          "type": "boolean",
+          "description": "Whether the user has read the notification."
+        },
+        "recipients": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of user IDs who should receive the notification."
+        }
+      },
+      "required": [
+        "id",
+        "projectId",
+        "message",
+        "timestamp",
+        "read",
+        "recipients"
+      ]
     }
   },
   "auth": {
@@ -356,8 +400,24 @@
             }
           ]
         }
+      },
+      {
+        "path": "/notifications/{notificationId}",
+        "definition": {
+          "entityName": "Notification",
+          "schema": {
+            "$ref": "#/backend/entities/Notification"
+          },
+          "description": "Stores notifications for users. Rules ensure users can only read their own notifications.",
+          "params": [
+            {
+              "name": "notificationId",
+              "description": "The unique identifier of the notification."
+            }
+          ]
+        }
       }
     ],
-    "reasoning": "The Firestore structure is designed to provide a secure, scalable, and easily debuggable CRM for BookYourBrands. It prioritizes authorization independence by denormalizing authorization data and ensures clear separation of concerns through structural segregation. Access modeling follows consistent patterns, leveraging path-based ownership for user-specific data and membership maps for collaborative entities. The structure supports QAPs by using segregation and predictable data patterns, allowing secure list operations and minimizing the need for complex filtering in rules.\n\n**Authorization Independence:** The `clientId` is stored within the `projects` documents. This allows rules to validate ownership without needing to perform a `get()` operation on the `clients` collection.\n\n**Structural Segregation:** The project documents are stored at the top level, making them accessible for all users, while tasks are nested under projects, and chats are separated, keeping different levels of access separate.\n\n**Access Modeling:** The `/users/{userId}` path is used for private user data, ensuring only the user can access their information. Projects are associated with clients through the `clientId` field. Tasks are nested under projects to simplify project-specific access control. Chats and Messages are segregated for clarity.\n\n**QAPs Support:** By storing projects at the top level, listing projects is possible with rules that ensure the user has access to the projects based on their role."
+    "reasoning": "The Firestore structure is designed to provide a secure, scalable, and easily debuggable CRM for BookYourBrands. It prioritizes authorization independence by denormalizing authorization data and ensures clear separation of concerns through structural segregation. Access modeling follows consistent patterns, leveraging path-based ownership for user-specific data and membership maps for collaborative entities. The structure supports QAPs by using segregation and predictable data patterns, allowing secure list operations and minimizing the need for complex filtering in rules.\n\n**Authorization Independence:** The `clientId` is stored within the `projects` documents. This allows rules to validate ownership without needing to perform a `get()` operation on the `clients` collection.\n\n**Structural Segregation:** The project documents are stored at the top level, making them accessible for all users, while tasks are nested under projects, and chats are separated, keeping different levels of access separate.\n\n**Access Modeling:** The `/users/{userId}` path is used for private user data, ensuring only the user can access their information. Projects are associated with clients through the `clientId` field. Tasks are nested under projects to simplify project-specific access control. Chats and Messages are segregated for clarity. The new `/notifications` collection allows for scalable, user-specific notifications.\n\n**QAPs Support:** By storing projects at the top level, listing projects is possible with rules that ensure the user has access to the projects based on their role. Querying notifications is efficient because they are queried by the recipient's user ID."
   }
 }
