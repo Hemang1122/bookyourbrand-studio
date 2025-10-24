@@ -1,13 +1,18 @@
 'use client';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL, type FirebaseStorage } from 'firebase/storage';
-import { getApp } from 'firebase/app';
+import { getApp, getApps } from 'firebase/app';
 import { v4 as uuidv4 } from 'uuid';
+import { initializeFirebase } from '@/firebase';
 
 let storageInstance: FirebaseStorage | null = null;
 
 const getStorageInstance = (): FirebaseStorage => {
     if (!storageInstance) {
-        try {
+         try {
+            // Ensure Firebase is initialized
+            if (!getApps().length) {
+                initializeFirebase();
+            }
             const app = getApp();
             storageInstance = getStorage(app);
         } catch (e) {
