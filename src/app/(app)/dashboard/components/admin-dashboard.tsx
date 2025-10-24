@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,19 +7,46 @@ import { OverviewChart } from './overview-chart';
 import { useData } from '../../data-provider';
 import { DailyStandupCard } from './daily-standup-card';
 import type { Client } from '@/lib/types';
+import { useMemo } from 'react';
+import { subDays, isAfter } from 'date-fns';
 
 
 export function AdminDashboard() {
-    const { projects, tasks, isLoading, clients } = useData();
+    const { projects, tasks, isLoading, clients, messages } = useData();
     
     const safeTasks = tasks || [];
     const safeProjects = projects || [];
     const safeClients = clients || [];
+    const safeMessages = messages || [];
 
     const completedTasks = safeTasks.filter(t => t.status === 'Completed').length;
     const activeProjects = safeProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;
     const totalProjects = safeProjects.length;
     const totalTasks = safeTasks.length;
+
+    const recentActivityCount = useMemo(() => {
+        const oneDayAgo = subDays(new Date(), 1);
+        
+        const recentTaskUpdates = safeTasks.reduce((count, task) => {
+            const recentRemarks = (task.remarks || []).filter(remark => 
+                isAfter(new Date(remark.timestamp), oneDayAgo)
+            ).length;
+            return count + recentRemarks;
+        }, 0);
+
+        const recentMessages = safeMessages.filter(message => 
+            message.timestamp && isAfter(message.timestamp.toDate(), oneDayAgo)
+        ).length;
+
+        return recentTaskUpdates + recentMessages;
+    }, [safeTasks, safeMessages]);
+
+    const activityLevel = useMemo(() => {
+        if (recentActivityCount > 10) return 'High';
+        if (recentActivityCount > 0) return 'Medium';
+        return 'Low';
+    }, [recentActivityCount]);
+
 
   return (
     <div className="space-y-4">
@@ -59,8 +87,8 @@ export function AdminDashboard() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">High</div>
-            <p className="text-xs text-muted-foreground">Based on recent task updates</p>
+            <div className="text-2xl font-bold">{activityLevel}</div>
+            <p className="text-xs text-muted-foreground">{recentActivityCount} updates in last 24h</p>
           </CardContent>
         </Card>
       </div>
