@@ -1,8 +1,7 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { FolderKanban, Clock, CheckCircle2, Plus } from 'lucide-react';
+import { FolderKanban, Clock, CheckCircle2, Plus, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,10 +10,11 @@ import { AddProjectDialog } from '../../projects/components/add-project-dialog';
 import { useData } from '../../data-provider';
 import { useAuth } from '@/firebase/provider';
 import type { Client } from '@/lib/types';
+import { ConnectTelegramDialog } from './connect-telegram-dialog';
 
 export function ClientDashboard() {
   const { user } = useAuth();
-  const { projects, tasks, addProject, isLoading } = useData();
+  const { projects, tasks, addProject, isLoading, updateClient } = useData();
 
   // The user object for a client *is* their client record for dashboard purposes.
   // We can treat the User as a Client here if the roles match.
@@ -48,13 +48,26 @@ export function ClientDashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight">Client Dashboard</h2>
-        <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Project
-          </Button>
-        </AddProjectDialog>
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Client Dashboard</h2>
+          <p className="text-muted-foreground">Welcome to your personal dashboard.</p>
+        </div>
+        <div className="flex items-center gap-2">
+            {!myClientRecord.telegramChatId && (
+            <ConnectTelegramDialog client={myClientRecord} onSave={updateClient}>
+                <Button variant="outline">
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    Connect Telegram
+                </Button>
+            </ConnectTelegramDialog>
+            )}
+            <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
+            <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Project
+            </Button>
+            </AddProjectDialog>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

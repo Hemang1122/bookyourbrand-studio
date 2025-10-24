@@ -26,6 +26,10 @@
         "profilePic": {
           "type": "string",
           "description": "URL or reference to the user's profile picture."
+        },
+        "telegramChatId": {
+            "type": "string",
+            "description": "The user's unique Telegram chat ID for notifications."
         }
       },
       "required": [
