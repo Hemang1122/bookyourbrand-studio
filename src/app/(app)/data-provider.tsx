@@ -2,13 +2,16 @@
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, ChatMessage, Notification, TaskRemark } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, ChatMessage, Notification, TaskRemark, MessageType } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking } from '@/firebase';
 import { collection, doc, query, where, Timestamp, writeBatch } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
+import { uploadFile } from '@/lib/storage';
+import { v4 as uuidv4 } from 'uuid';
+
 
 type DataContextType = {
   projects: Project[];
@@ -47,6 +50,7 @@ type DataContextType = {
   updateProject: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => void;
   addFile: (file: Omit<ProjectFile, 'id'>) => void;
   addMessage: (message: Omit<ChatMessage, 'id'>) => void;
+  uploadAndAddMessage: (projectId: string, file: File, message: string, messageType: MessageType) => void;
   markNotificationsAsRead: () => void;
 };
 
@@ -56,6 +60,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { toast } = useToast();
   const router = useRouter();
   const firestore = useFirestore();
+  const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
+
 
   const addNotification = useCallback((message: string, projectId: string, recipients: string[]) => {
     if (!firestore || recipients.length === 0) return;
@@ -78,8 +84,13 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: filesData = [], isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? collection(firestore, 'files') : null, [firestore]));
   const files = filesData;
 
-  const { data: messagesData = [], isLoading: messagesLoading } = useCollection<ChatMessage>(useMemoFirebase(() => firestore ? collection(firestore, 'messages') : null, [firestore]));
-  const messages = messagesData;
+  const { data: messagesData, isLoading: messagesLoading } = useCollection<ChatMessage>(useMemoFirebase(() => firestore ? collection(firestore, 'messages') : null, [firestore]));
+  
+  const messages = useMemo(() => {
+    const combined = [...(messagesData || []), ...optimisticMessages];
+    const uniqueMessages = Array.from(new Map(combined.map(m => [m.id, m])).values());
+    return uniqueMessages.sort((a,b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
+  }, [messagesData, optimisticMessages]);
     
   const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
   const users = usersData || initialUsers;
@@ -108,7 +119,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       ...projectData,
       coverImage: `project-${Math.ceil(Math.random() * 3)}`,
     };
-    setDocumentNonBlocking(doc(firestore, 'projects', newProject.id), newProject);
+    setDocumentNonBlocking(doc(firestore, 'projects', newProject.id), newProject, {});
 
     const admin = users.find(u => u.role === 'admin');
     if (admin && currentUser.id !== admin.id) {
@@ -142,7 +153,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       status: 'Pending',
       remarks: [],
     };
-    setDocumentNonBlocking(doc(firestore, 'tasks', newTask.id), newTask);
+    setDocumentNonBlocking(doc(firestore, 'tasks', newTask.id), newTask, {});
 
     const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...teamMembers.filter(u=>u.role === 'admin').map(u=>u.id)]));
     const finalRecipients = recipients.filter(id => id !== currentUser.id);
@@ -213,8 +224,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         username: clientData.name.toLowerCase().replace(/\s/g, ''),
         avatar: ''
     }
-    setDocumentNonBlocking(doc(firestore, 'clients', newClient.id), newClient);
-    setDocumentNonBlocking(doc(firestore, 'users', newUser.id), newUser);
+    setDocumentNonBlocking(doc(firestore, 'clients', newClient.id), newClient, {});
+    setDocumentNonBlocking(doc(firestore, 'users', newUser.id), newUser, {});
   }
   
   const updateClient = (clientId: string, clientData: Partial<Client>) => {
@@ -243,7 +254,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         }
     });
 
-    setDocumentNonBlocking(doc(firestore, 'users', newMemberId), newMember);
+    setDocumentNonBlocking(doc(firestore, 'users', newMemberId), newMember, {});
   }
 
   const updateTeamMember = (userId: string, memberData: Partial<User>) => {
@@ -256,7 +267,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     if (!firestore || !currentUser || !users) return;
     const newUpdateId = doc(collection(firestore, 'scrum-updates')).id;
     const newUpdate: ScrumUpdate = { ...update, id: newUpdateId, timestamp: new Date().toISOString() };
-    setDocumentNonBlocking(doc(firestore, 'scrum-updates', newUpdate.id), newUpdate);
+    setDocumentNonBlocking(doc(firestore, 'scrum-updates', newUpdate.id), newUpdate, {});
 
     // Notify admins
     const admins = users.filter(u => u.role === 'admin');
@@ -292,18 +303,17 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       ...fileData,
       uploadedAt: Timestamp.now(),
     };
-    setDocumentNonBlocking(doc(firestore, 'files', newFile.id), newFile);
+    setDocumentNonBlocking(doc(firestore, 'files', newFile.id), newFile, {});
   }
 
-  const addMessage = (messageData: Omit<ChatMessage, 'id' | 'timestamp'>) => {
-    if (!firestore || !currentUser || !users || !projects ) return;
-    const newMessageId = doc(collection(firestore, 'messages')).id;
+  const addMessage = useCallback((messageData: Omit<ChatMessage, 'id'>) => {
+    if (!firestore || !currentUser || !users || !projects) return;
+
     const newMessage: ChatMessage = {
-      id: newMessageId,
+      id: doc(collection(firestore, 'messages')).id,
       ...messageData,
-      timestamp: Timestamp.now(),
     };
-    setDocumentNonBlocking(doc(firestore, 'messages', newMessage.id), newMessage);
+    setDocumentNonBlocking(doc(firestore, 'messages', newMessage.id), newMessage, {});
 
     const project = projects.find(p => p.id === messageData.projectId);
     if (project) {
@@ -312,8 +322,51 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       const messageSnippet = messageData.messageType === 'voice' ? 'Sent a voice message' : `"${messageData.message.substring(0, 30)}..."`;
       addNotification(`New message in project '${project.name}': ${messageSnippet}`, project.id, finalRecipients);
     }
-  }
+  }, [firestore, currentUser, users, projects, addNotification]);
   
+  const uploadAndAddMessage = useCallback((projectId: string, file: File, message: string, messageType: MessageType) => {
+    if (!currentUser || !firestore) return;
+    
+    const optimisticId = `optimistic-${uuidv4()}`;
+    const localUrl = URL.createObjectURL(file);
+    
+    const optimisticMessage: ChatMessage = {
+        id: optimisticId,
+        projectId,
+        senderId: currentUser.id,
+        senderName: currentUser.name,
+        senderAvatar: currentUser.avatar || '',
+        message: message,
+        timestamp: Timestamp.now(),
+        fileUrl: localUrl,
+        messageType: messageType,
+        isUploading: true
+    };
+    
+    setOptimisticMessages(prev => [...prev, optimisticMessage]);
+
+    uploadFile(file, `${messageType}/${projectId}`)
+        .then(downloadURL => {
+            const finalMessage: Omit<ChatMessage, 'id'> = {
+                ...optimisticMessage,
+                fileUrl: downloadURL,
+                isUploading: false,
+            };
+            addMessage(finalMessage);
+        })
+        .catch(err => {
+            console.error("Upload failed", err);
+            toast({title: "Upload Failed", description: "Could not send the message.", variant: 'destructive'});
+        })
+        .finally(() => {
+             // Remove optimistic message
+            setOptimisticMessages(prev => prev.filter(m => m.id !== optimisticId));
+            URL.revokeObjectURL(localUrl);
+        });
+
+  }, [currentUser, firestore, addMessage, toast]);
+
+
   const markNotificationsAsRead = useCallback(() => {
     if (!firestore || !notifications || notifications.length === 0) return;
 
@@ -357,6 +410,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         updateProject,
         addFile,
         addMessage,
+        uploadAndAddMessage,
         markNotificationsAsRead,
     }}>
       {children}

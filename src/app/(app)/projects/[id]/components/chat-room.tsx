@@ -4,13 +4,11 @@ import { useState, useEffect, useRef } from 'react';
 import type { ChatMessage, User } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Paperclip, Link as LinkIcon, FileText, Mic, Square, Trash2 } from 'lucide-react';
+import { Send, Paperclip, Link as LinkIcon, FileText, Mic, Square, Trash2, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
 import { useData } from '../../../data-provider';
 import { AddChatAttachmentDialog } from './add-chat-attachment-dialog';
-import { Timestamp } from 'firebase/firestore';
-import { uploadFile } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
 
 type ChatRoomProps = {
@@ -20,10 +18,9 @@ type ChatRoomProps = {
 export function ChatRoom({ projectId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
-  const { messages, addMessage, users } = useData();
+  const { messages, addMessage, uploadAndAddMessage } = useData();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
-  // Voice Recording State
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -101,35 +98,19 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const stopRecording = () => {
       if (mediaRecorderRef.current && isRecording) {
           mediaRecorderRef.current.stop();
-          // Clean up the stream tracks
           mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
           setIsRecording(false);
           toast({ title: "Recording Stopped" });
       }
   };
   
-  const sendVoiceMessage = async () => {
+  const sendVoiceMessage = () => {
     if (!audioBlob || !currentUser) return;
-    try {
-        toast({ title: "Uploading...", description: "Your voice message is being sent." });
-        const audioFile = new File([audioBlob], 'voice-message.webm', { type: 'audio/webm' });
-        const downloadURL = await uploadFile(audioFile, `voice-messages/${projectId}`);
-        
-        addMessage({
-            projectId,
-            senderId: currentUser.id,
-            senderName: currentUser.name,
-            senderAvatar: currentUser.avatar,
-            message: "Voice Message",
-            fileUrl: downloadURL,
-            messageType: 'voice',
-        });
-
-        setAudioBlob(null); // Clear the blob after sending
-    } catch (error) {
-        toast({ title: "Upload Failed", description: "Could not send the voice message.", variant: 'destructive'});
-        console.error("Failed to upload voice message:", error);
-    }
+    
+    const audioFile = new File([audioBlob], 'voice-message.webm', { type: 'audio/webm' });
+    uploadAndAddMessage(projectId, audioFile, "Voice Message", 'voice');
+    
+    setAudioBlob(null);
   };
   
   if (!currentUser) return null;
@@ -150,9 +131,10 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                 <div className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                     <span className="text-xs text-muted-foreground">{msg.senderName}</span>
                     <div className={`rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                        {msg.messageType === 'voice' && msg.fileUrl ? (
+                        {msg.isUploading && <div className='flex items-center gap-2'><Loader2 className="h-4 w-4 animate-spin" /> <span>Uploading...</span></div>}
+                        {!msg.isUploading && msg.messageType === 'voice' && msg.fileUrl ? (
                             <audio controls src={msg.fileUrl} className="max-w-full" />
-                        ) : msg.fileUrl ? (
+                        ) : !msg.isUploading && msg.fileUrl ? (
                            <div className="space-y-2">
                              <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-lg border bg-background/50 p-3 hover:bg-accent">
                                 <FileText className="h-6 w-6 text-muted-foreground" />
@@ -165,7 +147,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                              {msg.message && msg.message !== "Shared a file." && <p className="text-sm">{msg.message}</p>}
                            </div>
                         ) : (
-                            <p className="text-sm">{msg.message}</p>
+                           !msg.isUploading && <p className="text-sm">{msg.message}</p>
                         )}
                     </div>
                     <p className={`text-xs mt-1 ${isCurrentUser ? 'text-right' : 'text-left'} text-muted-foreground/80`}>
