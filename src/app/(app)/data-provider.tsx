@@ -346,23 +346,28 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     setOptimisticMessages(prev => [...prev, optimisticMessage]);
 
     uploadFile(file, `${messageType}/${projectId}`)
-        .then(downloadURL => {
-            const finalMessage: Omit<ChatMessage, 'id'> = {
-                ...optimisticMessage,
-                fileUrl: downloadURL,
-                isUploading: false,
-            };
-            addMessage(finalMessage);
-        })
-        .catch(err => {
-            console.error("Upload failed", err);
-            toast({title: "Upload Failed", description: "Could not send the message.", variant: 'destructive'});
-        })
-        .finally(() => {
-             // Remove optimistic message
-            setOptimisticMessages(prev => prev.filter(m => m.id !== optimisticId));
-            URL.revokeObjectURL(localUrl);
-        });
+      .then(downloadURL => {
+        const finalMessage: Omit<ChatMessage, 'id'> = {
+          projectId,
+          senderId: currentUser.id,
+          senderName: currentUser.name,
+          senderAvatar: currentUser.avatar || '',
+          message: message,
+          timestamp: Timestamp.now(),
+          fileUrl: downloadURL,
+          messageType: messageType,
+          isUploading: false,
+        };
+        addMessage(finalMessage);
+      })
+      .catch(err => {
+        console.error("Upload failed", err);
+        toast({title: "Upload Failed", description: "Could not send the message.", variant: 'destructive'});
+      })
+      .finally(() => {
+        setOptimisticMessages(prev => prev.filter(m => m.id !== optimisticId));
+        URL.revokeObjectURL(localUrl);
+      });
 
   }, [currentUser, firestore, addMessage, toast]);
 
@@ -425,3 +430,5 @@ export function useData() {
   }
   return context;
 }
+
+    
