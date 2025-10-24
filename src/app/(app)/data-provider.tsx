@@ -309,7 +309,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     if (project) {
       const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...users.filter(u=>u.role==='admin').map(u=>u.id)]));
       const finalRecipients = recipients.filter(id => id !== currentUser.id);
-      addNotification(`New message in project '${project.name}': "${newMessage.message.substring(0, 30)}..."`, project.id, finalRecipients);
+      const messageSnippet = messageData.messageType === 'voice' ? 'Sent a voice message' : `"${messageData.message.substring(0, 30)}..."`;
+      addNotification(`New message in project '${project.name}': ${messageSnippet}`, project.id, finalRecipients);
     }
   }
   
