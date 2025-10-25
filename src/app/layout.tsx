@@ -7,6 +7,8 @@ import { ThemeProvider } from '@/components/theme-provider';
 export const metadata: Metadata = {
   title: 'BookYourBrands CRM',
   description: 'CRM for BookYourBrands Agency',
+  manifest: '/manifest.json',
+  themeColor: '#ffffff',
 };
 
 export default function RootLayout({
