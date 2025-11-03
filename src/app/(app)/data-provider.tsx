@@ -49,7 +49,7 @@ type DataContextType = {
   updateProject: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => void;
   addFile: (file: Omit<ProjectFile, 'id'>) => void;
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
-  uploadAndAddMessage: (projectId: string, audioBlob: Blob) => Promise<Omit<ChatMessage, 'id' | 'timestamp'>>;
+  uploadAndAddMessage: (projectId: string, audioBlob: Blob) => Promise<void>;
   markNotificationsAsRead: () => void;
 };
 
@@ -202,7 +202,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }
 
   const addClient = (clientData: {name: string, company: string, email: string, founderDetails: string, agreementUrl?: string, idCardUrl?: string}) => {
-    if (!firestore) return;
+    if (!firestore || !firebaseApp) return;
     const newClientId = `client-${Date.now()}`;
     const newClient: Client = {
       id: newClientId,
@@ -324,12 +324,13 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     }
   }, [firestore, currentUser, users, projects, addNotification]);
   
-  const uploadAndAddMessage = useCallback(async (projectId: string, audioBlob: Blob): Promise<Omit<ChatMessage, 'id' | 'timestamp'>> => {
+  const uploadAndAddMessage = useCallback(async (projectId: string, audioBlob: Blob): Promise<void> => {
     if (!currentUser || !firebaseApp) {
       throw new Error("User not authenticated or Firebase not available.");
     }
   
     try {
+      // Pass the firebaseApp instance to uploadFile
       const downloadURL = await uploadFile(firebaseApp, audioBlob, `voiceMessages/${currentUser.id}`);
   
       const newMessage: Omit<ChatMessage, 'id' | 'timestamp'> = {
@@ -343,8 +344,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       };
   
       addMessage(newMessage); // fire-and-forget to Firestore
-  
-      return newMessage; // Return message object for optimistic UI
   
     } catch (error) {
       console.error("❌ Error uploading voice message:", error);

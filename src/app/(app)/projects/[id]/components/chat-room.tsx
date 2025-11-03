@@ -21,7 +21,6 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
   const { messages: serverMessages, addMessage, uploadAndAddMessage } = useData();
-  const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   const [isRecording, setIsRecording] = useState(false);
@@ -31,11 +30,10 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const { toast } = useToast();
 
   const projectMessages = useMemo(() => {
-    const allServerMessages = serverMessages.filter(m => m.projectId === projectId);
-    const combined = [...allServerMessages, ...localMessages];
-    const uniqueMessages = Array.from(new Map(combined.map(m => [m.id, m])).values());
-    return uniqueMessages.sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
-  }, [serverMessages, localMessages, projectId]);
+    if (!serverMessages) return [];
+    const filteredMessages = serverMessages.filter(m => m.projectId === projectId);
+    return filteredMessages.sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
+  }, [serverMessages, projectId]);
 
 
   const scrollToBottom = () => {
@@ -107,6 +105,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const stopRecording = () => {
       if (mediaRecorderRef.current && isRecording) {
           mediaRecorderRef.current.stop();
+          // Stop all tracks to release microphone
           mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
           setIsRecording(false);
           toast({ title: "Recording Stopped" });
@@ -117,28 +116,19 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     if (!audioBlob || !currentUser) return;
   
     setIsSendingVoice(true);
-    setAudioBlob(null); // Clear blob to hide player UI
   
     try {
-      // The upload function now returns the complete message object
-      const localMsg = await uploadAndAddMessage(projectId, audioBlob);
-      
-      // Optimistically add the returned message with a temporary local ID and timestamp
-      // This will be replaced by the server version when useCollection syncs.
-      setLocalMessages(prev => [...prev, { 
-          ...localMsg, 
-          id: uuidv4(), // temporary unique id
-          timestamp: Timestamp.now(), // temporary timestamp
-        }]);
-
+      await uploadAndAddMessage(projectId, audioBlob);
+      // The message will appear once the useCollection hook gets the update from Firestore.
+      setAudioBlob(null); // Clear blob to hide player UI
     } catch (error) {
       toast({
         title: "Upload Failed",
-        description: "Could not send voice message.",
+        description: "Could not send voice message. Please try again.",
         variant: "destructive"
       });
     } finally {
-      // Reset the sending state
+      // Reset the sending state regardless of outcome
       setIsSendingVoice(false);
     }
   };
