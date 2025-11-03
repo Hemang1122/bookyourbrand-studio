@@ -4,12 +4,13 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import type { ChatMessage, User } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Paperclip, Link as LinkIcon, FileText, Reply, X } from 'lucide-react';
+import { Send, Paperclip, Link as LinkIcon, FileText, Reply, X, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
 import { useData } from '../../../data-provider';
-import { AddChatAttachmentDialog } from './add-chat-attachment-dialog';
 import { Timestamp } from 'firebase/firestore';
+import { uploadFile } from '@/lib/storage';
+import { useToast } from '@/hooks/use-toast';
 
 type ChatRoomProps = {
   projectId: string;
@@ -18,9 +19,12 @@ type ChatRoomProps = {
 export function ChatRoom({ projectId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
-  const { messages: serverMessages, addMessage } = useData();
+  const { messages: serverMessages, addMessage, isLoading: isDataLoading } = useData();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const { toast } = useToast();
 
   const projectMessages = useMemo(() => {
     if (!serverMessages) return [];
@@ -69,20 +73,38 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     setNewMessage('');
     setReplyTo(null);
   };
-
-  const handleAddAttachment = (url: string, message: string) => {
-    if (!currentUser) return;
-    addMessage({
-        projectId,
-        senderId: currentUser.id,
-        senderName: currentUser.name,
-        senderAvatar: currentUser.avatar,
-        message: message || "Shared a file.",
-        fileUrl: url,
-        messageType: 'file'
-    });
-  }
   
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentUser) return;
+
+    setIsUploading(true);
+    try {
+        const downloadURL = await uploadFile(file, `chat/${projectId}`);
+        
+        addMessage({
+            projectId,
+            senderId: currentUser.id,
+            senderName: currentUser.name,
+            senderAvatar: currentUser.avatar || '',
+            message: file.name,
+            fileUrl: downloadURL,
+            messageType: 'file',
+        });
+        
+        toast({ title: 'File Uploaded', description: `${file.name} has been attached to the chat.` });
+    } catch (error) {
+        console.error("File upload error:", error);
+        toast({ title: 'Upload Failed', description: 'Could not upload the file.', variant: 'destructive' });
+    } finally {
+        setIsUploading(false);
+    }
+     // Reset file input
+    if(fileInputRef.current) {
+        fileInputRef.current.value = '';
+    }
+  };
+
   if (!currentUser) return null;
 
   return (
@@ -108,16 +130,15 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                          </div>
                        )}
 
-                       {msg.fileUrl ? (
+                       {msg.messageType === 'file' ? (
                            <div className="space-y-2">
-                             <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-lg border bg-background/50 p-3 hover:bg-accent">
+                             <a href={msg.fileUrl || '#'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-lg border bg-background/50 p-3 hover:bg-accent">
                                 <FileText className="h-6 w-6 text-muted-foreground" />
                                 <div className="flex-1">
-                                    <p className="text-sm font-medium text-foreground">File Attachment</p>
+                                    <p className="text-sm font-medium text-foreground">{msg.message}</p>
                                 </div>
                                 <LinkIcon className="h-4 w-4 text-muted-foreground"/>
                              </a>
-                             {msg.message && msg.message !== "Shared a file." && <p className="text-sm">{msg.message}</p>}
                            </div>
                         ) : (
                            <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
@@ -150,13 +171,12 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
             </div>
         )}
         <form onSubmit={handleSendMessage} className="flex w-full items-center space-x-2">
-            <AddChatAttachmentDialog onAddAttachment={handleAddAttachment}>
-                <Button variant="ghost" size="icon" type="button">
-                    <Paperclip className="h-5 w-5" />
-                    <span className="sr-only">Attach file</span>
-                </Button>
-            </AddChatAttachmentDialog>
-
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+            <Button variant="ghost" size="icon" type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
+                <span className="sr-only">Attach file</span>
+            </Button>
+            
             <Input
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
