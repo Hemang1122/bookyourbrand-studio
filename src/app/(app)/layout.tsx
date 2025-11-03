@@ -46,27 +46,34 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
         }
       } else {
         // This is a first-time sign-up. We need to create their profile.
-        // We create a default profile. The role is 'client' by default.
         const name = authUser.displayName || authUser.email!.split('@')[0];
+        
+        // Determine role based on email domain
+        const userEmail = authUser.email || '';
+        const isAdmin = userEmail.endsWith('@bookyourbrands.com');
+        const role = isAdmin ? 'admin' : 'client';
+
         finalUser = {
           id: authUser.uid,
-          email: authUser.email!,
+          email: userEmail,
           name: name,
-          role: 'client', // Default role for any new sign-up
+          role: role,
           avatar: `avatar-${Math.ceil(Math.random() * 3)}`,
           username: name.toLowerCase().replace(/\s/g, ''),
         };
         
-        // Also create a corresponding client record in the 'clients' collection
-        const clientRef = doc(firestore, 'clients', finalUser.id);
-        const newClient = {
-            id: finalUser.id,
-            name: finalUser.name,
-            email: finalUser.email,
-            company: `${finalUser.name}'s Company`,
-            avatar: finalUser.avatar,
-        };
-        await setDoc(clientRef, newClient);
+        // Only create a 'client' record if the user is actually a client
+        if (role === 'client') {
+            const clientRef = doc(firestore, 'clients', finalUser.id);
+            const newClient = {
+                id: finalUser.id,
+                name: finalUser.name,
+                email: finalUser.email,
+                company: `${finalUser.name}'s Company`,
+                avatar: finalUser.avatar,
+            };
+            await setDoc(clientRef, newClient);
+        }
 
         // Save the new user profile to the 'users' collection
         await setDoc(userRef, finalUser);
