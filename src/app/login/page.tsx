@@ -73,6 +73,10 @@ function LoginPageContent() {
           </CardContent>
         </Card>
       </div>
+      
+      <div className="absolute bottom-4 z-10 text-center w-full text-sm text-muted-foreground font-sans">
+        <p>Crafted with passion by BookYourBrands</p>
+      </div>
     </main>
   );
 }
