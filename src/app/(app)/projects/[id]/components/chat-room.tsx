@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { ChatMessage, User } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -40,21 +40,48 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     return uniqueMessages.sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
   }, [serverMessages, projectId, optimisticMessages]);
 
+  const getScrollableViewport = useCallback(() => {
+    if (scrollAreaRef.current) {
+        return scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+    }
+    return null;
+  }, []);
 
   const scrollToBottom = () => {
     setTimeout(() => {
-        if (scrollAreaRef.current) {
-            const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-            if (viewport) {
-                viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
-            }
+        const viewport = getScrollableViewport();
+        if (viewport) {
+            viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
         }
     }, 100);
   };
 
+  const handleScrollToMessage = (messageId: string) => {
+    const messageElement = document.getElementById(`message-${messageId}`);
+    const viewport = getScrollableViewport();
+    if (messageElement && viewport) {
+        const viewportRect = viewport.getBoundingClientRect();
+        const messageRect = messageElement.getBoundingClientRect();
+        const scrollTop = viewport.scrollTop;
+        
+        const offset = messageRect.top - viewportRect.top + scrollTop - (viewportRect.height / 2) + (messageRect.height / 2);
+
+        viewport.scrollTo({
+            top: offset,
+            behavior: 'smooth'
+        });
+
+        // Highlight the message briefly
+        messageElement.classList.add('bg-accent/50', 'transition-all', 'duration-1000');
+        setTimeout(() => {
+            messageElement.classList.remove('bg-accent/50', 'transition-all', 'duration-1000');
+        }, 2000);
+    }
+  };
+
   useEffect(() => {
     scrollToBottom();
-  }, [projectMessages]);
+  }, [projectMessages, getScrollableViewport]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,8 +203,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     setOptimisticMessages(prev => [...prev, tempMessage]);
 
     try {
-      const finalMessage = await uploadAndAddMessage(projectId, audioBlob);
-      if (!finalMessage) throw new Error("Upload failed.");
+      await uploadAndAddMessage(projectId, audioBlob);
       toast({ title: 'Voice message sent' });
     } catch (error) {
       console.error('Error sending voice message:', error);
@@ -204,7 +230,8 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
             return (
               <div
                 key={msg.id}
-                className={`group flex items-start gap-3 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
+                id={`message-${msg.id}`}
+                className={`group flex items-start gap-3 rounded-md p-2 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
               >
                 {!isCurrentUser && (
                   <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
@@ -215,7 +242,10 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                     <span className="text-xs text-muted-foreground">{msg.senderName}</span>
                     <div className={`relative rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                        {msg.replyTo && (
-                         <div className="p-2 mb-2 border-l-2 border-primary-foreground/50 bg-black/10 rounded-md">
+                         <div 
+                           className="p-2 mb-2 border-l-2 border-primary-foreground/50 bg-black/10 rounded-md cursor-pointer hover:bg-black/20"
+                           onClick={() => handleScrollToMessage(msg.replyTo!.messageId)}
+                           >
                             <p className="text-xs font-semibold">{msg.replyTo.senderName}</p>
                             <p className="text-xs opacity-80 truncate">{msg.replyTo.message}</p>
                          </div>
