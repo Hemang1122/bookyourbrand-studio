@@ -22,6 +22,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   const [isRecording, setIsRecording] = useState(false);
+  const [isSendingVoice, setIsSendingVoice] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const { toast } = useToast();
@@ -104,16 +105,18 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
       }
   };
   
-  const sendVoiceMessage = () => {
+  const sendVoiceMessage = async () => {
     if (!audioBlob || !currentUser) return;
     
-    // Create a File object from the Blob
-    const audioFile = new File([audioBlob], `voice-message-${Date.now()}.webm`, { type: 'audio/webm' });
-    
-    // Call the upload function from the data provider
-    uploadAndAddMessage(projectId, audioFile, "Voice Message", 'voice');
-    
-    setAudioBlob(null);
+    setIsSendingVoice(true);
+    try {
+        await uploadAndAddMessage(projectId, audioBlob);
+    } catch (error) {
+        // Error is already toasted in the provider
+    } finally {
+        setIsSendingVoice(false);
+        setAudioBlob(null);
+    }
   };
   
   if (!currentUser) return null;
@@ -166,10 +169,10 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
         {audioBlob && !isRecording ? (
             <div className="flex w-full items-center space-x-2">
                 <audio controls src={URL.createObjectURL(audioBlob)} className="flex-1" />
-                <Button onClick={sendVoiceMessage} size="icon">
-                    <Send className="h-5 w-5" />
+                <Button onClick={sendVoiceMessage} size="icon" disabled={isSendingVoice}>
+                    {isSendingVoice ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                 </Button>
-                <Button onClick={() => setAudioBlob(null)} size="icon" variant="destructive">
+                <Button onClick={() => setAudioBlob(null)} size="icon" variant="destructive" disabled={isSendingVoice}>
                     <Trash2 className="h-5 w-5" />
                 </Button>
             </div>

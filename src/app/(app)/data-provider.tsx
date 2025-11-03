@@ -5,11 +5,12 @@ import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile,
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking } from '@/firebase';
+import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking, useFirebaseServices } from '@/firebase';
 import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 
 type DataContextType = {
@@ -49,7 +50,7 @@ type DataContextType = {
   updateProject: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => void;
   addFile: (file: Omit<ProjectFile, 'id'>) => void;
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
-  uploadAndAddMessage: (projectId: string, file: File, message: string, messageType: MessageType) => void;
+  uploadAndAddMessage: (projectId: string, audioBlob: Blob) => Promise<string>;
   markNotificationsAsRead: () => void;
 };
 
@@ -58,7 +59,7 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export function DataProvider({ children, user: currentUser }: { children: React.ReactNode, user:User }) {
   const { toast } = useToast();
   const router = useRouter();
-  const firestore = useFirestore();
+  const { firestore, auth, firebaseApp } = useFirebaseServices();
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
 
 
@@ -325,55 +326,65 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     }
   }, [firestore, currentUser, users, projects, addNotification]);
   
-  const uploadAndAddMessage = useCallback(async (projectId: string, file: File, message: string, messageType: MessageType) => {
-    if (!currentUser) return;
-
-    const optimisticId = `optimistic-${uuidv4()}`;
-    const localUrl = URL.createObjectURL(file);
-
-    const optimisticMessage: ChatMessage = {
-      id: optimisticId,
-      projectId,
-      senderId: currentUser.id,
-      senderName: currentUser.name,
-      senderAvatar: currentUser.avatar || '',
-      message: message,
-      timestamp: Timestamp.now(), // Local timestamp for optimistic UI
-      fileUrl: localUrl,
-      messageType: messageType,
-      isUploading: true,
-    };
-    
-    setOptimisticMessages((prev) => [...prev, optimisticMessage]);
+  const uploadAndAddMessage = useCallback(async (projectId: string, audioBlob: Blob): Promise<string> => {
+    if (!currentUser || !firebaseApp) {
+        throw new Error("User not authenticated or Firebase not available.");
+    }
+    const userId = currentUser.id;
+    const storage = getStorage(firebaseApp);
+    const db = firestore;
 
     try {
-      // The uploadFile function from storage.ts handles the full upload process.
-      const downloadURL = await uploadFile(file, `${messageType}/${projectId}`);
+        console.log("Uploading voice message...");
 
-      // Once upload is successful, add the final message to Firestore.
-      addMessage({
-        projectId,
-        senderId: currentUser.id,
-        senderName: currentUser.name,
-        senderAvatar: currentUser.avatar || '',
-        message: message,
-        fileUrl: downloadURL,
-        messageType: messageType,
-      });
+        const filePath = `voiceMessages/${userId}_${Date.now()}.webm`;
+        const storageRef = ref(storage, filePath);
 
-    } catch (err) {
-      console.error("Upload failed", err);
-      toast({
-        title: "Upload Failed",
-        description: "Could not send the message.",
-        variant: "destructive",
-      });
-    } finally {
-      // Remove the optimistic message regardless of success or failure.
-      setOptimisticMessages((prev) => prev.filter((m) => m.id !== optimisticId));
-      URL.revokeObjectURL(localUrl);
+        const uploadTask = uploadBytesResumable(storageRef, audioBlob);
+
+        const downloadURL = await new Promise<string>((resolve, reject) => {
+            uploadTask.on(
+                "state_changed",
+                (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    console.log(`Upload is ${progress.toFixed(1)}% done`);
+                },
+                (error) => {
+                    console.error("Upload failed:", error);
+                    reject(error);
+                },
+                async () => {
+                    const url = await getDownloadURL(uploadTask.snapshot.ref);
+                    resolve(url);
+                }
+            );
+        });
+        
+        console.log("✅ Voice message uploaded successfully!");
+
+        // Use the existing addMessage function to maintain consistency
+        addMessage({
+            projectId,
+            senderId: currentUser.id,
+            senderName: currentUser.name,
+            senderAvatar: currentUser.avatar || '',
+            message: "Voice Message",
+            fileUrl: downloadURL,
+            messageType: 'voice',
+        });
+
+        return downloadURL;
+
+    } catch (error) {
+        console.error("❌ Error uploading voice message:", error);
+        toast({
+            title: "Upload Failed",
+            description: "Could not send the voice message.",
+            variant: "destructive",
+        });
+        throw error;
     }
-  }, [currentUser, addMessage, toast]);
+}, [currentUser, firebaseApp, firestore, addMessage, toast]);
 
 
 
