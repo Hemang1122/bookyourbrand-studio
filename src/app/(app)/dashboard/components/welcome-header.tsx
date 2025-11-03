@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -17,7 +18,7 @@ export function WelcomeHeader({ name }: { name: string }) {
         }`}
       >
         <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
-          Welcome!
+          Welcome, {name}!
         </span>
       </h2>
       <p

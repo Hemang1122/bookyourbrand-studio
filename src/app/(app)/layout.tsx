@@ -46,10 +46,10 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
         }
       } else {
         // This is a first-time sign-up. We need to create their profile.
-        const name = authUser.displayName || authUser.email!.split('@')[0];
+        const userEmail = authUser.email || '';
+        const name = authUser.displayName || userEmail.split('@')[0];
         
         // Determine role based on email domain
-        const userEmail = authUser.email || '';
         const isAdmin = userEmail.endsWith('@bookyourbrands.com');
         const role = isAdmin ? 'admin' : 'client';
 
@@ -58,7 +58,7 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
           email: userEmail,
           name: name,
           role: role,
-          avatar: `avatar-${Math.ceil(Math.random() * 3)}`,
+          avatar: `avatar-${Math.floor(Math.random() * 3) + 2}`, // Assign a valid random avatar
           username: name.toLowerCase().replace(/\s/g, ''),
         };
         
