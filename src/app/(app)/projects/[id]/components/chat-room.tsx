@@ -12,8 +12,6 @@ import { AddChatAttachmentDialog } from './add-chat-attachment-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { Timestamp } from 'firebase/firestore';
-import { useFirebaseServices } from '@/firebase';
-import { uploadFile } from '@/lib/storage';
 
 type ChatRoomProps = {
   projectId: string;
@@ -22,7 +20,7 @@ type ChatRoomProps = {
 export function ChatRoom({ projectId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
-  const { messages: serverMessages, addMessage } = useData();
+  const { messages: serverMessages, addMessage, uploadAndAddMessage } = useData();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   const [isRecording, setIsRecording] = useState(false);
@@ -30,7 +28,6 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const { toast } = useToast();
-  const { firebaseApp } = useFirebaseServices();
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
 
 
@@ -118,7 +115,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   };
   
 const sendVoiceMessage = async () => {
-  if (!audioBlob || !currentUser || !firebaseApp) return;
+  if (!audioBlob || !currentUser) return;
 
   const tempId = uuidv4();
   const tempMessage: ChatMessage = {
@@ -128,7 +125,7 @@ const sendVoiceMessage = async () => {
     senderName: currentUser.name,
     senderAvatar: currentUser.avatar || '',
     message: "Uploading voice message...",
-    fileUrl: URL.createObjectURL(audioBlob),
+    fileUrl: null, // No file URL for optimistic message
     messageType: 'voice',
     timestamp: Timestamp.now(),
   };
@@ -138,30 +135,20 @@ const sendVoiceMessage = async () => {
   setIsSendingVoice(true);
 
   try {
-    const downloadURL = await uploadFile(
-      firebaseApp,
-      audioBlob,
-      `voiceMessages/${projectId}/${tempId}.webm`
-    );
-
-    await addMessage({
-      projectId,
-      senderId: currentUser.id,
-      senderName: currentUser.name,
-      senderAvatar: currentUser.avatar || '',
-      message: "🎤 Voice message",
-      fileUrl: downloadURL,
-      messageType: 'voice',
-    });
+    // This function now handles the upload and adds the message to Firestore.
+    await uploadAndAddMessage(projectId, audioBlob);
+    
+    toast({ title: "Voice message sent" });
 
   } catch (error) {
-    console.error("Error uploading voice:", error);
+    console.error("Error sending voice message:", error);
     toast({
-      title: "Upload failed",
+      title: "Upload Failed",
       description: "Could not send your voice message.",
       variant: "destructive",
     });
   } finally {
+    // Remove the optimistic message once the real one is added by the listener
     setOptimisticMessages(prev => prev.filter(m => m.id !== tempId));
     setIsSendingVoice(false);
   }
@@ -185,16 +172,14 @@ const sendVoiceMessage = async () => {
               >
                 <div className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                     <span className="text-xs text-muted-foreground">{msg.senderName}</span>
-                    <div className={`rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'} ${isOptimistic ? 'opacity-70' : ''}`}>
+                    <div className={`rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                         {msg.messageType === 'voice' && msg.fileUrl ? (
-                            isOptimistic ? (
-                                <div className="flex items-center gap-2">
-                                    <Loader2 className="h-4 w-4 animate-spin"/>
-                                    <span>{msg.message}</span>
-                                </div>
-                            ) : (
-                               <audio controls src={msg.fileUrl} className="max-w-full" />
-                            )
+                            <audio controls src={msg.fileUrl} className="max-w-full" />
+                        ) : isOptimistic ? (
+                            <div className="flex items-center gap-2">
+                                <Loader2 className="h-4 w-4 animate-spin"/>
+                                <span>{msg.message}</span>
+                            </div>
                         ) : msg.fileUrl ? (
                            <div className="space-y-2">
                              <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-lg border bg-background/50 p-3 hover:bg-accent">

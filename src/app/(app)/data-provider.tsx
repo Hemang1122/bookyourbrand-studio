@@ -49,7 +49,7 @@ type DataContextType = {
   updateProject: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => void;
   addFile: (file: Omit<ProjectFile, 'id'>) => void;
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
-  uploadAndAddMessage: (projectId: string, audioBlob: Blob) => Promise<void>;
+  uploadAndAddMessage: (projectId: string, audioBlob: Blob) => Promise<Omit<ChatMessage, 'id' | 'timestamp'>>;
   markNotificationsAsRead: () => void;
 };
 
@@ -324,16 +324,16 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     }
   }, [firestore, currentUser, users, projects, addNotification]);
   
-  const uploadAndAddMessage = useCallback(async (projectId: string, audioBlob: Blob): Promise<void> => {
-    if (!currentUser || !firebaseApp) {
+  const uploadAndAddMessage = useCallback(async (projectId: string, audioBlob: Blob): Promise<Omit<ChatMessage, 'id' | 'timestamp'>> => {
+    if (!currentUser) {
       throw new Error("User not authenticated or Firebase not available.");
     }
   
     try {
-      // Pass the firebaseApp instance to uploadFile
-      const downloadURL = await uploadFile(firebaseApp, audioBlob, `voiceMessages/${projectId}/${currentUser.id}`);
+      // The uploadFile function now gets the app instance itself.
+      const downloadURL = await uploadFile(audioBlob, `voiceMessages/${projectId}/${currentUser.id}`);
   
-      const newMessage: Omit<ChatMessage, 'id' | 'timestamp'> = {
+      const newMessagePayload: Omit<ChatMessage, 'id' | 'timestamp'> = {
         projectId,
         senderId: currentUser.id,
         senderName: currentUser.name,
@@ -343,7 +343,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         messageType: 'voice',
       };
   
-      addMessage(newMessage); // fire-and-forget to Firestore
+      addMessage(newMessagePayload); // fire-and-forget to Firestore
+      return newMessagePayload;
   
     } catch (error) {
       console.error("❌ Error uploading voice message:", error);
@@ -354,7 +355,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       });
       throw error;
     }
-  }, [currentUser, firebaseApp, addMessage, toast]);
+  }, [currentUser, addMessage, toast]);
 
 
 
