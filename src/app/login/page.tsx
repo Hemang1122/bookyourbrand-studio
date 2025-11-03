@@ -78,9 +78,9 @@ function LoginPageContent() {
       
       <div className="absolute bottom-4 z-10 text-center w-full text-muted-foreground">
         <div className="mb-4 flex justify-center gap-6">
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors"><Facebook className="h-5 w-5" /></a>
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors"><Instagram className="h-5 w-5" /></a>
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors"><Youtube className="h-5 w-5" /></a>
+            <a href="https://www.facebook.com/bookyourbrands/" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors"><Facebook className="h-5 w-5" /></a>
+            <a href="https://www.instagram.com/bookyourbrands/" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors"><Instagram className="h-5 w-5" /></a>
+            <a href="https://www.youtube.com/@Bookyourbrands" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors"><Youtube className="h-5 w-5" /></a>
         </div>
         <p className="font-signature text-2xl">Arpit Lalani</p>
         <p className="text-sm tracking-wider">Founder and CEO</p>
