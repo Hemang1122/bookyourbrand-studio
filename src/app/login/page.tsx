@@ -12,6 +12,7 @@ import { LoginLogo } from '@/components/login-logo';
 import { LoginForm } from './components/login-form';
 import { Suspense } from 'react';
 import { FirebaseClientProvider } from '@/firebase';
+import { Facebook, Instagram, Youtube } from 'lucide-react';
 
 function LoginPageContent() {
   return (
@@ -76,6 +77,11 @@ function LoginPageContent() {
       </div>
       
       <div className="absolute bottom-4 z-10 text-center w-full text-muted-foreground">
+        <div className="mb-4 flex justify-center gap-6">
+            <a href="#" className="text-muted-foreground hover:text-primary transition-colors"><Facebook className="h-5 w-5" /></a>
+            <a href="#" className="text-muted-foreground hover:text-primary transition-colors"><Instagram className="h-5 w-5" /></a>
+            <a href="#" className="text-muted-foreground hover:text-primary transition-colors"><Youtube className="h-5 w-5" /></a>
+        </div>
         <p className="font-signature text-2xl">Arpit Lalani</p>
         <p className="text-sm tracking-wider">Founder and CEO</p>
       </div>
