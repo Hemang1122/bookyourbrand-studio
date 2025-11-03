@@ -5,7 +5,7 @@ import { useEffect, useState, ReactNode } from 'react';
 import type { User } from '@/lib/types';
 import { redirect } from 'next/navigation';
 import { FirebaseClientProvider, useUser as useFirebaseUser, useFirestore } from '@/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { AuthProvider } from '@/firebase/provider';
 
@@ -38,16 +38,23 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
       if (userDoc.exists()) {
         // The user profile already exists in Firestore, so we'll use it.
         finalUser = { id: userDoc.id, ...userDoc.data() } as User;
+        
+        // Backwards compatibility/safety check: if the name is a placeholder but auth has a real name, update it.
+        if (finalUser.name !== authUser.displayName && authUser.displayName) {
+            finalUser.name = authUser.displayName;
+            await updateDoc(userRef, { name: authUser.displayName });
+        }
       } else {
         // This is a first-time sign-up. We need to create their profile.
         // We create a default profile. The role is 'client' by default.
+        const name = authUser.displayName || authUser.email!.split('@')[0];
         finalUser = {
           id: authUser.uid,
           email: authUser.email!,
-          name: authUser.displayName || authUser.email!.split('@')[0],
+          name: name,
           role: 'client', // Default role for any new sign-up
           avatar: `avatar-${Math.ceil(Math.random() * 3)}`,
-          username: authUser.displayName?.toLowerCase().replace(/\s/g, '') || authUser.email!.split('@')[0],
+          username: name.toLowerCase().replace(/\s/g, ''),
         };
         
         // Also create a corresponding client record in the 'clients' collection

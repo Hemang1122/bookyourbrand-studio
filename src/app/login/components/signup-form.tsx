@@ -16,9 +16,9 @@ export function SignupForm() {
   const router = useRouter();
   const { auth } = useFirebaseServices();
   const { toast } = useToast();
-  const [email, setEmail] = useState('himmat@example.com');
-  const [password, setPassword] = useState('himmat@1234');
-  const [name, setName] = useState('Himmat Singh');
+  const [email, setEmail] = useState('akshaykothari@creative.co');
+  const [password, setPassword] = useState('akshay@1234');
+  const [name, setName] = useState('Akshay Kothari');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -41,6 +41,8 @@ export function SignupForm() {
 
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Explicitly wait for the profile update to complete
       await updateProfile(userCredential.user, { displayName: name });
       
       // onAuthStateChanged in the main layout will handle creating the Firestore doc and redirecting.
@@ -48,6 +50,8 @@ export function SignupForm() {
         title: 'Account Created',
         description: "You've been successfully signed up.",
       });
+
+      // Now that profile is updated, we can safely redirect.
       router.push('/dashboard');
     } catch (err: any) {
       switch (err.code) {
@@ -79,7 +83,7 @@ export function SignupForm() {
         <Input
           id="name-signup"
           type="text"
-          placeholder="e.g. Himmat Singh"
+          placeholder="e.g. Akshay Kothari"
           required
           value={name}
           onChange={(e) => setName(e.target.value)}
