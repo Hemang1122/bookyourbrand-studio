@@ -10,6 +10,8 @@ export function WelcomeHeader({ name }: { name: string }) {
     setIsMounted(true);
   }, []);
 
+  const capitalizedName = name.charAt(0).toUpperCase() + name.slice(1);
+
   return (
     <div className="mb-6 overflow-hidden">
       <h2
@@ -18,7 +20,7 @@ export function WelcomeHeader({ name }: { name: string }) {
         }`}
       >
         <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
-          Welcome, {name}!
+          Welcome, {capitalizedName}!
         </span>
       </h2>
       <p
