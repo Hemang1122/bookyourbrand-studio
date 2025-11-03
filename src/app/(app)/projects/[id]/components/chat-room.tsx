@@ -119,7 +119,6 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   
     try {
       await uploadAndAddMessage(projectId, audioBlob);
-      // The message will appear once the useCollection hook gets the update from Firestore.
       setAudioBlob(null); // Clear blob to hide player UI
     } catch (error) {
       toast({
