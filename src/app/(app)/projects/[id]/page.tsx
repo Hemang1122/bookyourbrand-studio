@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -121,7 +122,7 @@ export default function ProjectDetailPage() {
                 return (
                     <div key={member.id}>
                         <p className="font-semibold text-sm">{member.name}</p>
-                        <p className="text-xs text-muted-foreground">{member.email}</p>
+                        {user?.role !== 'client' && <p className="text-xs text-muted-foreground">{member.email}</p>}
                     </div>
                 )
             })}
