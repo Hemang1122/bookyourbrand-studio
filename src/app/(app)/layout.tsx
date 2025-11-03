@@ -44,10 +44,10 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
         finalUser = {
           id: authUser.uid,
           email: authUser.email!,
-          name: authUser.displayName || 'New User',
+          name: authUser.displayName || authUser.email!.split('@')[0],
           role: 'client', // Default role for any new sign-up
           avatar: `avatar-${Math.ceil(Math.random() * 3)}`,
-          username: authUser.email!.split('@')[0],
+          username: authUser.displayName?.toLowerCase().replace(/\s/g, '') || authUser.email!.split('@')[0],
         };
         
         // Also create a corresponding client record in the 'clients' collection
