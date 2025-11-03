@@ -1,3 +1,4 @@
+
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
@@ -94,7 +95,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const mapping = new Map<string, string>();
     let editorCount = 1;
     usersData
-      .filter(u => u.role === 'team' || u.role === 'admin')
+      .filter(u => u.role === 'team')
       .forEach(u => {
         mapping.set(u.id, `Editor ${editorCount++}`);
       });
@@ -102,11 +103,11 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }, [usersData]);
 
   const anonymizeUser = useCallback((userToAnonymize: User) => {
-    if (currentUser?.role === 'client' && userToAnonymize && (userToAnonymize.role === 'team' || userToAnonymize.role === 'admin')) {
+    if (currentUser?.role === 'client' && userToAnonymize && userToAnonymize.role === 'team') {
       return {
         ...userToAnonymize,
         name: teamEditorMapping.get(userToAnonymize.id) || 'Editor',
-        avatar: 'avatar-generic' // A generic avatar to hide real profile picture
+        avatar: 'avatar-generic'
       };
     }
     return userToAnonymize;
@@ -120,7 +121,13 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   const teamMembers = useMemo(() => (usersData || []).filter(u => u.role === 'admin' || u.role === 'team'), [usersData]);
   
-  const projects = projectsData || initialProjects;
+  const projects = useMemo(() => {
+    if (!projectsData) return initialProjects;
+    return projectsData.map(p => ({
+        ...p,
+        team_ids: p.team_ids || [],
+    }));
+  }, [projectsData]);
 
   const tasks = useMemo(() => {
     if (!tasksData) return initialTasks;
@@ -130,10 +137,10 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         assignedTo: anonymizeUser(t.assignedTo),
         remarks: t.remarks.map(r => ({
             ...r,
-            userName: teamEditorMapping.get(r.userId) || 'Editor',
+            userName: teamEditorMapping.get(r.userId) || (usersData?.find(u => u.id === r.userId)?.role === 'admin' ? usersData?.find(u => u.id === r.userId)?.name : 'Editor'),
         }))
     }));
-  }, [tasksData, currentUser, anonymizeUser, teamEditorMapping]);
+  }, [tasksData, currentUser, anonymizeUser, teamEditorMapping, usersData]);
   
   const messages = useMemo(() => {
     if (!messagesData) return [];
@@ -143,16 +150,18 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
     return sorted.map(m => {
         const sender = usersData?.find(u => u.id === m.senderId);
-        if (sender && (sender.role === 'admin' || sender.role === 'team')) {
+        // Only anonymize team members, not admins
+        if (sender && sender.role === 'team') {
             return {
                 ...m,
                 senderName: teamEditorMapping.get(m.senderId) || 'Editor',
                 senderAvatar: 'avatar-generic'
             }
         }
+        // Handle reply-to anonymization
         if (m.replyTo) {
             const replySender = usersData?.find(u => u.name === m.replyTo?.senderName);
-            if (replySender && (replySender.role === 'admin' || replySender.role === 'team')) {
+            if (replySender && replySender.role === 'team') {
                 return {
                     ...m,
                     replyTo: {
@@ -182,9 +191,15 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     setDocumentNonBlocking(doc(firestore, 'projects', newProject.id), newProject, {});
 
     const admin = users.find(u => u.role === 'admin');
-    if (admin && currentUser.id !== admin.id) {
-        addNotification(`New project '${newProject.name}' was created by ${currentUser.name}.`, newProject.id, [admin.id]);
+    const notificationRecipients = [
+        ...(projectData.team_ids || []),
+        ...(admin && admin.id !== currentUser.id ? [admin.id] : [])
+    ];
+    
+    if (notificationRecipients.length > 0) {
+        addNotification(`New project '${newProject.name}' was created by ${currentUser.name}.`, newProject.id, notificationRecipients);
     }
+    
     if (projectData.team_ids.length > 0) {
         addNotification(`You have been assigned to the new project: '${newProject.name}'.`, newProject.id, projectData.team_ids);
     }

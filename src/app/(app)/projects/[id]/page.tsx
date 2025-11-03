@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { ListTodo, MessageSquare, Files, Info, Users, Edit, Trash2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
-import type { Project, Client } from '@/lib/types';
+import type { Project, Client, User } from '@/lib/types';
 import { useAuth } from '@/firebase/provider';
 import { Button } from '@/components/ui/button';
 import { ManageTeamDialog } from './components/manage-team-dialog';
@@ -61,6 +61,32 @@ export default function ProjectDetailPage() {
   const getClientName = (client: Client) => {
     return client.name || client.email?.split('@')[0] || "Client";
   }
+
+  const teamEditorMapping = useMemo(() => {
+    if (!users) return new Map<string, string>();
+    const mapping = new Map<string, string>();
+    let editorCount = 1;
+    users
+      .filter(u => u.role === 'team')
+      .forEach(u => {
+        mapping.set(u.id, `Editor ${editorCount++}`);
+      });
+    return mapping;
+  }, [users]);
+  
+  let displayTeamMembers: Partial<User>[] = teamMembers;
+
+  if (user?.role === 'client') {
+    displayTeamMembers = (project.team_ids || [])
+      .map(id => {
+        const member = users.find(u => u.id === id);
+        if (!member) return null;
+        if (member.role === 'admin') return { id: member.id, name: member.name };
+        return { id: member.id, name: teamEditorMapping.get(id) || 'Editor' };
+      })
+      .filter(Boolean) as Partial<User>[];
+  }
+
 
   return (
     <div className="space-y-6">
@@ -121,7 +147,7 @@ export default function ProjectDetailPage() {
             </div>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            {teamMembers.map(member => {
+            {displayTeamMembers.map(member => {
                 return (
                     <div key={member.id}>
                         <p className="font-semibold text-sm">{member.name}</p>
@@ -129,7 +155,7 @@ export default function ProjectDetailPage() {
                     </div>
                 )
             })}
-             {teamMembers.length === 0 && <p className="text-sm text-muted-foreground">No team members assigned.</p>}
+             {displayTeamMembers.length === 0 && <p className="text-sm text-muted-foreground">No team members assigned.</p>}
           </CardContent>
         </Card>
       </div>
