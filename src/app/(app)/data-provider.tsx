@@ -1,4 +1,3 @@
-
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
@@ -49,7 +48,7 @@ type DataContextType = {
   deleteProject: (projectId: string) => void;
   updateProject: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => void;
   addFile: (file: Omit<ProjectFile, 'id'>) => void;
-  addMessage: (message: Omit<ChatMessage, 'id'>) => void;
+  addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   uploadAndAddMessage: (projectId: string, file: File, message: string, messageType: MessageType) => void;
   markNotificationsAsRead: () => void;
 };
@@ -306,14 +305,16 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     setDocumentNonBlocking(doc(firestore, 'files', newFile.id), newFile, {});
   }
 
-  const addMessage = useCallback((messageData: Omit<ChatMessage, 'id'>) => {
+  const addMessage = useCallback((messageData: Omit<ChatMessage, 'id' | 'timestamp'>) => {
     if (!firestore || !currentUser || !users || !projects) return;
-
-    const newMessage: ChatMessage = {
-      id: doc(collection(firestore, 'messages')).id,
-      ...messageData,
+    
+    const finalMessageData = {
+        ...messageData,
+        timestamp: Timestamp.now()
     };
-    setDocumentNonBlocking(doc(firestore, 'messages', newMessage.id), newMessage, {});
+
+    const newMessageId = doc(collection(firestore, 'messages')).id;
+    setDocumentNonBlocking(doc(firestore, 'messages', newMessageId), finalMessageData, {});
 
     const project = projects.find(p => p.id === messageData.projectId);
     if (project) {
@@ -324,51 +325,49 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     }
   }, [firestore, currentUser, users, projects, addNotification]);
   
-  const uploadAndAddMessage = useCallback((projectId: string, file: File, message: string, messageType: MessageType) => {
+  const uploadAndAddMessage = useCallback(async (projectId: string, file: File, message: string, messageType: MessageType) => {
     if (!currentUser || !firestore) return;
-    
+
     const optimisticId = `optimistic-${uuidv4()}`;
     const localUrl = URL.createObjectURL(file);
-    
+
     const optimisticMessage: ChatMessage = {
-        id: optimisticId,
+      id: optimisticId,
+      projectId,
+      senderId: currentUser.id,
+      senderName: currentUser.name,
+      senderAvatar: currentUser.avatar || '',
+      message: message,
+      timestamp: Timestamp.now(),
+      fileUrl: localUrl,
+      messageType: messageType,
+      isUploading: true,
+    };
+
+    setOptimisticMessages((prev) => [...prev, optimisticMessage]);
+
+    try {
+      const downloadURL = await uploadFile(file, `${messageType}/${projectId}`);
+      addMessage({
         projectId,
         senderId: currentUser.id,
         senderName: currentUser.name,
         senderAvatar: currentUser.avatar || '',
         message: message,
-        timestamp: Timestamp.now(),
-        fileUrl: localUrl,
+        fileUrl: downloadURL,
         messageType: messageType,
-        isUploading: true
-    };
-    
-    setOptimisticMessages(prev => [...prev, optimisticMessage]);
-
-    uploadFile(file, `${messageType}/${projectId}`)
-      .then(downloadURL => {
-        const finalMessage: Omit<ChatMessage, 'id'> = {
-          projectId,
-          senderId: currentUser.id,
-          senderName: currentUser.name,
-          senderAvatar: currentUser.avatar || '',
-          message: message,
-          timestamp: Timestamp.now(),
-          fileUrl: downloadURL,
-          messageType: messageType,
-          isUploading: false,
-        };
-        addMessage(finalMessage);
-      })
-      .catch(err => {
-        console.error("Upload failed", err);
-        toast({title: "Upload Failed", description: "Could not send the message.", variant: 'destructive'});
-      })
-      .finally(() => {
-        setOptimisticMessages(prev => prev.filter(m => m.id !== optimisticId));
-        URL.revokeObjectURL(localUrl);
       });
-
+    } catch (err) {
+      console.error("Upload failed", err);
+      toast({
+        title: "Upload Failed",
+        description: "Could not send the message.",
+        variant: "destructive",
+      });
+    } finally {
+      setOptimisticMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+      URL.revokeObjectURL(localUrl);
+    }
   }, [currentUser, firestore, addMessage, toast]);
 
 
