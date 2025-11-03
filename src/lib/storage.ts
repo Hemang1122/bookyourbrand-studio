@@ -1,34 +1,16 @@
 'use client';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL, type FirebaseStorage } from 'firebase/storage';
-import { getApp, getApps } from 'firebase/app';
+import { getApp, getApps, type FirebaseApp } from 'firebase/app';
 import { v4 as uuidv4 } from 'uuid';
-import { initializeFirebase } from '@/firebase';
-
-let storageInstance: FirebaseStorage | null = null;
-
-const getStorageInstance = (): FirebaseStorage => {
-    if (!storageInstance) {
-         try {
-            if (!getApps().length) {
-                initializeFirebase();
-            }
-            const app = getApp();
-            storageInstance = getStorage(app);
-        } catch (e) {
-            console.error("Firebase has not been initialized yet. Ensure FirebaseClientProvider is wrapping your app.", e);
-            throw e;
-        }
-    }
-    return storageInstance;
-};
 
 export const uploadFile = (
+  app: FirebaseApp,
   file: File,
   path: string,
   onProgress?: (progress: number) => void
 ): Promise<string> => {
   return new Promise((resolve, reject) => {
-    const storage = getStorageInstance();
+    const storage = getStorage(app);
     const fileId = uuidv4();
     const storageRef = ref(storage, `${path}/${fileId}-${file.name}`);
     const uploadTask = uploadBytesResumable(storageRef, file);

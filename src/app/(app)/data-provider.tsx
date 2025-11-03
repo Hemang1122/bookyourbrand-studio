@@ -10,7 +10,6 @@ import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp }
 import { useAuth } from '@/firebase/provider';
 import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 
 type DataContextType = {
@@ -60,7 +59,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { toast } = useToast();
   const router = useRouter();
   const { firestore, auth, firebaseApp } = useFirebaseServices();
-  const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
 
 
   const addNotification = useCallback((message: string, projectId: string, recipients: string[]) => {
@@ -87,10 +85,10 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: messagesData, isLoading: messagesLoading } = useCollection<ChatMessage>(useMemoFirebase(() => firestore ? collection(firestore, 'messages') : null, [firestore]));
   
   const messages = useMemo(() => {
-    const combined = [...(messagesData || []), ...optimisticMessages];
-    const uniqueMessages = Array.from(new Map(combined.map(m => [m.id, m])).values());
+    if (!messagesData) return [];
+    const uniqueMessages = Array.from(new Map(messagesData.map(m => [m.id, m])).values());
     return uniqueMessages.sort((a,b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
-  }, [messagesData, optimisticMessages]);
+  }, [messagesData]);
     
   const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
   const users = usersData || initialUsers;
@@ -331,31 +329,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       throw new Error("User not authenticated or Firebase not available.");
     }
   
-    const storage = getStorage(firebaseApp);
-  
     try {
-      const filePath = `voiceMessages/${currentUser.id}_${Date.now()}.webm`;
-      const storageRef = ref(storage, filePath);
-  
-      const uploadTask = uploadBytesResumable(storageRef, audioBlob);
-  
-      const downloadURL = await new Promise<string>((resolve, reject) => {
-        uploadTask.on(
-          "state_changed",
-          (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            console.log(`Upload is ${progress.toFixed(1)}% done`);
-          },
-          (error) => {
-            console.error("Upload failed:", error);
-            reject(error);
-          },
-          async () => {
-            const url = await getDownloadURL(uploadTask.snapshot.ref);
-            resolve(url);
-          }
-        );
-      });
+      const downloadURL = await uploadFile(firebaseApp, audioBlob, `voiceMessages/${currentUser.id}`);
   
       const newMessage: Omit<ChatMessage, 'id' | 'timestamp'> = {
         projectId,
