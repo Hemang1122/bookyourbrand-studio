@@ -17,7 +17,7 @@ export function WelcomeHeader({ name }: { name: string }) {
         }`}
       >
         <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
-          Welcome, {name}!
+          Welcome!
         </span>
       </h2>
       <p
