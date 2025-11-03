@@ -47,24 +47,30 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   const teamMemberOptions = teamMembers.map(tm => ({ value: tm.id, label: tm.name }));
   const isClientUser = user?.role === 'client';
   
-  // When a client is creating a project, the client is them.
-  // If the admin is creating, find the client from the list.
-  const clientForProject = isClientUser && user
-    ? ({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        avatar: user.avatar,
-        company: `${user.name}'s Company`, // A sensible default
-      } as Client)
-    : clients.find(c => c.id === selectedClientId);
-
   const handleAddProject = () => {
     // Universal validation
     if (!name || !description || !deadline) {
       toast({ title: 'Error', description: 'Project name, description, and deadline are required.', variant: 'destructive' });
       return;
     }
+
+    let clientForProject: Client | undefined;
+    
+    // If the logged-in user is a client, use their auth info directly.
+    // This is the definitive fix for the "New User" race condition.
+    if (isClientUser && user) {
+        clientForProject = {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            avatar: user.avatar,
+            company: `${user.name}'s Company`, // A sensible default
+        };
+    } else {
+        // If an admin is creating, find the client from the list.
+        clientForProject = clients.find(c => c.id === selectedClientId);
+    }
+
 
     if (!clientForProject) {
       toast({ title: 'Error', description: 'Selected client not found. Please ensure a client is selected.', variant: 'destructive' });
