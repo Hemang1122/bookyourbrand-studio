@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -74,8 +75,9 @@ function LoginPageContent() {
         </Card>
       </div>
       
-      <div className="absolute bottom-4 z-10 text-center w-full text-muted-foreground font-signature text-2xl">
-        <p>Arpit Lalani</p>
+      <div className="absolute bottom-4 z-10 text-center w-full text-muted-foreground">
+        <p className="font-signature text-2xl">Arpit Lalani</p>
+        <p className="text-sm tracking-wider">Founder and CEO</p>
       </div>
     </main>
   );
