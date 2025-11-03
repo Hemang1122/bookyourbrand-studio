@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -16,9 +15,9 @@ export function SignupForm() {
   const router = useRouter();
   const { auth } = useFirebaseServices();
   const { toast } = useToast();
-  const [email, setEmail] = useState('akshaykothari@creative.co');
-  const [password, setPassword] = useState('akshay@1234');
-  const [name, setName] = useState('Akshay Kothari');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -119,4 +118,3 @@ export function SignupForm() {
     </form>
   );
 }
-

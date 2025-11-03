@@ -16,8 +16,8 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const { auth } = useFirebaseServices(); // Get the Firebase Auth instance
   const { toast } = useToast();
-  const [email, setEmail] = useState('himmat@example.com');
-  const [password, setPassword] = useState('himmat@1234');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
