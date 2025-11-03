@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import type { ChatMessage, User } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -114,44 +114,31 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   
   const sendVoiceMessage = async () => {
     if (!audioBlob || !currentUser) return;
-    
+  
     setIsSendingVoice(true);
     setAudioBlob(null);
-
-    const optimisticId = uuidv4();
-    const optimisticMessage: ChatMessage = {
-      id: optimisticId,
-      projectId,
-      senderId: currentUser.id,
-      senderName: currentUser.name,
-      senderAvatar: currentUser.avatar,
-      message: "Voice Message",
-      fileUrl: URL.createObjectURL(audioBlob),
-      messageType: 'voice',
-      timestamp: Timestamp.now(),
-      isUploading: true,
-    };
-
-    setOptimisticMessages(prev => [...prev, optimisticMessage]);
-
+  
     try {
-      const finalMessage = await uploadAndAddMessage(projectId, audioBlob);
-      // Replace optimistic message with final message from server (or just remove optimistic one)
-      // The useCollection hook will eventually get the new message from firestore
+      const newMessage = await uploadAndAddMessage(projectId, audioBlob);
+      if (newMessage) {
+        // Optimistically add the returned message with a temporary local ID
+        // The real message will arrive via Firestore subscription, and `useMemo` will dedupe it.
+        const optimisticMessage: ChatMessage = {
+          ...(newMessage as Omit<ChatMessage, 'id' | 'timestamp'>),
+          id: uuidv4(), // temporary unique id
+          timestamp: Timestamp.now(), // temporary timestamp
+          fileUrl: URL.createObjectURL(audioBlob), // Use local blob URL for immediate playback
+        };
+        setOptimisticMessages(prev => [...prev, optimisticMessage]);
+      }
     } catch (error) {
       toast({
         title: "Upload Failed",
         description: "Could not send voice message.",
         variant: "destructive"
       });
-      // Remove the optimistic message on failure
-      setOptimisticMessages(prev => prev.filter(m => m.id !== optimisticId));
     } finally {
       setIsSendingVoice(false);
-      // The optimistic message will be removed once the real one arrives from Firestore subscription
-       setTimeout(() => {
-         setOptimisticMessages(prev => prev.filter(m => m.id !== optimisticId));
-       }, 5000); // Failsafe cleanup
     }
   };
   
