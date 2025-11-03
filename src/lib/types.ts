@@ -63,7 +63,7 @@ export type Task = {
   remarks: TaskRemark[];
 };
 
-export type MessageType = 'text' | 'file' | 'voice';
+export type MessageType = 'text' | 'file';
 
 export type ChatMessage = {
   id: string;
@@ -75,6 +75,11 @@ export type ChatMessage = {
   timestamp: Timestamp;
   fileUrl: string | null;
   messageType: MessageType;
+  replyTo?: {
+    messageId: string;
+    message: string;
+    senderName: string;
+  }
 };
 
 export type ProjectFile = {

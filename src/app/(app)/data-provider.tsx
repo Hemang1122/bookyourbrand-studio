@@ -49,7 +49,6 @@ type DataContextType = {
   updateProject: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => void;
   addFile: (file: Omit<ProjectFile, 'id'>) => void;
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
-  uploadAndAddMessage: (projectId: string, audioBlob: Blob) => Promise<Omit<ChatMessage, 'id' | 'timestamp'>>;
   markNotificationsAsRead: () => void;
 };
 
@@ -319,46 +318,11 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     if (project) {
       const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...users.filter(u=>u.role==='admin').map(u=>u.id)]));
       const finalRecipients = recipients.filter(id => id !== currentUser.id);
-      const messageSnippet = messageData.messageType === 'voice' ? 'Sent a voice message' : `"${messageData.message.substring(0, 30)}..."`;
+      const messageSnippet = messageData.messageType === 'file' ? 'Sent a file' : `"${messageData.message.substring(0, 30)}..."`;
       addNotification(`New message in project '${project.name}': ${messageSnippet}`, project.id, finalRecipients);
     }
   }, [firestore, currentUser, users, projects, addNotification]);
   
-  const uploadAndAddMessage = useCallback(async (projectId: string, audioBlob: Blob): Promise<Omit<ChatMessage, 'id' | 'timestamp'>> => {
-    if (!currentUser) {
-      throw new Error("User not authenticated or Firebase not available.");
-    }
-  
-    try {
-      // The uploadFile function now gets the app instance itself.
-      const downloadURL = await uploadFile(audioBlob, `voiceMessages/${projectId}/${currentUser.id}`);
-  
-      const newMessagePayload: Omit<ChatMessage, 'id' | 'timestamp'> = {
-        projectId,
-        senderId: currentUser.id,
-        senderName: currentUser.name,
-        senderAvatar: currentUser.avatar || '',
-        message: "Voice Message",
-        fileUrl: downloadURL,
-        messageType: 'voice',
-      };
-  
-      addMessage(newMessagePayload); // fire-and-forget to Firestore
-      return newMessagePayload;
-  
-    } catch (error) {
-      console.error("❌ Error uploading voice message:", error);
-      toast({
-        title: "Upload Failed",
-        description: "Could not send the voice message.",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  }, [currentUser, addMessage, toast]);
-
-
-
   const markNotificationsAsRead = useCallback(() => {
     if (!firestore || !notifications || notifications.length === 0) return;
 
@@ -402,7 +366,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         updateProject,
         addFile,
         addMessage,
-        uploadAndAddMessage,
         markNotificationsAsRead,
     }}>
       {children}
