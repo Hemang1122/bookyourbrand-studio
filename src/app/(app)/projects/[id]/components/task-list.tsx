@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { Task, TaskStatus } from '@/lib/types';
+import type { Task, TaskStatus, User } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AddTaskDialog } from './add-task-dialog';

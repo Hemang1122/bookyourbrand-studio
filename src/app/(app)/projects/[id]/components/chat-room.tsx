@@ -4,13 +4,13 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import type { ChatMessage, User } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Paperclip, Link as LinkIcon, FileText, Reply, X, Loader2 } from 'lucide-react';
+import { Send, Paperclip, FileText, Reply, X, Loader2, Mic, StopCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
 import { useData } from '../../../data-provider';
 import { Timestamp } from 'firebase/firestore';
-import { uploadFile } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
+import { v4 as uuidv4 } from 'uuid';
 
 type ChatRoomProps = {
   projectId: string;
@@ -19,28 +19,37 @@ type ChatRoomProps = {
 export function ChatRoom({ projectId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
-  const { messages: serverMessages, addMessage, isLoading: isDataLoading } = useData();
+  const { messages: serverMessages, addMessage, isLoading: isDataLoading, uploadAndAddMessage } = useData();
+  const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
+  
+  // Voice recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const [isSendingVoice, setIsSendingVoice] = useState(false);
+
 
   const projectMessages = useMemo(() => {
-    if (!serverMessages) return [];
-    return serverMessages
-      .filter(m => m.projectId === projectId)
-      .sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
-  }, [serverMessages, projectId]);
+    const combined = [...serverMessages.filter(m => m.projectId === projectId), ...optimisticMessages];
+    const uniqueMessages = Array.from(new Map(combined.map(m => [m.id, m])).values());
+    return uniqueMessages.sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
+  }, [serverMessages, projectId, optimisticMessages]);
 
 
   const scrollToBottom = () => {
-    if (scrollAreaRef.current) {
-        const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-        if (viewport) {
-            viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+    setTimeout(() => {
+        if (scrollAreaRef.current) {
+            const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+            if (viewport) {
+                viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+            }
         }
-    }
+    }, 100);
   };
 
   useEffect(() => {
@@ -79,6 +88,20 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     if (!file || !currentUser) return;
 
     setIsUploading(true);
+    const tempId = `file-${uuidv4()}`;
+    const tempMessage: ChatMessage = {
+      id: tempId,
+      projectId,
+      senderId: currentUser.id,
+      senderName: currentUser.name,
+      senderAvatar: currentUser.avatar,
+      message: `Uploading: ${file.name}...`,
+      fileUrl: null,
+      messageType: 'file',
+      timestamp: Timestamp.now(),
+    };
+    setOptimisticMessages(prev => [...prev, tempMessage]);
+
     try {
         const downloadURL = await uploadFile(file, `chat/${projectId}`);
         
@@ -98,10 +121,71 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
         toast({ title: 'Upload Failed', description: 'Could not upload the file.', variant: 'destructive' });
     } finally {
         setIsUploading(false);
+        setOptimisticMessages(prev => prev.filter(m => m.id !== tempId));
+        if(fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
     }
-     // Reset file input
-    if(fileInputRef.current) {
-        fileInputRef.current.value = '';
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      const chunks: BlobPart[] = [];
+      mediaRecorderRef.current.ondataavailable = (e) => {
+        chunks.push(e.data);
+      };
+      mediaRecorderRef.current.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        setAudioBlob(blob);
+      };
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+      setAudioBlob(null);
+    } catch (err) {
+      console.error("Could not start recording", err);
+      toast({ title: "Recording Error", description: "Could not access microphone.", variant: "destructive" });
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const sendVoiceMessage = async () => {
+    if (!audioBlob || !currentUser) return;
+
+    setIsSendingVoice(true);
+    const tempId = uuidv4();
+    const tempMessage: ChatMessage = {
+      id: tempId,
+      projectId,
+      senderId: currentUser.id,
+      senderName: currentUser.name,
+      senderAvatar: currentUser.avatar || '',
+      message: 'Uploading voice message...',
+      fileUrl: null,
+      messageType: 'voice',
+      timestamp: Timestamp.now(),
+    };
+
+    setOptimisticMessages(prev => [...prev, tempMessage]);
+
+    try {
+      const finalMessage = await uploadAndAddMessage(projectId, audioBlob);
+      if (!finalMessage) throw new Error("Upload failed.");
+      toast({ title: 'Voice message sent' });
+    } catch (error) {
+      console.error('Error sending voice message:', error);
+      toast({ title: 'Upload Failed', description: 'Could not send voice message.', variant: 'destructive' });
+    } finally {
+      setOptimisticMessages(prev => prev.filter(m => m.id !== tempId));
+      setIsSendingVoice(false);
+      setAudioBlob(null);
     }
   };
 
@@ -115,11 +199,18 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
             const isCurrentUser = msg.senderId === currentUser.id;
             const messageDate = msg.timestamp?.toDate ? msg.timestamp.toDate() : new Date();
 
+            const isOptimistic = 'message' in msg && msg.message.startsWith('Uploading');
+
             return (
               <div
                 key={msg.id}
                 className={`group flex items-start gap-3 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
               >
+                {!isCurrentUser && (
+                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
+                    {msg.senderName.charAt(0)}
+                  </div>
+                )}
                 <div className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                     <span className="text-xs text-muted-foreground">{msg.senderName}</span>
                     <div className={`relative rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
@@ -130,16 +221,20 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                          </div>
                        )}
 
-                       {msg.messageType === 'file' ? (
-                           <div className="space-y-2">
-                             <a href={msg.fileUrl || '#'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-lg border bg-background/50 p-3 hover:bg-accent">
-                                <FileText className="h-6 w-6 text-muted-foreground" />
-                                <div className="flex-1">
-                                    <p className="text-sm font-medium text-foreground">{msg.message}</p>
-                                </div>
-                                <LinkIcon className="h-4 w-4 text-muted-foreground"/>
-                             </a>
-                           </div>
+                       {isOptimistic ? (
+                         <div className="flex items-center gap-2">
+                           <Loader2 className="h-4 w-4 animate-spin" />
+                           <p className="text-sm">{msg.message}</p>
+                         </div>
+                       ) : msg.messageType === 'file' ? (
+                           <a href={msg.fileUrl || '#'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-lg border bg-background/50 p-3 hover:bg-accent">
+                              <FileText className="h-6 w-6 text-muted-foreground" />
+                              <div className="flex-1">
+                                  <p className="text-sm font-medium text-foreground">{msg.message}</p>
+                              </div>
+                           </a>
+                        ) : msg.messageType === 'voice' ? (
+                          <audio controls src={msg.fileUrl!} className="max-w-full" />
                         ) : (
                            <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
                         )}
@@ -153,6 +248,11 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                         {messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                 </div>
+                {isCurrentUser && (
+                    <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-sm font-bold text-primary-foreground">
+                      {msg.senderName.charAt(0)}
+                    </div>
+                )}
               </div>
             );
           })}
@@ -170,24 +270,43 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                 </Button>
             </div>
         )}
-        <form onSubmit={handleSendMessage} className="flex w-full items-center space-x-2">
-            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-            <Button variant="ghost" size="icon" type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
-                <span className="sr-only">Attach file</span>
-            </Button>
-            
-            <Input
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Type a message..."
-                autoComplete="off"
-            />
-            <Button type="submit" size="icon" disabled={!newMessage.trim()}>
-                <Send className="h-5 w-5" />
-                <span className="sr-only">Send message</span>
-            </Button>
-        </form>
+        {audioBlob ? (
+          <div className="flex w-full items-center space-x-2">
+             <Button variant="destructive" onClick={() => setAudioBlob(null)}>Cancel</Button>
+             <audio src={URL.createObjectURL(audioBlob)} controls className="flex-1"/>
+             <Button onClick={sendVoiceMessage} size="icon" disabled={isSendingVoice}>
+                {isSendingVoice ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+             </Button>
+          </div>
+        ) : (
+          <form onSubmit={handleSendMessage} className="flex w-full items-center space-x-2">
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+              <Button variant="ghost" size="icon" type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                  {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
+                  <span className="sr-only">Attach file</span>
+              </Button>
+              
+              <Input
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type a message..."
+                  autoComplete="off"
+              />
+               {isRecording ? (
+                  <Button type="button" size="icon" onClick={stopRecording} variant="destructive">
+                      <StopCircle className="h-5 w-5" />
+                  </Button>
+              ) : (
+                  <Button type="button" size="icon" onClick={startRecording}>
+                      <Mic className="h-5 w-5" />
+                  </Button>
+              )}
+              <Button type="submit" size="icon" disabled={!newMessage.trim()}>
+                  <Send className="h-5 w-5" />
+                  <span className="sr-only">Send message</span>
+              </Button>
+          </form>
+        )}
       </div>
     </div>
   );

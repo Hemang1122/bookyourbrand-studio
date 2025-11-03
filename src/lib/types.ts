@@ -63,7 +63,7 @@ export type Task = {
   remarks: TaskRemark[];
 };
 
-export type MessageType = 'text' | 'file';
+export type MessageType = 'text' | 'file' | 'voice';
 
 export type ChatMessage = {
   id: string;

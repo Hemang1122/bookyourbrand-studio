@@ -50,6 +50,7 @@ type DataContextType = {
   addFile: (file: Omit<ProjectFile, 'id'>) => void;
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   markNotificationsAsRead: () => void;
+  uploadAndAddMessage: (projectId: string, audioBlob: Blob) => Promise<ChatMessage | null>;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -73,41 +74,109 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }, [firestore]);
   
   const { data: projectsData, isLoading: projectsLoading } = useCollection<Project>(useMemoFirebase(() => firestore ? collection(firestore, 'projects') : null, [firestore]));
-  const projects = projectsData || initialProjects;
-
   const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
-  const tasks = tasksData || initialTasks;
-  
   const { data: filesData = [], isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? collection(firestore, 'files') : null, [firestore]));
-  const files = filesData;
-
   const { data: messagesData, isLoading: messagesLoading } = useCollection<ChatMessage>(useMemoFirebase(() => firestore ? collection(firestore, 'messages') : null, [firestore]));
-  
-  const messages = useMemo(() => {
-    if (!messagesData) return [];
-    const uniqueMessages = Array.from(new Map(messagesData.map(m => [m.id, m])).values());
-    return uniqueMessages.sort((a,b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
-  }, [messagesData]);
-    
   const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
-  const users = usersData || initialUsers;
-
   const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
-  const clients = clientsData || initialClients;
+  const { data: scrumUpdatesData, isLoading: scrumUpdatesLoading } = useCollection<ScrumUpdate>(useMemoFirebase(() => firestore ? collection(firestore, 'scrum-updates') : null, [firestore]));
   
   const { data: notificationsData = [], isLoading: notificationsLoading } = useCollection<Notification>(useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
     return query(collection(firestore, 'notifications'), where('recipients', 'array-contains', currentUser.id));
   }, [firestore, currentUser]));
-  const notifications = notificationsData;
-
-  const { data: scrumUpdatesData, isLoading: scrumUpdatesLoading } = useCollection<ScrumUpdate>(useMemoFirebase(() => firestore ? collection(firestore, 'scrum-updates') : null, [firestore]));
-  const scrumUpdates = scrumUpdatesData || [];
   
   const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || messagesLoading || notificationsLoading || scrumUpdatesLoading;
   
+  const teamEditorMapping = useMemo(() => {
+    if (!usersData) return new Map<string, string>();
+    const mapping = new Map<string, string>();
+    let editorCount = 1;
+    usersData
+      .filter(u => u.role === 'team' || u.role === 'admin')
+      .forEach(u => {
+        mapping.set(u.id, `Editor ${editorCount++}`);
+      });
+    return mapping;
+  }, [usersData]);
+
+  const anonymizeUser = useCallback((userToAnonymize: User) => {
+    if (currentUser?.role === 'client' && (userToAnonymize.role === 'team' || userToAnonymize.role === 'admin')) {
+      return {
+        ...userToAnonymize,
+        name: teamEditorMapping.get(userToAnonymize.id) || 'Editor',
+        avatar: 'avatar-generic' // A generic avatar to hide real profile picture
+      };
+    }
+    return userToAnonymize;
+  }, [currentUser?.role, teamEditorMapping]);
+  
+  const users = useMemo(() => {
+    if (!usersData) return initialUsers;
+    if (currentUser?.role !== 'client') return usersData;
+    return usersData.map(anonymizeUser);
+  }, [usersData, currentUser?.role, anonymizeUser]);
+
   const teamMembers = useMemo(() => (users || []).filter(u => u.role === 'admin' || u.role === 'team'), [users]);
   
+  const projects = useMemo(() => {
+    if (!projectsData) return initialProjects;
+    if (currentUser?.role !== 'client') return projectsData;
+    return projectsData.map(p => ({
+        ...p,
+        team_ids: p.team_ids.map(id => teamEditorMapping.get(id) || 'Editor'),
+    }));
+  }, [projectsData, currentUser, teamEditorMapping]);
+
+  const tasks = useMemo(() => {
+    if (!tasksData) return initialTasks;
+    if (currentUser?.role !== 'client') return tasksData;
+    return tasksData.map(t => ({
+        ...t,
+        assignedTo: anonymizeUser(t.assignedTo),
+        remarks: t.remarks.map(r => ({
+            ...r,
+            userName: teamEditorMapping.get(r.userId) || 'Editor',
+        }))
+    }));
+  }, [tasksData, currentUser, anonymizeUser, teamEditorMapping]);
+  
+  const messages = useMemo(() => {
+    if (!messagesData) return [];
+    const uniqueMessages = Array.from(new Map(messagesData.map(m => [m.id, m])).values());
+    const sorted = uniqueMessages.sort((a,b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
+    if (currentUser?.role !== 'client') return sorted;
+    
+    return sorted.map(m => {
+        const sender = usersData?.find(u => u.id === m.senderId);
+        if (sender && (sender.role === 'admin' || sender.role === 'team')) {
+            return {
+                ...m,
+                senderName: teamEditorMapping.get(m.senderId) || 'Editor',
+                senderAvatar: 'avatar-generic'
+            }
+        }
+        if (m.replyTo) {
+            const replySender = usersData?.find(u => u.name === m.replyTo?.senderName);
+            if (replySender && (replySender.role === 'admin' || replySender.role === 'team')) {
+                return {
+                    ...m,
+                    replyTo: {
+                        ...m.replyTo,
+                        senderName: teamEditorMapping.get(replySender.id) || 'Editor',
+                    }
+                }
+            }
+        }
+        return m;
+    })
+
+  }, [messagesData, currentUser?.role, usersData, teamEditorMapping]);
+    
+  const clients = clientsData || initialClients;
+  const notifications = notificationsData;
+  const scrumUpdates = scrumUpdatesData || [];
+
   const addProject = (projectData: Omit<Project, 'id' | 'coverImage'>) => {
     if (!firestore || !currentUser || !users) return;
     const newProjectId = doc(collection(firestore, 'projects')).id;
@@ -134,9 +203,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const project = projects.find(p => p.id === taskData.projectId);
     if (!project) return;
     
-    // Default assignment to the first team member or admin if no team is assigned yet.
     const assignedToId = project.team_ids[0] || (teamMembers.find(tm => tm.id !== currentUser.id))?.id || currentUser.id;
-    const assignedTo = users.find(u => u.id === assignedToId);
+    const assignedTo = usersData?.find(u => u.id === assignedToId);
 
     if (!assignedTo) {
         toast({title: "Error", description: "No one available to assign the task to.", variant: 'destructive'});
@@ -152,13 +220,13 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     };
     setDocumentNonBlocking(doc(firestore, 'tasks', newTask.id), newTask, {});
 
-    const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...teamMembers.filter(u=>u.role === 'admin').map(u=>u.id)]));
+    const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...(usersData?.filter(u=>u.role === 'admin').map(u=>u.id) || [])]));
     const finalRecipients = recipients.filter(id => id !== currentUser.id);
     addNotification(`New task '${newTask.title}' added to project '${project.name}'.`, project.id, finalRecipients);
   }
 
   const updateProjectTeam = (projectId: string, teamMemberIds: string[]) => {
-    if (!projects || !firestore || !currentUser || !users) return;
+    if (!projects || !firestore || !currentUser || !usersData) return;
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
     
@@ -167,16 +235,16 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
     toast({ title: 'Team Updated', description: `The team for "${project.name}" has been updated.` });
     
-    const recipients = Array.from(new Set([...teamMemberIds, project.client.id, ...users.filter(u=>u.role==='admin').map(u=>u.id)]));
+    const recipients = Array.from(new Set([...teamMemberIds, project.client.id, ...(usersData?.filter(u=>u.role==='admin').map(u=>u.id) || [])]));
     addNotification(`The team for project '${project.name}' has been updated.`, projectId, recipients.filter(id => id !== currentUser.id));
   };
 
   const updateTaskStatus = (taskId: string, status: TaskStatus, remark: string) => {
-    if (!currentUser || !firestore || !tasks || !projects || !users) return;
+    if (!currentUser || !firestore || !tasks || !projects || !usersData) return;
 
-    const task = tasks.find(t => t.id === taskId);
+    const task = tasksData?.find(t => t.id === taskId);
     if (!task) return;
-    const project = projects.find(p => p.id === task.projectId);
+    const project = projectsData?.find(p => p.id === task.projectId);
     if(!project) return;
 
     const newRemark: TaskRemark = {
@@ -196,7 +264,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
     toast({ title: 'Task Updated', description: `Task status changed to "${status}".` });
     
-    const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...users.filter(u=>u.role==='admin').map(u=>u.id)]));
+    const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...(usersData?.filter(u=>u.role==='admin').map(u=>u.id) || [])]));
     addNotification(`Task '${task.title}' in project '${project.name}' was updated to '${status}'.`, project.id, recipients.filter(id => id !== currentUser.id));
   }
 
@@ -266,7 +334,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const newUpdate: ScrumUpdate = { ...update, id: newUpdateId, timestamp: new Date().toISOString() };
     setDocumentNonBlocking(doc(firestore, 'scrum-updates', newUpdate.id), newUpdate, {});
 
-    // Notify admins
     const admins = users.filter(u => u.role === 'admin');
     if (admins.length > 0) {
       const adminIds = admins.map(a => a.id).filter(id => id !== currentUser.id);
@@ -304,11 +371,11 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }
 
   const addMessage = useCallback((messageData: Omit<ChatMessage, 'id' | 'timestamp'>) => {
-    if (!firestore || !currentUser || !users || !projects) return;
+    if (!firestore || !currentUser || !usersData || !projects) return;
     
     const finalMessageData = {
         ...messageData,
-        timestamp: serverTimestamp() // Use server timestamp for consistency
+        timestamp: serverTimestamp()
     };
 
     const newMessageId = doc(collection(firestore, 'messages')).id;
@@ -316,12 +383,46 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
     const project = projects.find(p => p.id === messageData.projectId);
     if (project) {
-      const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...users.filter(u=>u.role==='admin').map(u=>u.id)]));
+      const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...(usersData.filter(u=>u.role==='admin').map(u=>u.id) || [])]));
       const finalRecipients = recipients.filter(id => id !== currentUser.id);
       const messageSnippet = messageData.messageType === 'file' ? 'Sent a file' : `"${messageData.message.substring(0, 30)}..."`;
       addNotification(`New message in project '${project.name}': ${messageSnippet}`, project.id, finalRecipients);
     }
-  }, [firestore, currentUser, users, projects, addNotification]);
+  }, [firestore, currentUser, usersData, projects, addNotification]);
+
+  const uploadAndAddMessage = async (projectId: string, audioBlob: Blob): Promise<ChatMessage | null> => {
+    if (!currentUser || !firebaseApp) return null;
+  
+    try {
+      const url = await uploadFile(
+        audioBlob,
+        `voice-messages/${projectId}/${uuidv4()}.webm`
+      );
+  
+      const newMessage: Omit<ChatMessage, 'id' | 'timestamp'> = {
+        projectId,
+        senderId: currentUser.id,
+        senderName: currentUser.name,
+        senderAvatar: currentUser.avatar || '',
+        message: '🎤 Voice message',
+        fileUrl: url,
+        messageType: 'voice',
+      };
+  
+      addMessage(newMessage);
+  
+      // Return a representation of the message for optimistic UI updates
+      return {
+        ...newMessage,
+        id: uuidv4(), // temporary ID
+        timestamp: Timestamp.now(),
+      };
+    } catch (error) {
+      console.error("Upload and add message failed:", error);
+      toast({ title: "Upload failed", description: "Could not send voice message.", variant: 'destructive' });
+      return null;
+    }
+  };
   
   const markNotificationsAsRead = useCallback(() => {
     if (!firestore || !notifications || notifications.length === 0) return;
@@ -367,6 +468,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         addFile,
         addMessage,
         markNotificationsAsRead,
+        uploadAndAddMessage,
     }}>
       {children}
     </DataContext.Provider>

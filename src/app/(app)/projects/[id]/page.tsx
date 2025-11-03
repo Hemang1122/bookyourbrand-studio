@@ -12,7 +12,7 @@ import { ListTodo, MessageSquare, Files, Info, Users, Edit, Trash2 } from 'lucid
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
 import type { Project } from '@/lib/types';
-import { useAuth } from '@/lib/auth-client';
+import { useAuth } from '@/firebase/provider';
 import { Button } from '@/components/ui/button';
 import { ManageTeamDialog } from './components/manage-team-dialog';
 import { EditProjectDialog } from './components/edit-project-dialog';
