@@ -49,8 +49,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   
   // When a client is creating a project, the client is them.
   // If the admin is creating, find the client from the list.
-  // For a new client, we construct a temporary client object to prevent race conditions.
-  const clientForProject = isClientUser
+  const clientForProject = isClientUser && user
     ? ({
         id: user.id,
         name: user.name,
