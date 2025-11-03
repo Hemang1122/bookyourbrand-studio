@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import type { ChatMessage, User } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,8 @@ import { AddChatAttachmentDialog } from './add-chat-attachment-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { Timestamp } from 'firebase/firestore';
+import { useFirebaseServices } from '@/firebase';
+import { uploadFile } from '@/lib/storage';
 
 type ChatRoomProps = {
   projectId: string;
@@ -20,7 +22,7 @@ type ChatRoomProps = {
 export function ChatRoom({ projectId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
-  const { messages: serverMessages, addMessage, uploadAndAddMessage } = useData();
+  const { messages: serverMessages, addMessage } = useData();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   const [isRecording, setIsRecording] = useState(false);
@@ -28,12 +30,16 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const { toast } = useToast();
+  const { firebaseApp } = useFirebaseServices();
+  const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
+
 
   const projectMessages = useMemo(() => {
-    if (!serverMessages) return [];
-    const filteredMessages = serverMessages.filter(m => m.projectId === projectId);
-    return filteredMessages.sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
-  }, [serverMessages, projectId]);
+    if (!serverMessages) return optimisticMessages;
+    const combined = [...serverMessages.filter(m => m.projectId === projectId), ...optimisticMessages];
+    const uniqueMessages = Array.from(new Map(combined.map(m => [m.id, m])).values());
+    return uniqueMessages.sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
+  }, [serverMessages, projectId, optimisticMessages]);
 
 
   const scrollToBottom = () => {
@@ -105,28 +111,61 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const stopRecording = () => {
       if (mediaRecorderRef.current && isRecording) {
           mediaRecorderRef.current.stop();
-          // Stop all tracks to release microphone
           mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
           setIsRecording(false);
           toast({ title: "Recording Stopped" });
       }
   };
   
-  const sendVoiceMessage = async () => {
-    if (!audioBlob || !currentUser) return;
-  
-    setIsSendingVoice(true);
-  
-    try {
-      await uploadAndAddMessage(projectId, audioBlob);
-      setAudioBlob(null); // Clear blob to hide player UI
-    } catch (error) {
-      // Error toast is handled inside uploadAndAddMessage
-    } finally {
-      // Reset the sending state regardless of outcome
-      setIsSendingVoice(false);
-    }
+const sendVoiceMessage = async () => {
+  if (!audioBlob || !currentUser || !firebaseApp) return;
+
+  const tempId = uuidv4();
+  const tempMessage: ChatMessage = {
+    id: tempId,
+    projectId,
+    senderId: currentUser.id,
+    senderName: currentUser.name,
+    senderAvatar: currentUser.avatar || '',
+    message: "Uploading voice message...",
+    fileUrl: URL.createObjectURL(audioBlob),
+    messageType: 'voice',
+    timestamp: Timestamp.now(),
   };
+
+  setOptimisticMessages(prev => [...prev, tempMessage]);
+  setAudioBlob(null);
+  setIsSendingVoice(true);
+
+  try {
+    const downloadURL = await uploadFile(
+      firebaseApp,
+      audioBlob,
+      `voiceMessages/${projectId}/${tempId}.webm`
+    );
+
+    await addMessage({
+      projectId,
+      senderId: currentUser.id,
+      senderName: currentUser.name,
+      senderAvatar: currentUser.avatar || '',
+      message: "🎤 Voice message",
+      fileUrl: downloadURL,
+      messageType: 'voice',
+    });
+
+  } catch (error) {
+    console.error("Error uploading voice:", error);
+    toast({
+      title: "Upload failed",
+      description: "Could not send your voice message.",
+      variant: "destructive",
+    });
+  } finally {
+    setOptimisticMessages(prev => prev.filter(m => m.id !== tempId));
+    setIsSendingVoice(false);
+  }
+};
   
   if (!currentUser) return null;
 
@@ -137,6 +176,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
           {projectMessages.map((msg) => {
             const isCurrentUser = msg.senderId === currentUser.id;
             const messageDate = msg.timestamp?.toDate ? msg.timestamp.toDate() : new Date();
+            const isOptimistic = 'id' in msg && optimisticMessages.some(om => om.id === msg.id);
 
             return (
               <div
@@ -145,9 +185,16 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
               >
                 <div className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                     <span className="text-xs text-muted-foreground">{msg.senderName}</span>
-                    <div className={`rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                    <div className={`rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'} ${isOptimistic ? 'opacity-70' : ''}`}>
                         {msg.messageType === 'voice' && msg.fileUrl ? (
-                            <audio controls src={msg.fileUrl} className="max-w-full" />
+                            isOptimistic ? (
+                                <div className="flex items-center gap-2">
+                                    <Loader2 className="h-4 w-4 animate-spin"/>
+                                    <span>{msg.message}</span>
+                                </div>
+                            ) : (
+                               <audio controls src={msg.fileUrl} className="max-w-full" />
+                            )
                         ) : msg.fileUrl ? (
                            <div className="space-y-2">
                              <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-lg border bg-background/50 p-3 hover:bg-accent">
