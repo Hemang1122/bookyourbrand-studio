@@ -74,8 +74,8 @@ function LoginPageContent() {
         </Card>
       </div>
       
-      <div className="absolute bottom-4 z-10 text-center w-full text-sm text-muted-foreground font-sans">
-        <p>Crafted with passion by BookYourBrands</p>
+      <div className="absolute bottom-4 z-10 text-center w-full text-muted-foreground font-signature text-2xl">
+        <p>Arpit Lalani</p>
       </div>
     </main>
   );
