@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { FolderKanban, Clock, CheckCircle2, Plus, MessageSquare } from 'lucide-react';
+import { FolderKanban, Clock, CheckCircle2, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +10,6 @@ import { AddProjectDialog } from '../../projects/components/add-project-dialog';
 import { useData } from '../../data-provider';
 import { useAuth } from '@/firebase/provider';
 import type { Client } from '@/lib/types';
-import { ConnectTelegramDialog } from './connect-telegram-dialog';
 
 export function ClientDashboard() {
   const { user } = useAuth();
@@ -53,14 +52,6 @@ export function ClientDashboard() {
           <p className="text-muted-foreground">Welcome to your personal dashboard.</p>
         </div>
         <div className="flex items-center gap-2">
-            {!myClientRecord.telegramChatId && (
-            <ConnectTelegramDialog client={myClientRecord} onSave={updateClient}>
-                <Button variant="outline">
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    Connect Telegram
-                </Button>
-            </ConnectTelegramDialog>
-            )}
             <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
             <Button>
                 <Plus className="mr-2 h-4 w-4" />

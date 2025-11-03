@@ -12,7 +12,6 @@ export type User = {
   aadharUrl?: string;
   panUrl?: string;
   joiningLetterUrl?: string;
-  telegramChatId?: string;
 };
 
 export type Client = {
@@ -24,7 +23,6 @@ export type Client = {
   founderDetails?: string;
   agreementUrl?: string;
   idCardUrl?: string;
-  telegramChatId?: string;
 };
 
 export type ProjectStatus = 'Active' | 'On Hold' | 'Completed' | 'In Progress';
