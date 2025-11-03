@@ -50,8 +50,12 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
         const name = authUser.displayName || userEmail.split('@')[0];
         
         // Determine role based on email domain
-        const isAdmin = userEmail.endsWith('@bookyourbrands.com');
-        const role = isAdmin ? 'admin' : 'client';
+        let role: User['role'] = 'client';
+        if (userEmail.endsWith('@bookyourbrands.com')) {
+          role = 'admin';
+        } else if (userEmail.endsWith('@example.com')) {
+          role = 'team';
+        }
 
         finalUser = {
           id: authUser.uid,
