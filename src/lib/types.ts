@@ -75,7 +75,6 @@ export type ChatMessage = {
   timestamp: Timestamp;
   fileUrl: string | null;
   messageType: MessageType;
-  isUploading?: boolean;
 };
 
 export type ProjectFile = {

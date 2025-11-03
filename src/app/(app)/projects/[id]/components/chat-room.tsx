@@ -31,7 +31,8 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const { toast } = useToast();
 
   const projectMessages = useMemo(() => {
-    const combined = [...serverMessages.filter(m => m.projectId === projectId), ...optimisticMessages];
+    const allMessages = serverMessages.filter(m => m.projectId === projectId);
+    const combined = [...allMessages, ...optimisticMessages];
     const uniqueMessages = Array.from(new Map(combined.map(m => [m.id, m])).values());
     return uniqueMessages.sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
   }, [serverMessages, optimisticMessages, projectId]);
@@ -116,21 +117,18 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     if (!audioBlob || !currentUser) return;
   
     setIsSendingVoice(true);
-    setAudioBlob(null);
   
     try {
-      const newMessage = await uploadAndAddMessage(projectId, audioBlob);
-      if (newMessage) {
-        // Optimistically add the returned message with a temporary local ID
-        // The real message will arrive via Firestore subscription, and `useMemo` will dedupe it.
-        const optimisticMessage: ChatMessage = {
-          ...(newMessage as Omit<ChatMessage, 'id' | 'timestamp'>),
+      // The upload function now returns the complete message object
+      const localMsg = await uploadAndAddMessage(projectId, audioBlob);
+      
+      // Optimistically add the returned message with a temporary local ID and timestamp
+      setOptimisticMessages(prev => [...prev, { 
+          ...localMsg, 
           id: uuidv4(), // temporary unique id
           timestamp: Timestamp.now(), // temporary timestamp
-          fileUrl: URL.createObjectURL(audioBlob), // Use local blob URL for immediate playback
-        };
-        setOptimisticMessages(prev => [...prev, optimisticMessage]);
-      }
+        }]);
+
     } catch (error) {
       toast({
         title: "Upload Failed",
@@ -138,6 +136,8 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
         variant: "destructive"
       });
     } finally {
+      // Clear the audio blob and reset the sending state
+      setAudioBlob(null);
       setIsSendingVoice(false);
     }
   };
@@ -160,10 +160,10 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                 <div className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                     <span className="text-xs text-muted-foreground">{msg.senderName}</span>
                     <div className={`rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                        {msg.isUploading && <div className='flex items-center gap-2'><Loader2 className="h-4 w-4 animate-spin" /> <span>Uploading...</span></div>}
-                        {!msg.isUploading && msg.messageType === 'voice' && msg.fileUrl ? (
+                        {isSendingVoice && !msg.fileUrl && <div className='flex items-center gap-2'><Loader2 className="h-4 w-4 animate-spin" /> <span>Uploading...</span></div>}
+                        {msg.messageType === 'voice' && msg.fileUrl ? (
                             <audio controls src={msg.fileUrl} className="max-w-full" />
-                        ) : !msg.isUploading && msg.fileUrl ? (
+                        ) : msg.fileUrl ? (
                            <div className="space-y-2">
                              <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-lg border bg-background/50 p-3 hover:bg-accent">
                                 <FileText className="h-6 w-6 text-muted-foreground" />
@@ -176,7 +176,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                              {msg.message && msg.message !== "Shared a file." && <p className="text-sm">{msg.message}</p>}
                            </div>
                         ) : (
-                           !msg.isUploading && <p className="text-sm">{msg.message}</p>
+                           <p className="text-sm">{msg.message}</p>
                         )}
                     </div>
                     <p className={`text-xs mt-1 ${isCurrentUser ? 'text-right' : 'text-left'} text-muted-foreground/80`}>

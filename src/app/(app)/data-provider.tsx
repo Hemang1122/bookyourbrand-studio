@@ -367,9 +367,9 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         messageType: 'voice',
       };
   
-      addMessage(newMessage);
+      addMessage(newMessage); // fire-and-forget to Firestore
   
-      return newMessage;
+      return newMessage; // Return message object for optimistic UI
   
     } catch (error) {
       console.error("❌ Error uploading voice message:", error);
@@ -442,5 +442,3 @@ export function useData() {
   }
   return context;
 }
-
-    
