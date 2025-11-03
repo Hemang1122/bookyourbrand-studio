@@ -10,11 +10,17 @@ import {
 } from '@/components/ui/card';
 import { LoginLogo } from '@/components/login-logo';
 import { LoginForm } from './components/login-form';
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { FirebaseClientProvider } from '@/firebase';
 import { Facebook, Instagram, Youtube } from 'lucide-react';
 
 function LoginPageContent() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   return (
     <main className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-background p-4 lg:grid lg:grid-cols-2">
       <div
@@ -59,12 +65,12 @@ function LoginPageContent() {
 
       <div className="relative z-10 flex w-full max-w-md items-center justify-center">
         <Card className="w-full bg-background/80 backdrop-blur-sm shadow-2xl">
-          <CardHeader className="text-center">
+          <CardHeader className="text-center overflow-hidden">
             <div className="mb-4 flex justify-center lg:hidden">
               <LoginLogo />
             </div>
-            <CardTitle className="text-2xl font-bold">Welcome Back!</CardTitle>
-            <CardDescription>
+            <CardTitle className={`text-2xl font-bold transition-all duration-1000 ease-out ${isMounted ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>Welcome Back!</CardTitle>
+            <CardDescription className={`transition-all duration-1000 ease-out delay-200 ${isMounted ? 'translate-y-0 opacity-100' : '-translate-y-10 opacity-0'}`}>
               Sign in to your account to continue.
             </CardDescription>
           </CardHeader>
