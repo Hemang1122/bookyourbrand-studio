@@ -76,7 +76,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   
   const { data: projectsData, isLoading: projectsLoading } = useCollection<Project>(useMemoFirebase(() => firestore ? collection(firestore, 'projects') : null, [firestore]));
   const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
-  const { data: files = [], isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? collection(firestore, 'files') : null, [firestore]));
+  const { data: files, isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? collection(firestore, 'files') : null, [firestore]));
   const { data: messagesData, isLoading: messagesLoading } = useCollection<ChatMessage>(useMemoFirebase(() => firestore ? collection(firestore, 'messages') : null, [firestore]));
   const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
   const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
@@ -120,14 +120,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   const teamMembers = useMemo(() => (usersData || []).filter(u => u.role === 'admin' || u.role === 'team'), [usersData]);
   
-  const projects = useMemo(() => {
-    if (!projectsData) return initialProjects;
-    if (currentUser?.role !== 'client') return projectsData;
-    return projectsData.map(p => ({
-        ...p,
-        team_ids: p.team_ids.map(id => teamEditorMapping.get(id) || 'Editor'),
-    }));
-  }, [projectsData, currentUser, teamEditorMapping]);
+  const projects = projectsData || initialProjects;
 
   const tasks = useMemo(() => {
     if (!tasksData) return initialTasks;
@@ -400,7 +393,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }, [firestore, currentUser, usersData, projectsData, addNotification]);
 
   const uploadAndAddMessage = async (projectId: string, audioBlob: Blob) => {
-    if (!currentUser) return;
+    if (!currentUser || !firebaseApp) return;
   
     try {
       const url = await uploadFile(

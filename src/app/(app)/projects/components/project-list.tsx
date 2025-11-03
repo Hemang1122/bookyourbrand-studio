@@ -1,6 +1,6 @@
 'use client';
 
-import type { Project } from '@/lib/types';
+import type { Project, User } from '@/lib/types';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +26,18 @@ export function ProjectList() {
     return projects; // Admins see all projects
   }, [projects, user]);
 
+  const teamEditorMapping = useMemo(() => {
+    if (!users) return new Map<string, string>();
+    const mapping = new Map<string, string>();
+    let editorCount = 1;
+    users
+      .filter(u => u.role === 'team' || u.role === 'admin')
+      .forEach(u => {
+        mapping.set(u.id, `Editor ${editorCount++}`);
+      });
+    return mapping;
+  }, [users]);
+
   if (isLoading) {
     return (
          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -40,7 +52,13 @@ export function ProjectList() {
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {filteredProjects.map((project) => {
         const coverImage = PlaceHolderImages.find(img => img.id === project.coverImage);
-        const teamMembers = users.filter(u => project.team_ids && project.team_ids.includes(u.id));
+        
+        let teamMembers: (User | {id: string, name: string})[] = users.filter(u => project.team_ids && project.team_ids.includes(u.id));
+
+        if (user?.role === 'client') {
+            teamMembers = project.team_ids.map(id => ({ id, name: teamEditorMapping.get(id) || 'Editor' }));
+        }
+
         return (
           <Link href={`/projects/${project.id}`} key={project.id}>
             <Card className="overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1">
