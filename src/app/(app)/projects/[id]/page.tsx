@@ -30,6 +30,17 @@ export default function ProjectDetailPage() {
     return projects.find((p) => p.id === id);
   }, [id, projects]);
 
+  const teamEditorMapping = useMemo(() => {
+    if (!users) return new Map<string, string>();
+    const mapping = new Map<string, string>();
+    let editorCount = 1;
+    users
+      .filter(u => u.role === 'team')
+      .forEach(u => {
+        mapping.set(u.id, `Editor ${editorCount++}`);
+      });
+    return mapping;
+  }, [users]);
 
   if (isLoading) {
     return (
@@ -62,18 +73,6 @@ export default function ProjectDetailPage() {
     return client.name || client.email?.split('@')[0] || "Client";
   }
 
-  const teamEditorMapping = useMemo(() => {
-    if (!users) return new Map<string, string>();
-    const mapping = new Map<string, string>();
-    let editorCount = 1;
-    users
-      .filter(u => u.role === 'team')
-      .forEach(u => {
-        mapping.set(u.id, `Editor ${editorCount++}`);
-      });
-    return mapping;
-  }, [users]);
-  
   let displayTeamMembers: Partial<User>[] = teamMembers;
 
   if (user?.role === 'client') {
