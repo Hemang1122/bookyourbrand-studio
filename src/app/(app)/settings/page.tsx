@@ -1,5 +1,10 @@
+'use client';
 import { Separator } from '@/components/ui/separator';
 import { SettingsForm } from './components/settings-form';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import BillingPage from './billing/page';
+import { CreditCard, User } from 'lucide-react';
+
 
 export default function SettingsPage() {
   return (
@@ -7,11 +12,23 @@ export default function SettingsPage() {
       <div>
         <h3 className="text-lg font-medium">Settings</h3>
         <p className="text-sm text-muted-foreground">
-          Manage your account settings and preferences.
+          Manage your account settings and billing.
         </p>
       </div>
       <Separator />
-      <SettingsForm />
+      
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="profile"><User className="mr-2 h-4 w-4"/>Profile</TabsTrigger>
+            <TabsTrigger value="billing"><CreditCard className="mr-2 h-4 w-4"/>Billing</TabsTrigger>
+        </TabsList>
+        <TabsContent value="profile">
+            <SettingsForm />
+        </TabsContent>
+        <TabsContent value="billing">
+            <BillingPage />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
