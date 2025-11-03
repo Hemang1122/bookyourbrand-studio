@@ -331,7 +331,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   
     try {
       // Pass the firebaseApp instance to uploadFile
-      const downloadURL = await uploadFile(firebaseApp, audioBlob, `voiceMessages/${currentUser.id}`);
+      const downloadURL = await uploadFile(firebaseApp, audioBlob, `voiceMessages/${projectId}/${currentUser.id}`);
   
       const newMessage: Omit<ChatMessage, 'id' | 'timestamp'> = {
         projectId,

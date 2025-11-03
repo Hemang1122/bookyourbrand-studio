@@ -121,11 +121,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
       await uploadAndAddMessage(projectId, audioBlob);
       setAudioBlob(null); // Clear blob to hide player UI
     } catch (error) {
-      toast({
-        title: "Upload Failed",
-        description: "Could not send voice message. Please try again.",
-        variant: "destructive"
-      });
+      // Error toast is handled inside uploadAndAddMessage
     } finally {
       // Reset the sending state regardless of outcome
       setIsSendingVoice(false);
