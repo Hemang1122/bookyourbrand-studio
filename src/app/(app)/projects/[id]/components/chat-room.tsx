@@ -107,7 +107,10 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const sendVoiceMessage = () => {
     if (!audioBlob || !currentUser) return;
     
-    const audioFile = new File([audioBlob], 'voice-message.webm', { type: 'audio/webm' });
+    // Create a File object from the Blob
+    const audioFile = new File([audioBlob], `voice-message-${Date.now()}.webm`, { type: 'audio/webm' });
+    
+    // Call the upload function from the data provider
     uploadAndAddMessage(projectId, audioFile, "Voice Message", 'voice');
     
     setAudioBlob(null);

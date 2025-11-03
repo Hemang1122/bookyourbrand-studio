@@ -6,7 +6,7 @@ import { users as initialUsers, clients as initialClients, projects as initialPr
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking } from '@/firebase';
-import { collection, doc, query, where, Timestamp, writeBatch } from 'firebase/firestore';
+import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -310,7 +310,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
     const finalMessageData = {
         ...messageData,
-        timestamp: Timestamp.now()
+        timestamp: serverTimestamp() // Use server timestamp for consistency
     };
 
     const newMessageId = doc(collection(firestore, 'messages')).id;
@@ -326,7 +326,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }, [firestore, currentUser, users, projects, addNotification]);
   
   const uploadAndAddMessage = useCallback(async (projectId: string, file: File, message: string, messageType: MessageType) => {
-    if (!currentUser || !firestore) return;
+    if (!currentUser) return;
 
     const optimisticId = `optimistic-${uuidv4()}`;
     const localUrl = URL.createObjectURL(file);
@@ -338,16 +338,19 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       senderName: currentUser.name,
       senderAvatar: currentUser.avatar || '',
       message: message,
-      timestamp: Timestamp.now(),
+      timestamp: Timestamp.now(), // Local timestamp for optimistic UI
       fileUrl: localUrl,
       messageType: messageType,
       isUploading: true,
     };
-
+    
     setOptimisticMessages((prev) => [...prev, optimisticMessage]);
 
     try {
+      // The uploadFile function from storage.ts handles the full upload process.
       const downloadURL = await uploadFile(file, `${messageType}/${projectId}`);
+
+      // Once upload is successful, add the final message to Firestore.
       addMessage({
         projectId,
         senderId: currentUser.id,
@@ -357,6 +360,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         fileUrl: downloadURL,
         messageType: messageType,
       });
+
     } catch (err) {
       console.error("Upload failed", err);
       toast({
@@ -365,10 +369,12 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         variant: "destructive",
       });
     } finally {
+      // Remove the optimistic message regardless of success or failure.
       setOptimisticMessages((prev) => prev.filter((m) => m.id !== optimisticId));
       URL.revokeObjectURL(localUrl);
     }
-  }, [currentUser, firestore, addMessage, toast]);
+  }, [currentUser, addMessage, toast]);
+
 
 
   const markNotificationsAsRead = useCallback(() => {
