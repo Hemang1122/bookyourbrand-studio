@@ -10,6 +10,7 @@ import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp }
 import { useAuth } from '@/firebase/provider';
 import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
+import type { FirebaseApp } from 'firebase/app';
 
 
 type DataContextType = {
@@ -50,7 +51,7 @@ type DataContextType = {
   addFile: (file: Omit<ProjectFile, 'id'>) => void;
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   markNotificationsAsRead: () => void;
-  uploadAndAddMessage: (projectId: string, audioBlob: Blob) => Promise<ChatMessage | null>;
+  uploadAndAddMessage: (projectId: string, audioBlob: Blob) => Promise<void>;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -75,7 +76,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   
   const { data: projectsData, isLoading: projectsLoading } = useCollection<Project>(useMemoFirebase(() => firestore ? collection(firestore, 'projects') : null, [firestore]));
   const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
-  const { data: filesData = [], isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? collection(firestore, 'files') : null, [firestore]));
+  const { data: files = [], isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? collection(firestore, 'files') : null, [firestore]));
   const { data: messagesData, isLoading: messagesLoading } = useCollection<ChatMessage>(useMemoFirebase(() => firestore ? collection(firestore, 'messages') : null, [firestore]));
   const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
   const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
@@ -101,7 +102,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }, [usersData]);
 
   const anonymizeUser = useCallback((userToAnonymize: User) => {
-    if (currentUser?.role === 'client' && (userToAnonymize.role === 'team' || userToAnonymize.role === 'admin')) {
+    if (currentUser?.role === 'client' && userToAnonymize && (userToAnonymize.role === 'team' || userToAnonymize.role === 'admin')) {
       return {
         ...userToAnonymize,
         name: teamEditorMapping.get(userToAnonymize.id) || 'Editor',
@@ -117,7 +118,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     return usersData.map(anonymizeUser);
   }, [usersData, currentUser?.role, anonymizeUser]);
 
-  const teamMembers = useMemo(() => (users || []).filter(u => u.role === 'admin' || u.role === 'team'), [users]);
+  const teamMembers = useMemo(() => (usersData || []).filter(u => u.role === 'admin' || u.role === 'team'), [usersData]);
   
   const projects = useMemo(() => {
     if (!projectsData) return initialProjects;
@@ -199,7 +200,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   };
 
   const addTask = (taskData: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks'>) => {
-    if (!firestore || !projects || !currentUser || !users) return;
+    if (!firestore || !projects || !currentUser || !usersData) return;
     const project = projects.find(p => p.id === taskData.projectId);
     if (!project) return;
     
@@ -226,8 +227,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }
 
   const updateProjectTeam = (projectId: string, teamMemberIds: string[]) => {
-    if (!projects || !firestore || !currentUser || !usersData) return;
-    const project = projects.find(p => p.id === projectId);
+    if (!projectsData || !firestore || !currentUser || !usersData) return;
+    const project = projectsData.find(p => p.id === projectId);
     if (!project) return;
     
     const projectRef = doc(firestore, 'projects', projectId);
@@ -240,7 +241,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   };
 
   const updateTaskStatus = (taskId: string, status: TaskStatus, remark: string) => {
-    if (!currentUser || !firestore || !tasks || !projects || !usersData) return;
+    if (!currentUser || !firestore || !tasksData || !projectsData || !usersData) return;
 
     const task = tasksData?.find(t => t.id === taskId);
     if (!task) return;
@@ -371,7 +372,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }
 
   const addMessage = useCallback((messageData: Omit<ChatMessage, 'id' | 'timestamp'>) => {
-    if (!firestore || !currentUser || !usersData || !projects) return;
+    if (!firestore || !currentUser || !usersData || !projectsData) return;
     
     const finalMessageData = {
         ...messageData,
@@ -381,17 +382,25 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const newMessageId = doc(collection(firestore, 'messages')).id;
     setDocumentNonBlocking(doc(firestore, 'messages', newMessageId), finalMessageData, {});
 
-    const project = projects.find(p => p.id === messageData.projectId);
+    const project = projectsData.find(p => p.id === messageData.projectId);
     if (project) {
       const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...(usersData.filter(u=>u.role==='admin').map(u=>u.id) || [])]));
       const finalRecipients = recipients.filter(id => id !== currentUser.id);
-      const messageSnippet = messageData.messageType === 'file' ? 'Sent a file' : `"${messageData.message.substring(0, 30)}..."`;
+      let messageSnippet = '';
+      if (messageData.messageType === 'file') {
+        messageSnippet = 'Sent a file';
+      } else if (messageData.messageType === 'voice') {
+        messageSnippet = 'Sent a voice message';
+      }
+      else {
+        messageSnippet = `"${messageData.message.substring(0, 30)}..."`;
+      }
       addNotification(`New message in project '${project.name}': ${messageSnippet}`, project.id, finalRecipients);
     }
-  }, [firestore, currentUser, usersData, projects, addNotification]);
+  }, [firestore, currentUser, usersData, projectsData, addNotification]);
 
-  const uploadAndAddMessage = async (projectId: string, audioBlob: Blob): Promise<ChatMessage | null> => {
-    if (!currentUser || !firebaseApp) return null;
+  const uploadAndAddMessage = async (projectId: string, audioBlob: Blob) => {
+    if (!currentUser) return;
   
     try {
       const url = await uploadFile(
@@ -399,7 +408,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         `voice-messages/${projectId}/${uuidv4()}.webm`
       );
   
-      const newMessage: Omit<ChatMessage, 'id' | 'timestamp'> = {
+      addMessage({
         projectId,
         senderId: currentUser.id,
         senderName: currentUser.name,
@@ -407,20 +416,12 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         message: '🎤 Voice message',
         fileUrl: url,
         messageType: 'voice',
-      };
+      });
   
-      addMessage(newMessage);
-  
-      // Return a representation of the message for optimistic UI updates
-      return {
-        ...newMessage,
-        id: uuidv4(), // temporary ID
-        timestamp: Timestamp.now(),
-      };
     } catch (error) {
       console.error("Upload and add message failed:", error);
       toast({ title: "Upload failed", description: "Could not send voice message.", variant: 'destructive' });
-      return null;
+      throw error;
     }
   };
   
