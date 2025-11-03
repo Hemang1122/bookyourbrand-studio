@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { ListTodo, MessageSquare, Files, Info, Users, Edit, Trash2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
-import type { Project } from '@/lib/types';
+import type { Project, Client } from '@/lib/types';
 import { useAuth } from '@/firebase/provider';
 import { Button } from '@/components/ui/button';
 import { ManageTeamDialog } from './components/manage-team-dialog';
@@ -58,13 +58,16 @@ export default function ProjectDetailPage() {
   }
   
   const teamMembers = users.filter(u => project.team_ids && project.team_ids.includes(u.id));
+  const getClientName = (client: Client) => {
+    return client.name || client.email?.split('@')[0] || "Client";
+  }
 
   return (
     <div className="space-y-6">
        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1">
           <h2 className="text-3xl font-bold tracking-tight">{project.name}</h2>
-          <p className="text-muted-foreground">For client: {project.client.name}</p>
+          <p className="text-muted-foreground">For client: {getClientName(project.client)}</p>
         </div>
         <div className="flex items-center gap-2">
             {user?.role === 'admin' && (

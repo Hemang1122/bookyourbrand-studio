@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,7 +14,7 @@ import type { Client } from '@/lib/types';
 
 export function ClientDashboard() {
   const { user } = useAuth();
-  const { projects, tasks, addProject, isLoading, updateClient } = useData();
+  const { projects, tasks, addProject, isLoading } = useData();
 
   // The user object for a client *is* their client record for dashboard purposes.
   // We can treat the User as a Client here if the roles match.
@@ -43,6 +44,10 @@ export function ClientDashboard() {
   const activeProjects = myProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;
   const completedProjects = myProjects.filter(p => p.status === 'Completed').length;
   const safeTasks = tasks || [];
+
+  const getClientName = (client: Client) => {
+    return client.name || client.email?.split('@')[0] || "Client";
+  }
 
   return (
     <div className="space-y-6">

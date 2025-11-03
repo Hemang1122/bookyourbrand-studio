@@ -41,11 +41,11 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   const [selectedClientId, setSelectedClientId] = useState<string | undefined>(preselectedClient?.id);
   const [team_ids, setTeamIds] = useState<string[]>([]);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user: currentUser } = useAuth();
   const { teamMembers, clients } = useData();
 
   const teamMemberOptions = teamMembers.map(tm => ({ value: tm.id, label: tm.name }));
-  const isClientUser = user?.role === 'client';
+  const isClientUser = currentUser?.role === 'client';
   
   const handleAddProject = () => {
     // Universal validation
@@ -54,29 +54,33 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
       return;
     }
 
-    let clientForProject: Client | undefined;
+    if (!currentUser) {
+        toast({ title: "Error", description: "You must be logged in to create a project.", variant: 'destructive'});
+        return;
+    }
+
+    let clientForProject: Client;
     
     // If the logged-in user is a client, use their auth info directly.
-    // This is the definitive fix for the "New User" race condition.
-    if (isClientUser && user) {
+    if (isClientUser) {
+        const nameFromEmail = currentUser.email?.split('@')[0] || 'Client';
         clientForProject = {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            avatar: user.avatar,
-            company: `${user.name}'s Company`, // A sensible default
+            id: currentUser.id,
+            name: currentUser.name || nameFromEmail,
+            email: currentUser.email,
+            avatar: currentUser.avatar,
+            company: `${currentUser.name || nameFromEmail}'s Company`, // A sensible default
         };
     } else {
         // If an admin is creating, find the client from the list.
-        clientForProject = clients.find(c => c.id === selectedClientId);
+        const selectedClient = clients.find(c => c.id === selectedClientId);
+        if (!selectedClient) {
+            toast({ title: 'Error', description: 'Please select a client.', variant: 'destructive' });
+            return;
+        }
+        clientForProject = selectedClient;
     }
 
-
-    if (!clientForProject) {
-      toast({ title: 'Error', description: 'Selected client not found. Please ensure a client is selected.', variant: 'destructive' });
-      return;
-    }
-    
     // Admin-specific validation
     if (!isClientUser && team_ids.length === 0) {
       toast({ title: 'Error', description: 'Please assign at least one team member.', variant: 'destructive' });
@@ -95,6 +99,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
       team_ids: selectedTeamIds,
       status: 'Active',
     };
+
     onProjectAdd(newProject);
     toast({ title: 'Project Added', description: `"${name}" has been created.` });
     setOpen(false);
@@ -136,7 +141,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
                         <SelectValue placeholder="Select a client" />
                     </SelectTrigger>
                     <SelectContent>
-                        {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                        {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name || c.email?.split('@')[0]}</SelectItem>)}
                     </SelectContent>
                 </Select>
             </div>
