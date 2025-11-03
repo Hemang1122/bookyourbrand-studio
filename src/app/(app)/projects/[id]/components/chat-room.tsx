@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { ChatMessage, User } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
   const { messages: serverMessages, addMessage, uploadAndAddMessage } = useData();
-  const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
+  const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   const [isRecording, setIsRecording] = useState(false);
@@ -31,11 +31,11 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const { toast } = useToast();
 
   const projectMessages = useMemo(() => {
-    const allMessages = serverMessages.filter(m => m.projectId === projectId);
-    const combined = [...allMessages, ...optimisticMessages];
+    const allServerMessages = serverMessages.filter(m => m.projectId === projectId);
+    const combined = [...allServerMessages, ...localMessages];
     const uniqueMessages = Array.from(new Map(combined.map(m => [m.id, m])).values());
     return uniqueMessages.sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
-  }, [serverMessages, optimisticMessages, projectId]);
+  }, [serverMessages, localMessages, projectId]);
 
 
   const scrollToBottom = () => {
@@ -117,13 +117,15 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     if (!audioBlob || !currentUser) return;
   
     setIsSendingVoice(true);
+    setAudioBlob(null); // Clear blob to hide player UI
   
     try {
       // The upload function now returns the complete message object
       const localMsg = await uploadAndAddMessage(projectId, audioBlob);
       
       // Optimistically add the returned message with a temporary local ID and timestamp
-      setOptimisticMessages(prev => [...prev, { 
+      // This will be replaced by the server version when useCollection syncs.
+      setLocalMessages(prev => [...prev, { 
           ...localMsg, 
           id: uuidv4(), // temporary unique id
           timestamp: Timestamp.now(), // temporary timestamp
@@ -136,8 +138,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
         variant: "destructive"
       });
     } finally {
-      // Clear the audio blob and reset the sending state
-      setAudioBlob(null);
+      // Reset the sending state
       setIsSendingVoice(false);
     }
   };
@@ -160,7 +161,6 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                 <div className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                     <span className="text-xs text-muted-foreground">{msg.senderName}</span>
                     <div className={`rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                        {isSendingVoice && !msg.fileUrl && <div className='flex items-center gap-2'><Loader2 className="h-4 w-4 animate-spin" /> <span>Uploading...</span></div>}
                         {msg.messageType === 'voice' && msg.fileUrl ? (
                             <audio controls src={msg.fileUrl} className="max-w-full" />
                         ) : msg.fileUrl ? (
