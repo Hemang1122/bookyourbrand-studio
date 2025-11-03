@@ -50,7 +50,7 @@ type DataContextType = {
   updateProject: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => void;
   addFile: (file: Omit<ProjectFile, 'id'>) => void;
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
-  uploadAndAddMessage: (projectId: string, audioBlob: Blob) => Promise<string>;
+  uploadAndAddMessage: (projectId: string, audioBlob: Blob) => Promise<Omit<ChatMessage, 'id' | 'timestamp'>>;
   markNotificationsAsRead: () => void;
 };
 
@@ -326,65 +326,61 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     }
   }, [firestore, currentUser, users, projects, addNotification]);
   
-  const uploadAndAddMessage = useCallback(async (projectId: string, audioBlob: Blob): Promise<string> => {
+  const uploadAndAddMessage = useCallback(async (projectId: string, audioBlob: Blob): Promise<Omit<ChatMessage, 'id' | 'timestamp'>> => {
     if (!currentUser || !firebaseApp) {
-        throw new Error("User not authenticated or Firebase not available.");
+      throw new Error("User not authenticated or Firebase not available.");
     }
-    const userId = currentUser.id;
+  
     const storage = getStorage(firebaseApp);
-    const db = firestore;
-
+  
     try {
-        console.log("Uploading voice message...");
-
-        const filePath = `voiceMessages/${userId}_${Date.now()}.webm`;
-        const storageRef = ref(storage, filePath);
-
-        const uploadTask = uploadBytesResumable(storageRef, audioBlob);
-
-        const downloadURL = await new Promise<string>((resolve, reject) => {
-            uploadTask.on(
-                "state_changed",
-                (snapshot) => {
-                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    console.log(`Upload is ${progress.toFixed(1)}% done`);
-                },
-                (error) => {
-                    console.error("Upload failed:", error);
-                    reject(error);
-                },
-                async () => {
-                    const url = await getDownloadURL(uploadTask.snapshot.ref);
-                    resolve(url);
-                }
-            );
-        });
-        
-        console.log("✅ Voice message uploaded successfully!");
-
-        // Use the existing addMessage function to maintain consistency
-        addMessage({
-            projectId,
-            senderId: currentUser.id,
-            senderName: currentUser.name,
-            senderAvatar: currentUser.avatar || '',
-            message: "Voice Message",
-            fileUrl: downloadURL,
-            messageType: 'voice',
-        });
-
-        return downloadURL;
-
+      const filePath = `voiceMessages/${currentUser.id}_${Date.now()}.webm`;
+      const storageRef = ref(storage, filePath);
+  
+      const uploadTask = uploadBytesResumable(storageRef, audioBlob);
+  
+      const downloadURL = await new Promise<string>((resolve, reject) => {
+        uploadTask.on(
+          "state_changed",
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            console.log(`Upload is ${progress.toFixed(1)}% done`);
+          },
+          (error) => {
+            console.error("Upload failed:", error);
+            reject(error);
+          },
+          async () => {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            resolve(url);
+          }
+        );
+      });
+  
+      const newMessage: Omit<ChatMessage, 'id' | 'timestamp'> = {
+        projectId,
+        senderId: currentUser.id,
+        senderName: currentUser.name,
+        senderAvatar: currentUser.avatar || '',
+        message: "Voice Message",
+        fileUrl: downloadURL,
+        messageType: 'voice',
+      };
+  
+      addMessage(newMessage);
+  
+      return newMessage;
+  
     } catch (error) {
-        console.error("❌ Error uploading voice message:", error);
-        toast({
-            title: "Upload Failed",
-            description: "Could not send the voice message.",
-            variant: "destructive",
-        });
-        throw error;
+      console.error("❌ Error uploading voice message:", error);
+      toast({
+        title: "Upload Failed",
+        description: "Could not send the voice message.",
+        variant: "destructive",
+      });
+      throw error;
     }
-}, [currentUser, firebaseApp, firestore, addMessage, toast]);
+  }, [currentUser, firebaseApp, addMessage, toast]);
 
 
 

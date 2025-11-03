@@ -10,6 +10,8 @@ import { useAuth } from '@/firebase/provider';
 import { useData } from '../../../data-provider';
 import { AddChatAttachmentDialog } from './add-chat-attachment-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { v4 as uuidv4 } from 'uuid';
+import { Timestamp } from 'firebase/firestore';
 
 type ChatRoomProps = {
   projectId: string;
@@ -18,7 +20,8 @@ type ChatRoomProps = {
 export function ChatRoom({ projectId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
-  const { messages, addMessage, uploadAndAddMessage } = useData();
+  const { messages: serverMessages, addMessage, uploadAndAddMessage } = useData();
+  const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   const [isRecording, setIsRecording] = useState(false);
@@ -27,8 +30,12 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const { toast } = useToast();
 
-  const projectMessages = messages.filter(m => m.projectId === projectId)
-    .sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
+  const projectMessages = useMemo(() => {
+    const combined = [...serverMessages.filter(m => m.projectId === projectId), ...optimisticMessages];
+    const uniqueMessages = Array.from(new Map(combined.map(m => [m.id, m])).values());
+    return uniqueMessages.sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
+  }, [serverMessages, optimisticMessages, projectId]);
+
 
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
@@ -109,13 +116,42 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     if (!audioBlob || !currentUser) return;
     
     setIsSendingVoice(true);
+    setAudioBlob(null);
+
+    const optimisticId = uuidv4();
+    const optimisticMessage: ChatMessage = {
+      id: optimisticId,
+      projectId,
+      senderId: currentUser.id,
+      senderName: currentUser.name,
+      senderAvatar: currentUser.avatar,
+      message: "Voice Message",
+      fileUrl: URL.createObjectURL(audioBlob),
+      messageType: 'voice',
+      timestamp: Timestamp.now(),
+      isUploading: true,
+    };
+
+    setOptimisticMessages(prev => [...prev, optimisticMessage]);
+
     try {
-        await uploadAndAddMessage(projectId, audioBlob);
+      const finalMessage = await uploadAndAddMessage(projectId, audioBlob);
+      // Replace optimistic message with final message from server (or just remove optimistic one)
+      // The useCollection hook will eventually get the new message from firestore
     } catch (error) {
-        // Error is already toasted in the provider
+      toast({
+        title: "Upload Failed",
+        description: "Could not send voice message.",
+        variant: "destructive"
+      });
+      // Remove the optimistic message on failure
+      setOptimisticMessages(prev => prev.filter(m => m.id !== optimisticId));
     } finally {
-        setIsSendingVoice(false);
-        setAudioBlob(null);
+      setIsSendingVoice(false);
+      // The optimistic message will be removed once the real one arrives from Firestore subscription
+       setTimeout(() => {
+         setOptimisticMessages(prev => prev.filter(m => m.id !== optimisticId));
+       }, 5000); // Failsafe cleanup
     }
   };
   
@@ -179,7 +215,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
         ) : (
             <form onSubmit={handleSendTextMessage} className="flex w-full items-center space-x-2">
             <AddChatAttachmentDialog onAddAttachment={handleAddAttachment}>
-                <Button variant="ghost" size="icon" type="button" disabled={isRecording}>
+                <Button variant="ghost" size="icon" type="button" disabled={isRecording || isSendingVoice}>
                     <Paperclip className="h-5 w-5" />
                     <span className="sr-only">Attach file</span>
                 </Button>
@@ -188,9 +224,9 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
             <Input
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                placeholder={isRecording ? "Recording audio..." : "Type a message..."}
+                placeholder={isRecording ? "Recording audio..." : isSendingVoice ? "Sending voice message..." : "Type a message..."}
                 autoComplete="off"
-                disabled={isRecording}
+                disabled={isRecording || isSendingVoice}
             />
 
             {isRecording ? (
@@ -199,13 +235,13 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                     <span className="sr-only">Stop Recording</span>
                 </Button>
             ) : (
-                <Button type="button" size="icon" onClick={startRecording}>
+                <Button type="button" size="icon" onClick={startRecording} disabled={isSendingVoice}>
                     <Mic className="h-5 w-5" />
                     <span className="sr-only">Record Voice Message</span>
                 </Button>
             )}
 
-            <Button type="submit" size="icon" disabled={!newMessage.trim() || isRecording}>
+            <Button type="submit" size="icon" disabled={!newMessage.trim() || isRecording || isSendingVoice}>
                 <Send className="h-5 w-5" />
                 <span className="sr-only">Send message</span>
             </Button>
