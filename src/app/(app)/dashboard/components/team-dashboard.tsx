@@ -36,11 +36,11 @@ export function TeamDashboard() {
 
   return (
     <div className="space-y-4">
-       <div className="flex items-center justify-between animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold tracking-tight">My Dashboard</h2>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-         <Card className="animate-card-in" style={{ animationDelay: '300ms' }}>
+         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Assigned Projects</CardTitle>
             <FolderKanban className="h-4 w-4 text-muted-foreground" />
@@ -50,7 +50,7 @@ export function TeamDashboard() {
             <p className="text-xs text-muted-foreground">Projects you are a member of.</p>
           </CardContent>
         </Card>
-        <Card className="animate-card-in" style={{ animationDelay: '400ms' }}>
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
             <ListTodo className="h-4 w-4 text-muted-foreground" />
@@ -60,7 +60,7 @@ export function TeamDashboard() {
             <p className="text-xs text-muted-foreground">Waiting to be started.</p>
           </CardContent>
         </Card>
-        <Card className="animate-card-in" style={{ animationDelay: '500ms' }}>
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">In Progress</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
@@ -70,7 +70,7 @@ export function TeamDashboard() {
             <p className="text-xs text-muted-foreground">Currently working on.</p>
           </CardContent>
         </Card>
-        <Card className="animate-card-in" style={{ animationDelay: '600ms' }}>
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Completed Tasks</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
@@ -83,7 +83,7 @@ export function TeamDashboard() {
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
-            <Card className="animate-card-in" style={{ animationDelay: '700ms' }}>
+            <Card>
                 <CardHeader>
                 <CardTitle>My Assigned Projects</CardTitle>
                 <CardDescription>
@@ -115,7 +115,7 @@ export function TeamDashboard() {
             </Card>
         </div>
         <div className="lg:col-span-1">
-            <DailyStandupCard className="animate-card-in" style={{ animationDelay: '800ms' }} />
+            <DailyStandupCard />
         </div>
       </div>
     </div>

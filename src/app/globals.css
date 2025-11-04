@@ -89,17 +89,6 @@
   .button-pulse:hover {
     animation: pulse 1.5s infinite;
   }
-
-  .animate-fade-in-up {
-    animation: fade-in-up 1s ease-out forwards;
-  }
-
-  .animate-card-in {
-    animation: card-in 0.8s ease-out forwards;
-    opacity: 0;
-    transform: translateY(20px) scale(0.98);
-    animation-fill-mode: backwards;
-  }
 }
 
 
@@ -118,24 +107,3 @@
   }
 }
 
-@keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes card-in {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
