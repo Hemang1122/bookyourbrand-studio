@@ -80,7 +80,7 @@ export function ClientDashboard() {
             <p className="text-xs text-muted-foreground">
                 {reelsUsed} of {reelsLimit} projects used.
             </p>
-             <Progress value={(reelsUsed / reelsLimit) * 100} className="mt-2 h-2" />
+             <Progress value={(reelsLimit > 0 ? (reelsUsed / reelsLimit) * 100 : 0)} className="mt-2 h-2" />
           </CardContent>
         </Card>
         <Card>
@@ -126,31 +126,33 @@ export function ClientDashboard() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent>
           {myProjects.length > 0 ? (
-            myProjects.map(project => {
-              const projectTasks = safeTasks.filter(t => t.projectId === project.id);
-              const completedTasks = projectTasks.filter(t => t.status === 'Completed').length;
-              const progress = projectTasks.length > 0 ? (completedTasks / projectTasks.length) * 100 : 0;
-              return (
-                <div key={project.id} className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <h3 className="font-semibold">{project.name}</h3>
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/projects/${project.id}`}>View Details</Link>
-                    </Button>
+            <div className="space-y-6">
+              {myProjects.map(project => {
+                const projectTasks = safeTasks.filter(t => t.projectId === project.id);
+                const completedTasks = projectTasks.filter(t => t.status === 'Completed').length;
+                const progress = projectTasks.length > 0 ? (completedTasks / projectTasks.length) * 100 : 0;
+                return (
+                  <div key={project.id} className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-semibold">{project.name}</h3>
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/projects/${project.id}`}>View Details</Link>
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <Progress value={progress} className="w-full" />
+                      <span className="text-sm font-medium text-muted-foreground">{Math.round(progress)}%</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <div>Status: <Badge variant="outline">{project.status}</Badge></div>
+                      <span>Due: {new Date(project.deadline).toLocaleDateString()}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <Progress value={progress} className="w-full" />
-                    <span className="text-sm font-medium text-muted-foreground">{Math.round(progress)}%</span>
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <div>Status: <Badge variant="outline">{project.status}</Badge></div>
-                    <span>Due: {new Date(project.deadline).toLocaleDateString()}</span>
-                  </div>
-                </div>
-              );
-            })
+                );
+              })}
+            </div>
           ) : (
             <div className="text-center py-8">
               <p className="text-muted-foreground mb-4">You have no projects yet.</p>
