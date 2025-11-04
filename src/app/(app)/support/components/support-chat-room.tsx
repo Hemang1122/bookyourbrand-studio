@@ -7,11 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Send, Paperclip, Link as LinkIcon, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useAuth } from '@/lib/auth-client';
+import { useAuth } from '@/firebase/provider';
 import { useData } from '../../data-provider';
 import { AddChatAttachmentDialog } from '../../projects/[id]/components/add-chat-attachment-dialog';
 import { CardHeader, CardTitle } from '@/components/ui/card';
-import { FieldValue } from 'firebase/firestore';
+import type { FieldValue } from 'firebase/firestore';
 
 
 function getChatId(id1: string, id2: string) {
@@ -26,9 +26,8 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const { user: currentUser } = useAuth();
-  const { triggerNotification, users } = useData();
+  const { users } = useData();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const prevMessagesCount = useRef(0);
 
   const chatPartner = users.find(u => u.id === chatPartnerId);
   
@@ -45,26 +44,16 @@ export function SupportChatRoom({ chatPartnerId }: SupportChatRoomProps) {
     scrollToBottom();
   }, [messages]);
 
-  useEffect(() => {
-    if (messages && messages.length > prevMessagesCount.current) {
-        const lastMessage = messages[messages.length - 1];
-        if (lastMessage.senderId !== currentUser?.id) {
-            triggerNotification();
-        }
-    }
-    prevMessagesCount.current = messages ? messages.length : 0;
-  }, [messages, currentUser, triggerNotification]);
-
 
   const sendMessage = (message: string, fileUrl?: string) => {
      if (!currentUser || (!message.trim() && !fileUrl)) return;
      
-     const messagePayload: ChatMessage = {
+     const messagePayload: any = {
       id: `support-msg-${Date.now()}`,
       senderId: currentUser.id,
       senderName: currentUser.name,
       message: message,
-      timestamp: new Date() as unknown as FieldValue,
+      timestamp: new Date(),
       fileUrl: fileUrl || null,
     };
     
