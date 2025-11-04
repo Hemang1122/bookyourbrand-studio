@@ -1,10 +1,16 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Award, Medal, Trophy, Wand2, Mic } from 'lucide-react';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { packages } from './packages-data';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/firebase/provider';
+import { useData } from '../../data-provider';
+import { UpgradeDialog } from './components/upgrade-dialog';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { ArrowUpCircle } from 'lucide-react';
 
 const PackageCard = ({ pkg }: { pkg: any }) => (
     <Card className="flex flex-col">
@@ -57,9 +63,71 @@ const PackageCard = ({ pkg }: { pkg: any }) => (
     </Card>
 );
 
+function ClientSubscriptionCard() {
+    const { user } = useAuth();
+    const { clients, projects, isLoading } = useData();
+
+    const myClientRecord = useMemo(() => {
+        if (!user || !clients) return null;
+        return clients.find(c => c.id === user.id);
+    }, [user, clients]);
+
+    if (isLoading || !myClientRecord) {
+        return (
+             <Card>
+                <CardHeader>
+                    <CardTitle>My Subscription</CardTitle>
+                    <CardDescription>View your current plan and usage.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="h-24 w-full bg-muted animate-pulse rounded-md" />
+                </CardContent>
+            </Card>
+        )
+    }
+
+    const myProjects = projects ? projects.filter(p => p.client.id === myClientRecord?.id) : [];
+    const reelsUsed = myProjects.length;
+    const reelsLimit = myClientRecord.reelsLimit || 0;
+    const usagePercentage = reelsLimit > 0 ? (reelsUsed / reelsLimit) * 100 : 0;
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>My Subscription</CardTitle>
+                <CardDescription>View and manage your current plan and usage.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className='space-y-2'>
+                    <div className="flex justify-between items-baseline">
+                        <p className="font-bold text-xl">{myClientRecord.packageName} Plan</p>
+                        <p className="text-muted-foreground text-sm">
+                            {reelsUsed} of {reelsLimit} projects used
+                        </p>
+                    </div>
+                    <Progress value={usagePercentage} />
+                </div>
+
+                <UpgradeDialog client={myClientRecord}>
+                    <Button className="w-full">
+                        <ArrowUpCircle className="mr-2" />
+                        Upgrade or Change Plan
+                    </Button>
+                </UpgradeDialog>
+            </CardContent>
+        </Card>
+    );
+}
+
 export default function BillingPage() {
+    const { user } = useAuth();
+
     return (
         <div className="space-y-8">
+            {user?.role === 'client' && (
+                <ClientSubscriptionCard />
+            )}
+
              <div className="text-center">
                 <h2 className="text-3xl font-bold tracking-tight">Our Packages</h2>
                 <p className="text-muted-foreground">Find the perfect plan for your brand.</p>
