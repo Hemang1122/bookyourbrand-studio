@@ -95,15 +95,16 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const mapping = new Map<string, string>();
     let editorCount = 1;
     usersData
-      .filter(u => u.role === 'team')
+      .filter(u => u.role === 'team' || u.role === 'admin')
       .forEach(u => {
-        mapping.set(u.id, `Editor ${editorCount++}`);
+        const name = u.role === 'admin' ? u.name : `Editor ${editorCount++}`;
+        mapping.set(u.id, name);
       });
     return mapping;
   }, [usersData]);
 
   const anonymizeUser = useCallback((userToAnonymize: User) => {
-    if (currentUser?.role === 'client' && userToAnonymize && userToAnonymize.role === 'team') {
+    if (currentUser?.role === 'client' && userToAnonymize && (userToAnonymize.role === 'team')) {
       return {
         ...userToAnonymize,
         name: teamEditorMapping.get(userToAnonymize.id) || 'Editor',
@@ -141,7 +142,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         assignedTo: anonymizeUser(t.assignedTo),
         remarks: t.remarks.map(r => ({
             ...r,
-            userName: teamEditorMapping.get(r.userId) || (usersData?.find(u => u.id === r.userId)?.role === 'admin' ? usersData?.find(u => u.id === r.userId)?.name : 'Editor'),
+            userName: teamEditorMapping.get(r.userId) || 'Editor',
         }))
     }));
   }, [tasksData, currentUser, anonymizeUser, teamEditorMapping, usersData]);
@@ -182,14 +183,14 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
   const clients = useMemo(() => {
     if (!clientsData) return initialClients;
-    const defaultPackage = subscriptionPackages[0]; // Bronze
-    const defaultTier = defaultPackage.tiers[0];
+    const defaultPackage = subscriptionPackages.find(p => p.name === 'Gold');
+    const defaultTier = defaultPackage?.tiers?.[0]; // 10 reels for Gold
     return clientsData.map(c => ({
       ...c,
-      packageName: c.packageName || 'Bronze',
-      reelsLimit: c.reelsLimit ?? defaultTier.reels,
+      packageName: c.packageName || 'Gold',
+      reelsLimit: c.reelsLimit ?? defaultTier?.reels,
       reelsCreated: c.reelsCreated ?? 0,
-      maxDuration: c.maxDuration ?? parseInt(defaultTier.duration),
+      maxDuration: c.maxDuration ?? (defaultTier ? parseInt(defaultTier.duration) : 90),
     }));
   }, [clientsData]);
 
@@ -267,7 +268,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
     toast({ title: 'Team Updated', description: `The team for "${project.name}" has been updated.` });
     
-    const recipients = Arrayfrom(new Set([...teamMemberIds, project.client.id, ...(usersData?.filter(u=>u.role==='admin').map(u=>u.id) || [])]));
+    const recipients = Array.from(new Set([...teamMemberIds, project.client.id, ...(usersData?.filter(u=>u.role==='admin').map(u=>u.id) || [])]));
     addNotification(`The team for project '${project.name}' has been updated.`, projectId, recipients.filter(id => id !== currentUser.id));
   };
 
@@ -303,8 +304,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const addClient = (clientData: {name: string, company: string, email: string, founderDetails: string, agreementUrl?: string, idCardUrl?: string}) => {
     if (!firestore || !firebaseApp) return;
     const newClientId = `client-${Date.now()}`;
-    const defaultPackage = subscriptionPackages[0];
-    const defaultTier = defaultPackage.tiers[0];
+    const defaultPackage = subscriptionPackages.find(p => p.name === 'Gold');
+    const defaultTier = defaultPackage?.tiers?.[0]; // 10 reels for Gold
 
     const newClient: Client = {
       id: newClientId,
@@ -315,10 +316,10 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       agreementUrl: clientData.agreementUrl,
       idCardUrl: clientData.idCardUrl,
       avatar: '',
-      packageName: 'Bronze',
-      reelsLimit: defaultTier.reels,
+      packageName: 'Gold',
+      reelsLimit: defaultTier?.reels,
       reelsCreated: 0,
-      maxDuration: parseInt(defaultTier.duration),
+      maxDuration: defaultTier ? parseInt(defaultTier.duration) : 90,
     };
     const newUser: User = {
         id: newClient.id,
