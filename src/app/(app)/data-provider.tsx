@@ -13,7 +13,6 @@ import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
 import type { FirebaseApp } from 'firebase/app';
 import { packages as subscriptionPackages } from './settings/billing/packages-data';
-import { sendPushNotificationFlow } from '@/ai/flows/send-push-notification';
 
 type DataContextType = {
   projects: Project[];
@@ -75,20 +74,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     };
     addDocumentNonBlocking(collection(firestore, 'notifications'), newNotif);
     
-    // Send push notifications
-    const recipientUsers = usersData.filter(u => recipients.includes(u.id));
-    const tokens = recipientUsers.flatMap(u => u.fcmTokens || []);
-    
-    if (tokens.length > 0) {
-      const url = projectId === 'general' ? '/dashboard' : `/projects/${projectId}`;
-      sendPushNotificationFlow({
-        tokens,
-        title: 'BookYourBrands CRM',
-        body: message,
-        url: `${window.location.origin}${url}`,
-      });
-    }
-
   }, [firestore, usersData]);
   
   const { data: projectsData, isLoading: projectsLoading } = useCollection<Project>(useMemoFirebase(() => firestore ? collection(firestore, 'projects') : null, [firestore]));

@@ -13,7 +13,6 @@ export type User = {
   aadharUrl?: string;
   panUrl?: string;
   joiningLetterUrl?: string;
-  fcmTokens?: string[];
 };
 
 export type PackageName = 'Bronze' | 'Silver' | 'Gold' | 'Advanced Editing' | 'Podcast';
