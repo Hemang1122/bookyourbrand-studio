@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { packages } from '../packages-data';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import type { Client, PackageName } from '@/lib/types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useData } from '../../../data-provider';
 import { Loader2 } from 'lucide-react';
@@ -48,11 +48,19 @@ export function UpgradeDialog({ client, children }: UpgradeDialogProps) {
       const pkg = subscriptionPackages.find(p => p.name === selectedPackage);
       if (pkg) {
          const tier = pkg.tiers?.[0]; // Default to the first tier
-         updateClient(client.id, {
-             packageName: selectedPackage,
-             reelsLimit: tier?.reels,
-             maxDuration: pkg.duration ? parseInt(pkg.duration) : undefined,
-         });
+         const durationString = tier?.duration || pkg.duration;
+         const maxDuration = durationString ? parseInt(durationString.replace(/[^0-9]/g, ''), 10) : 0;
+         
+         const clientUpdate: Partial<Client> = {
+            packageName: selectedPackage,
+            reelsLimit: tier?.reels,
+         };
+
+         if (!isNaN(maxDuration)) {
+            clientUpdate.maxDuration = maxDuration;
+         }
+
+         updateClient(client.id, clientUpdate);
       }
       
       toast({

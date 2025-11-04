@@ -69,14 +69,22 @@ export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsD
     }
     setIsSaving(true);
     const pkg = subscriptionPackages.find(p => p.name === selectedPackage);
-    const tier = pkg?.tiers?.[0]; // Default to the first tier for simplicity
     
     if (pkg) {
-      updateClient(client.id, {
+      const tier = pkg.tiers?.[0]; // Default to the first tier for simplicity
+      const durationString = tier?.duration || pkg.duration;
+      const maxDuration = durationString ? parseInt(durationString.replace(/[^0-9]/g, ''), 10) : 0;
+      
+      const clientUpdate: Partial<Client> = {
         packageName: pkg.name as PackageName,
         reelsLimit: tier?.reels,
-        maxDuration: pkg.duration ? parseInt(pkg.duration) : undefined,
-      });
+      };
+
+      if (!isNaN(maxDuration)) {
+        clientUpdate.maxDuration = maxDuration;
+      }
+      
+      updateClient(client.id, clientUpdate);
       toast({ title: "Subscription Updated", description: `${client.name}'s plan set to ${pkg.name}.` });
     }
     

@@ -2,7 +2,7 @@
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, ChatMessage, Notification, TaskRemark, MessageType } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, ChatMessage, Notification, TaskRemark, MessageType, PackageName } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -184,11 +184,11 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const clients = useMemo(() => {
     if (!clientsData) return initialClients;
     const defaultPackage = subscriptionPackages.find(p => p.name === 'Gold');
-    const defaultTier = defaultPackage?.tiers?.[0]; // 10 reels for Gold
+    const defaultTier = defaultPackage?.tiers?.[0];
     return clientsData.map(c => ({
       ...c,
       packageName: c.packageName || 'Gold',
-      reelsLimit: c.reelsLimit ?? defaultTier?.reels,
+      reelsLimit: c.reelsLimit ?? defaultTier?.reels ?? 10,
       reelsCreated: c.reelsCreated ?? 0,
       maxDuration: c.maxDuration ?? (defaultTier ? parseInt(defaultTier.duration) : 90),
     }));
@@ -305,7 +305,10 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     if (!firestore || !firebaseApp) return;
     const newClientId = `client-${Date.now()}`;
     const defaultPackage = subscriptionPackages.find(p => p.name === 'Gold');
-    const defaultTier = defaultPackage?.tiers?.[0]; // 10 reels for Gold
+    const defaultTier = defaultPackage?.tiers?.[0];
+    const durationString = defaultTier?.duration || defaultPackage?.duration;
+    const maxDuration = durationString ? parseInt(durationString.replace(/[^0-9]/g, ''), 10) : 90;
+
 
     const newClient: Client = {
       id: newClientId,
@@ -317,9 +320,9 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       idCardUrl: clientData.idCardUrl,
       avatar: '',
       packageName: 'Gold',
-      reelsLimit: defaultTier?.reels,
+      reelsLimit: defaultTier?.reels ?? 10,
       reelsCreated: 0,
-      maxDuration: defaultTier ? parseInt(defaultTier.duration) : 90,
+      maxDuration: isNaN(maxDuration) ? 90 : maxDuration,
     };
     const newUser: User = {
         id: newClient.id,
