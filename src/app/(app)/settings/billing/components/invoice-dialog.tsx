@@ -148,8 +148,7 @@ export function InvoiceDialog({ client, packageName, open, onOpenChange }: Invoi
 
     // --- Signature ---
     const signatureY = doc.internal.pageSize.getHeight() - 130;
-    doc.addFont('DancingScript-Bold.ttf', 'DancingScript', 'bold');
-    doc.setFont('DancingScript', 'bold');
+    doc.setFont('times', 'italic');
     doc.setFontSize(22);
     doc.setTextColor(0, 0, 0);
     doc.text('Arpit Lalani', pageWidth - margin - 100, signatureY);
