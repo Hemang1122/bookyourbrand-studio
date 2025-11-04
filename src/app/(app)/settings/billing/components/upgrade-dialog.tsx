@@ -1,3 +1,4 @@
+
 'use client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { packages } from '../packages-data';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import type { Client, PackageName } from '@/lib/types';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useData } from '../../../data-provider';
 import { Loader2 } from 'lucide-react';
