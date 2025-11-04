@@ -11,14 +11,19 @@ import { AddProjectDialog } from '../../projects/components/add-project-dialog';
 import { useData } from '../../data-provider';
 import { useAuth } from '@/firebase/provider';
 import type { Client } from '@/lib/types';
+import { useMemo } from 'react';
 
 export function ClientDashboard() {
   const { user } = useAuth();
-  const { projects, tasks, addProject, isLoading } = useData();
+  const { projects, tasks, addProject, isLoading, clients } = useData();
 
-  const myClientRecord = user as unknown as Client;
+  const myClientRecord = useMemo(() => {
+    if (!user || !clients) return null;
+    return clients.find(c => c.id === user.id);
+  }, [user, clients]);
 
-  if (!user || isLoading || !myClientRecord) {
+
+  if (isLoading || !myClientRecord) {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -98,7 +103,7 @@ export function ClientDashboard() {
             <div className="text-2xl font-bold">{myProjects.filter(p => p.status === 'On Hold').length}</div>
             <p className="text-xs text-muted-foreground">Waiting for feedback or assets</p>
           </CardContent>
-        </Card>
+        </card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
