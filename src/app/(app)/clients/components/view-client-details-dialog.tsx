@@ -10,12 +10,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import type { Client } from '@/lib/types';
+import type { Client, PackageName } from '@/lib/types';
 import { FileText, Download, Upload, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { uploadFile } from '@/lib/storage';
 import { useData } from '../../data-provider';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { packages as subscriptionPackages } from '../../settings/billing/packages-data';
+
 
 type ViewClientDetailsDialogProps = {
   client: Client;
@@ -27,6 +31,8 @@ export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsD
   const { toast } = useToast();
   const { updateClient } = useData();
   const [isUploading, setIsUploading] = useState<string | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState<PackageName | undefined>(client.packageName);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleDownload = (url: string) => {
     window.open(url, '_blank');
@@ -56,27 +62,61 @@ export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsD
     }
   }
 
+  const handleSaveSubscription = () => {
+    if (!selectedPackage) {
+        toast({ title: "Error", description: "Please select a package.", variant: "destructive" });
+        return;
+    }
+    setIsSaving(true);
+    const pkg = subscriptionPackages.find(p => p.name === selectedPackage);
+    const tier = pkg?.tiers?.[0]; // Default to the first tier for simplicity
+    
+    if (pkg) {
+      updateClient(client.id, {
+        packageName: pkg.name as PackageName,
+        reelsLimit: tier?.reels,
+        maxDuration: pkg.duration ? parseInt(pkg.duration) : undefined,
+      });
+      toast({ title: "Subscription Updated", description: `${client.name}'s plan set to ${pkg.name}.` });
+    }
+    
+    setIsSaving(false);
+    setOpen(false);
+  };
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Client Details: {client.name}</DialogTitle>
           <DialogDescription>Viewing details for {client.company}.</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">Client Name</p>
-            <p>{client.name}</p>
-          </div>
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">Company Name</p>
-            <p>{client.company}</p>
-          </div>
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">Email Address</p>
-            <p>{client.email}</p>
+        <div className="grid gap-6 py-4">
+          
+          <div className="space-y-4 rounded-md border p-4">
+            <h4 className="font-medium">Subscription Plan</h4>
+             <div className="space-y-2">
+                <Label htmlFor="package-select">Package</Label>
+                <Select
+                    value={selectedPackage}
+                    onValueChange={(value: PackageName) => setSelectedPackage(value)}
+                >
+                    <SelectTrigger id="package-select">
+                        <SelectValue placeholder="Select a package" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {subscriptionPackages.map(pkg => (
+                           pkg.tiers && <SelectItem key={pkg.name} value={pkg.name}>{pkg.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+             <Button onClick={handleSaveSubscription} disabled={isSaving} className="w-full">
+                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Save Subscription
+            </Button>
           </div>
           
           <div className="space-y-2">

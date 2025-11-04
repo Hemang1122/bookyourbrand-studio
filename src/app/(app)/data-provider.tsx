@@ -12,7 +12,7 @@ import { useAuth } from '@/firebase/provider';
 import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
 import type { FirebaseApp } from 'firebase/app';
-
+import { packages as subscriptionPackages } from './settings/billing/packages-data';
 
 type DataContextType = {
   projects: Project[];
@@ -122,12 +122,16 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const teamMembers = useMemo(() => (usersData || []).filter(u => u.role === 'admin' || u.role === 'team'), [usersData]);
   
   const projects = useMemo(() => {
-    if (!projectsData) return initialProjects;
-    return projectsData.map(p => ({
-        ...p,
-        team_ids: p.team_ids || [],
-    }));
-  }, [projectsData]);
+    if (!projectsData || !clientsData) return initialProjects;
+    return projectsData.map(p => {
+        const client = clientsData.find(c => c.id === (p.client as unknown as string));
+        return {
+            ...p,
+            client: client || p.client,
+            team_ids: p.team_ids || [],
+        };
+    }).filter(p => p.client);
+  }, [projectsData, clientsData]);
 
   const tasks = useMemo(() => {
     if (!tasksData) return initialTasks;
@@ -176,7 +180,19 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   }, [messagesData, currentUser?.role, usersData, teamEditorMapping]);
     
-  const clients = clientsData || initialClients;
+  const clients = useMemo(() => {
+    if (!clientsData) return initialClients;
+    const defaultPackage = subscriptionPackages[0]; // Bronze
+    const defaultTier = defaultPackage.tiers[0];
+    return clientsData.map(c => ({
+      ...c,
+      packageName: c.packageName || 'Bronze',
+      reelsLimit: c.reelsLimit ?? defaultTier.reels,
+      reelsCreated: c.reelsCreated ?? 0,
+      maxDuration: c.maxDuration ?? parseInt(defaultTier.duration),
+    }));
+  }, [clientsData]);
+
   const notifications = notificationsData;
   const scrumUpdates = scrumUpdatesData || [];
 
@@ -189,6 +205,13 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       coverImage: `project-${Math.ceil(Math.random() * 3)}`,
     };
     setDocumentNonBlocking(doc(firestore, 'projects', newProject.id), newProject, {});
+    
+    // Update client's reel count
+    const clientRef = doc(firestore, 'clients', newProject.client.id);
+    const client = clients.find(c => c.id === newProject.client.id);
+    if(client) {
+      updateDocumentNonBlocking(clientRef, { reelsCreated: (client.reelsCreated || 0) + 1 });
+    }
 
     const admin = users.find(u => u.role === 'admin');
     const notificationRecipients = [
@@ -244,7 +267,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
     toast({ title: 'Team Updated', description: `The team for "${project.name}" has been updated.` });
     
-    const recipients = Array.from(new Set([...teamMemberIds, project.client.id, ...(usersData?.filter(u=>u.role==='admin').map(u=>u.id) || [])]));
+    const recipients = Arrayfrom(new Set([...teamMemberIds, project.client.id, ...(usersData?.filter(u=>u.role==='admin').map(u=>u.id) || [])]));
     addNotification(`The team for project '${project.name}' has been updated.`, projectId, recipients.filter(id => id !== currentUser.id));
   };
 
@@ -280,6 +303,9 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const addClient = (clientData: {name: string, company: string, email: string, founderDetails: string, agreementUrl?: string, idCardUrl?: string}) => {
     if (!firestore || !firebaseApp) return;
     const newClientId = `client-${Date.now()}`;
+    const defaultPackage = subscriptionPackages[0];
+    const defaultTier = defaultPackage.tiers[0];
+
     const newClient: Client = {
       id: newClientId,
       name: clientData.name,
@@ -288,7 +314,11 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       founderDetails: clientData.founderDetails,
       agreementUrl: clientData.agreementUrl,
       idCardUrl: clientData.idCardUrl,
-      avatar: ''
+      avatar: '',
+      packageName: 'Bronze',
+      reelsLimit: defaultTier.reels,
+      reelsCreated: 0,
+      maxDuration: parseInt(defaultTier.duration),
     };
     const newUser: User = {
         id: newClient.id,

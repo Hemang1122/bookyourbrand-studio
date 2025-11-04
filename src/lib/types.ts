@@ -14,6 +14,8 @@ export type User = {
   joiningLetterUrl?: string;
 };
 
+export type PackageName = 'Bronze' | 'Silver' | 'Gold' | 'Advanced Editing' | 'Podcast';
+
 export type Client = {
   id: string;
   name: string;
@@ -23,6 +25,11 @@ export type Client = {
   founderDetails?: string;
   agreementUrl?: string;
   idCardUrl?: string;
+  // Subscription details
+  packageName?: PackageName;
+  reelsLimit?: number;
+  reelsCreated?: number;
+  maxDuration?: number; // in seconds
 };
 
 export type ProjectStatus = 'Active' | 'On Hold' | 'Completed' | 'In Progress';

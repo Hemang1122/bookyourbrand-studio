@@ -26,6 +26,22 @@
         "profilePic": {
           "type": "string",
           "description": "URL or reference to the user's profile picture."
+        },
+        "packageName": {
+          "type": "string",
+          "description": "The name of the subscription package for the client."
+        },
+        "reelsLimit": {
+          "type": "number",
+          "description": "The number of reels/projects the client can create."
+        },
+        "reelsCreated": {
+          "type": "number",
+          "description": "The number of reels/projects the client has created."
+        },
+        "maxDuration": {
+          "type": "number",
+          "description": "The maximum duration in seconds for videos in the client's plan."
         }
       },
       "required": [
@@ -193,7 +209,7 @@
           "format": "date-time"
         },
         "fileURL": {
-          "type": "string",
+          "type": "string",_
           "description": "URL of any file attached to the message (optional)."
         }
       },

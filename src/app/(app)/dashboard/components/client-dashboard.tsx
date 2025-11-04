@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { FolderKanban, Clock, CheckCircle2, Plus } from 'lucide-react';
+import { FolderKanban, Clock, CheckCircle2, Plus, Film } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,11 +16,9 @@ export function ClientDashboard() {
   const { user } = useAuth();
   const { projects, tasks, addProject, isLoading } = useData();
 
-  // The user object for a client *is* their client record for dashboard purposes.
-  // We can treat the User as a Client here if the roles match.
   const myClientRecord = user as unknown as Client;
 
-  if (!user || isLoading) {
+  if (!user || isLoading || !myClientRecord) {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -39,15 +37,15 @@ export function ClientDashboard() {
       )
   }
 
-  // Find projects where the client ID matches the logged-in user's ID
   const myProjects = projects ? projects.filter(p => p.client.id === myClientRecord?.id) : [];
   const activeProjects = myProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;
   const completedProjects = myProjects.filter(p => p.status === 'Completed').length;
   const safeTasks = tasks || [];
+  
+  const reelsUsed = myProjects.length;
+  const reelsLimit = myClientRecord.reelsLimit || 0;
+  const canAddProject = reelsUsed < reelsLimit;
 
-  const getClientName = (client: Client) => {
-    return client.name || client.email?.split('@')[0] || "Client";
-  }
 
   return (
     <div className="space-y-6">
@@ -58,7 +56,7 @@ export function ClientDashboard() {
         </div>
         <div className="flex items-center gap-2">
             <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
-            <Button>
+            <Button disabled={!canAddProject}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Project
             </Button>
@@ -66,7 +64,20 @@ export function ClientDashboard() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+         <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Subscription</CardTitle>
+            <Film className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{myClientRecord.packageName || 'N/A'} Plan</div>
+            <p className="text-xs text-muted-foreground">
+                {reelsUsed} of {reelsLimit} projects used.
+            </p>
+             <Progress value={(reelsUsed / reelsLimit) * 100} className="mt-2 h-2" />
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
@@ -139,7 +150,7 @@ export function ClientDashboard() {
             <div className="text-center py-8">
               <p className="text-muted-foreground mb-4">You have no projects yet.</p>
               <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
-                <Button>
+                <Button disabled={!canAddProject}>
                   <Plus className="mr-2 h-4 w-4" />
                   Add First Project
                 </Button>

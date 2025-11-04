@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, AlertCircle } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -25,6 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MultiSelect } from '@/components/ui/multi-select';
 import { useData } from '../../data-provider';
 import { useAuth } from '@/firebase/provider';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 type AddProjectDialogProps = {
   onProjectAdd: (project: Omit<Project, 'id' | 'coverImage'>) => void;
@@ -42,13 +43,27 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   const [team_ids, setTeamIds] = useState<string[]>([]);
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
-  const { teamMembers, clients } = useData();
+  const { teamMembers, clients, projects } = useData();
 
   const teamMemberOptions = teamMembers.map(tm => ({ value: tm.id, label: tm.name }));
   const isClientUser = currentUser?.role === 'client';
+
+  let clientForProject: Client | undefined;
+  if (isClientUser) {
+    clientForProject = clients.find(c => c.id === currentUser.id);
+  } else {
+    clientForProject = clients.find(c => c.id === selectedClientId);
+  }
   
+  const clientProjectsCount = projects.filter(p => p.client.id === clientForProject?.id).length;
+  const canAddProject = clientForProject ? clientProjectsCount < (clientForProject.reelsLimit || 0) : false;
+
   const handleAddProject = () => {
-    // Universal validation
+    if (!canAddProject) {
+        toast({ title: 'Limit Reached', description: 'This client has reached their project limit for the current plan.', variant: 'destructive'});
+        return;
+    }
+
     if (!name || !description || !deadline) {
       toast({ title: 'Error', description: 'Project name, description, and deadline are required.', variant: 'destructive' });
       return;
@@ -58,36 +73,17 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
         toast({ title: "Error", description: "You must be logged in to create a project.", variant: 'destructive'});
         return;
     }
-
-    let clientForProject: Client;
     
-    // If the logged-in user is a client, use their auth info directly.
-    if (isClientUser) {
-        const nameFromEmail = currentUser.email?.split('@')[0] || 'Client';
-        clientForProject = {
-            id: currentUser.id,
-            name: currentUser.name || nameFromEmail,
-            email: currentUser.email,
-            avatar: currentUser.avatar,
-            company: `${currentUser.name || nameFromEmail}'s Company`, // A sensible default
-        };
-    } else {
-        // If an admin is creating, find the client from the list.
-        const selectedClient = clients.find(c => c.id === selectedClientId);
-        if (!selectedClient) {
-            toast({ title: 'Error', description: 'Please select a client.', variant: 'destructive' });
-            return;
-        }
-        clientForProject = selectedClient;
+    if (!clientForProject) {
+        toast({ title: 'Error', description: 'Please select a client.', variant: 'destructive' });
+        return;
     }
 
-    // Admin-specific validation
     if (!isClientUser && team_ids.length === 0) {
       toast({ title: 'Error', description: 'Please assign at least one team member.', variant: 'destructive' });
       return;
     }
     
-    // Admins assign team from the multi-select; for clients, the team is initially empty and assigned by an admin later.
     const selectedTeamIds = isClientUser ? [] : team_ids;
 
     const newProject = {
@@ -121,6 +117,24 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
           <DialogDescription>Fill in the details for the new project.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+            {!isClientUser && !selectedClientId && (
+                <Alert variant="default">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Select a Client</AlertTitle>
+                    <AlertDescription>Please select a client to view their subscription status.</AlertDescription>
+                </Alert>
+            )}
+
+            {clientForProject && !canAddProject && (
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Project Limit Reached</AlertTitle>
+                    <AlertDescription>
+                        This client is on the {clientForProject.packageName} plan and has reached their limit of {clientForProject.reelsLimit} projects.
+                    </AlertDescription>
+                </Alert>
+            )}
+
           <div className="space-y-2">
             <Label htmlFor="name">Project Name</Label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Q4 Marketing Campaign" />
@@ -180,7 +194,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleAddProject}>Add Project</Button>
+          <Button onClick={handleAddProject} disabled={!canAddProject && !!clientForProject}>Add Project</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
