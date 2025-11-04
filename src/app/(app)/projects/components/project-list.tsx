@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Project, User } from '@/lib/types';
@@ -56,7 +57,13 @@ export function ProjectList() {
         let teamMembers: (User | {id: string, name: string})[] = users.filter(u => project.team_ids && project.team_ids.includes(u.id));
 
         if (user?.role === 'client') {
-            teamMembers = project.team_ids.map(id => ({ id, name: teamEditorMapping.get(id) || 'Editor' }));
+            teamMembers = (project.team_ids || [])
+                .map(id => {
+                    const member = users.find(u => u.id === id);
+                    if (!member) return null;
+                    return { id, name: teamEditorMapping.get(id) || 'Editor' };
+                })
+                .filter(Boolean) as (User | {id: string, name: string})[];
         }
 
         return (

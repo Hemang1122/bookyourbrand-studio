@@ -217,10 +217,12 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       updateDocumentNonBlocking(clientRef, { reelsCreated: (client.reelsCreated || 0) + 1 });
     }
 
-    const admin = users.find(u => u.role === 'admin');
+    const admins = users.filter(u => u.role === 'admin');
+    const adminIds = admins.map(a => a.id).filter(id => id !== currentUser.id);
+
     const notificationRecipients = [
         ...(projectData.team_ids || []),
-        ...(admin && admin.id !== currentUser.id ? [admin.id] : [])
+        ...adminIds
     ];
     
     if (notificationRecipients.length > 0) {
@@ -256,7 +258,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     };
     setDocumentNonBlocking(doc(firestore, 'tasks', newTask.id), newTask, {});
 
-    const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...(usersData?.filter(u=>u.role === 'admin').map(u=>u.id) || [])]));
+    const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
+    const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...adminIds]));
     const finalRecipients = recipients.filter(id => id !== currentUser.id);
     addNotification(`New task '${newTask.title}' added to project '${project.name}'.`, project.id, finalRecipients);
   }
@@ -271,7 +274,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
     toast({ title: 'Team Updated', description: `The team for "${project.name}" has been updated.` });
     
-    const recipients = Array.from(new Set([...teamMemberIds, project.client.id, ...(usersData?.filter(u=>u.role==='admin').map(u=>u.id) || [])]));
+    const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
+    const recipients = Array.from(new Set([...teamMemberIds, project.client.id, ...adminIds]));
     addNotification(`The team for project '${project.name}' has been updated.`, projectId, recipients.filter(id => id !== currentUser.id));
   };
 
@@ -300,7 +304,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
     toast({ title: 'Task Updated', description: `Task status changed to "${status}".` });
     
-    const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...(usersData?.filter(u=>u.role==='admin').map(u=>u.id) || [])]));
+    const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
+    const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...adminIds]));
     addNotification(`Task '${task.title}' in project '${project.name}' was updated to '${status}'.`, project.id, recipients.filter(id => id !== currentUser.id));
   }
 
@@ -346,13 +351,13 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
     if (clientData.packageName) {
         const client = clientsData.find(c => c.id === clientId);
-        const admin = usersData.find(u => u.role === 'admin');
+        const admins = usersData.filter(u => u.role === 'admin');
 
-        if (client && admin) {
+        if (client && admins.length > 0) {
             addNotification(
                 `${client.name} has upgraded their plan to ${clientData.packageName}.`,
                 'general',
-                [admin.id]
+                admins.map(a => a.id)
             );
         }
     }
@@ -442,7 +447,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
     const project = projectsData.find(p => p.id === messageData.projectId);
     if (project) {
-      const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...(usersData.filter(u=>u.role==='admin').map(u=>u.id) || [])]));
+      const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
+      const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...adminIds]));
       const finalRecipients = recipients.filter(id => id !== currentUser.id);
       let messageSnippet = '';
       if (messageData.messageType === 'file') {
@@ -541,4 +547,3 @@ export function useData() {
   }
   return context;
 }
-
