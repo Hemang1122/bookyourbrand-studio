@@ -6,7 +6,7 @@ export function WelcomeHeader({ name }: { name: string }) {
 
   return (
     <div className="mb-6">
-      <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+      <h2 className="text-3xl md:text-4xl font-bold tracking-tight bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
         Welcome, {capitalizedName}!
       </h2>
       <p className="text-muted-foreground mt-2">
