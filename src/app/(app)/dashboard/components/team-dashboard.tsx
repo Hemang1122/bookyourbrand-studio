@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -81,6 +80,14 @@ export function TeamDashboard() {
           </CardContent>
         </Card>
       </div>
+
+       <div className="py-4 text-center animate-fade-in-up">
+        <p className="font-signature text-2xl text-muted-foreground">
+          "Picture abhi baaki hai mere editors.. par mera part khatam 😂"
+        </p>
+        <p className="text-sm font-signature">- Arpit Lalani</p>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
             <Card>
