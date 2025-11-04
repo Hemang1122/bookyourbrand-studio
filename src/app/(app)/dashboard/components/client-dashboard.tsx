@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -103,7 +102,7 @@ export function ClientDashboard() {
             <div className="text-2xl font-bold">{myProjects.filter(p => p.status === 'On Hold').length}</div>
             <p className="text-xs text-muted-foreground">Waiting for feedback or assets</p>
           </CardContent>
-        </card>
+        </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
