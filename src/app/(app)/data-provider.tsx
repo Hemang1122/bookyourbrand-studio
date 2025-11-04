@@ -7,7 +7,7 @@ import { users as initialUsers, clients as initialClients, projects as initialPr
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking, useFirebaseServices } from '@/firebase';
-import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -69,7 +69,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       message,
       projectId,
       recipients,
-      read: false,
+      readBy: [],
       timestamp: Timestamp.now(),
     };
     addDocumentNonBlocking(collection(firestore, 'notifications'), newNotif);
@@ -490,21 +490,23 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   };
   
   const markNotificationsAsRead = useCallback(() => {
-    if (!firestore || !notifications || notifications.length === 0) return;
+    if (!firestore || !notifications || notifications.length === 0 || !currentUser) return;
 
-    const unreadNotifications = notifications.filter(n => !n.read);
+    const unreadNotifications = notifications.filter(n => !(n.readBy || []).includes(currentUser.id));
     if (unreadNotifications.length === 0) return;
 
     const batch = writeBatch(firestore);
     unreadNotifications.forEach(notification => {
       const notifRef = doc(firestore, 'notifications', notification.id);
-      batch.update(notifRef, { read: true });
+      batch.update(notifRef, { 
+        readBy: arrayUnion(currentUser.id) 
+      });
     });
 
     batch.commit().catch(err => {
       console.error("Failed to mark notifications as read:", err);
     });
-  }, [firestore, notifications]);
+  }, [firestore, notifications, currentUser]);
 
 
   return (

@@ -34,8 +34,9 @@ export function NotificationBell() {
 
 
   const unreadCount = useMemo(() => {
-    return sortedNotifications.filter(n => !n.read).length;
-  }, [sortedNotifications]);
+    if (!user) return 0;
+    return sortedNotifications.filter(n => !(n.readBy || []).includes(user.id)).length;
+  }, [sortedNotifications, user]);
 
 
   const handleOpenChange = (open: boolean) => {
@@ -43,6 +44,8 @@ export function NotificationBell() {
       markNotificationsAsRead();
     }
   };
+
+  if (!user) return null;
 
   return (
     <Popover onOpenChange={handleOpenChange}>
@@ -89,8 +92,9 @@ export function NotificationBell() {
             <div className="divide-y">
               {sortedNotifications.map(notif => {
                 const timestampDate = notif.timestamp?.toDate ? notif.timestamp.toDate() : new Date(notif.timestamp || 0);
+                const isUnread = !(notif.readBy || []).includes(user.id);
                 return (
-                    <div key={notif.id} className={`p-4 ${!notif.read ? 'bg-accent/50' : ''} hover:bg-muted/50`}>
+                    <div key={notif.id} className={`p-4 ${isUnread ? 'bg-accent/50' : ''} hover:bg-muted/50`}>
                     <p className="text-sm">{notif.message}</p>
                     <p className="text-xs text-muted-foreground mt-1">
                         {formatDistanceToNow(timestampDate, { addSuffix: true })}

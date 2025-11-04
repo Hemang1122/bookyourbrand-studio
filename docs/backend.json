@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -209,7 +210,7 @@
           "format": "date-time"
         },
         "fileURL": {
-          "type": "string",_
+          "type": "string",
           "description": "URL of any file attached to the message (optional)."
         }
       },
@@ -279,9 +280,12 @@
           "format": "date-time",
           "description": "When the notification was created."
         },
-        "read": {
-          "type": "boolean",
-          "description": "Whether the user has read the notification."
+        "readBy": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of user IDs who have read the notification."
         },
         "recipients": {
           "type": "array",
@@ -296,7 +300,7 @@
         "projectId",
         "message",
         "timestamp",
-        "read",
+        "readBy",
         "recipients"
       ]
     }

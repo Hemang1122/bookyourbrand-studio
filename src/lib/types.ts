@@ -1,3 +1,4 @@
+
 import { FieldValue, Timestamp } from 'firebase/firestore';
 
 export type UserRole = 'admin' | 'team' | 'client';
@@ -132,6 +133,6 @@ export type Notification = {
   projectId: string; // "general" for non-project specific
   message: string;
   timestamp: Timestamp;
-  read: boolean;
-  recipients: string[]; // Array of user IDs
+  readBy: string[]; // Array of user IDs who have read it
+  recipients: string[]; // Array of user IDs who should receive the notification
 }
