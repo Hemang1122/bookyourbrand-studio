@@ -8,6 +8,7 @@ import { FirebaseClientProvider, useUser as useFirebaseUser, useFirestore } from
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { AuthProvider } from '@/firebase/provider';
+import { packages as subscriptionPackages } from './settings/billing/packages-data';
 
 
 function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
@@ -69,12 +70,21 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
         // Only create a 'client' record if the user is actually a client
         if (role === 'client') {
             const clientRef = doc(firestore, 'clients', finalUser.id);
+            const defaultPackage = subscriptionPackages.find(p => p.name === 'Gold');
+            const defaultTier = defaultPackage?.tiers?.[0];
+            const durationString = defaultTier?.duration || defaultPackage?.duration;
+            const maxDuration = durationString ? parseInt(durationString.replace(/[^0-9]/g, ''), 10) : 90;
+
             const newClient = {
                 id: finalUser.id,
                 name: finalUser.name,
                 email: finalUser.email,
                 company: `${finalUser.name}'s Company`,
                 avatar: finalUser.avatar,
+                packageName: 'Gold',
+                reelsLimit: defaultTier?.reels ?? 10,
+                reelsCreated: 0,
+                maxDuration: isNaN(maxDuration) ? 90 : maxDuration,
             };
             await setDoc(clientRef, newClient);
         }

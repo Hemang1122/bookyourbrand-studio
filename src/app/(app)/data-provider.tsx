@@ -97,14 +97,14 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     usersData
       .filter(u => u.role === 'team' || u.role === 'admin')
       .forEach(u => {
-        const name = u.role === 'admin' ? u.name : `Editor ${editorCount++}`;
+        const name = u.role === 'admin' ? `Admin ${editorCount++}` : `Editor ${editorCount++}`;
         mapping.set(u.id, name);
       });
     return mapping;
   }, [usersData]);
 
   const anonymizeUser = useCallback((userToAnonymize: User) => {
-    if (currentUser?.role === 'client' && userToAnonymize && (userToAnonymize.role === 'team')) {
+    if (currentUser?.role === 'client' && userToAnonymize && (userToAnonymize.role === 'team' || userToAnonymize.role === 'admin')) {
       return {
         ...userToAnonymize,
         name: teamEditorMapping.get(userToAnonymize.id) || 'Editor',
@@ -155,8 +155,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
     return sorted.map(m => {
         const sender = usersData?.find(u => u.id === m.senderId);
-        // Only anonymize team members, not admins
-        if (sender && sender.role === 'team') {
+        // Anonymize team members and admins
+        if (sender && (sender.role === 'team' || sender.role === 'admin')) {
             return {
                 ...m,
                 senderName: teamEditorMapping.get(m.senderId) || 'Editor',
@@ -166,7 +166,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         // Handle reply-to anonymization
         if (m.replyTo) {
             const replySender = usersData?.find(u => u.name === m.replyTo?.senderName);
-            if (replySender && replySender.role === 'team') {
+            if (replySender && (replySender.role === 'team' || replySender.role === 'admin')) {
                 return {
                     ...m,
                     replyTo: {
@@ -201,7 +201,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const scrumUpdates = scrumUpdatesData || [];
 
   const addProject = (projectData: Omit<Project, 'id' | 'coverImage'>) => {
-    if (!firestore || !currentUser || !users) return;
+    if (!firestore || !currentUser || !usersData) return;
     const newProjectId = doc(collection(firestore, 'projects')).id;
     const newProject: Project = {
       id: newProjectId,
@@ -217,7 +217,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       updateDocumentNonBlocking(clientRef, { reelsCreated: (client.reelsCreated || 0) + 1 });
     }
 
-    const admins = users.filter(u => u.role === 'admin');
+    const admins = usersData.filter(u => u.role === 'admin');
     const adminIds = admins.map(a => a.id).filter(id => id !== currentUser.id);
 
     const notificationRecipients = [
@@ -393,12 +393,12 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }
 
   const addScrumUpdate = (update: Omit<ScrumUpdate, 'id'>) => {
-    if (!firestore || !currentUser || !users) return;
+    if (!firestore || !currentUser || !usersData) return;
     const newUpdateId = doc(collection(firestore, 'scrum-updates')).id;
     const newUpdate: ScrumUpdate = { ...update, id: newUpdateId, timestamp: new Date().toISOString() };
     setDocumentNonBlocking(doc(firestore, 'scrum-updates', newUpdate.id), newUpdate, {});
 
-    const admins = users.filter(u => u.role === 'admin');
+    const admins = usersData.filter(u => u.role === 'admin');
     if (admins.length > 0) {
       const adminIds = admins.map(a => a.id).filter(id => id !== currentUser.id);
       addNotification(`${currentUser.name} has submitted their daily scrum update.`, 'general', adminIds);
