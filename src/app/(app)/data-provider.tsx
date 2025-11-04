@@ -185,12 +185,15 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     if (!clientsData) return initialClients;
     const defaultPackage = subscriptionPackages.find(p => p.name === 'Gold');
     const defaultTier = defaultPackage?.tiers?.[0];
+    const durationString = defaultTier?.duration || defaultPackage?.duration;
+    const maxDuration = durationString ? parseInt(durationString.replace(/[^0-9]/g, ''), 10) : 90;
+    
     return clientsData.map(c => ({
       ...c,
       packageName: c.packageName || 'Gold',
       reelsLimit: c.reelsLimit ?? defaultTier?.reels ?? 10,
       reelsCreated: c.reelsCreated ?? 0,
-      maxDuration: c.maxDuration ?? (defaultTier ? parseInt(defaultTier.duration) : 90),
+      maxDuration: c.maxDuration ?? (isNaN(maxDuration) ? 90 : maxDuration),
     }));
   }, [clientsData]);
 
@@ -337,9 +340,22 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }
   
   const updateClient = (clientId: string, clientData: Partial<Client>) => {
-    if (!firestore) return;
+    if (!firestore || !usersData || !clientsData) return;
     const clientRef = doc(firestore, 'clients', clientId);
     updateDocumentNonBlocking(clientRef, clientData);
+
+    if (clientData.packageName) {
+        const client = clientsData.find(c => c.id === clientId);
+        const admin = usersData.find(u => u.role === 'admin');
+
+        if (client && admin) {
+            addNotification(
+                `${client.name} has upgraded their plan to ${clientData.packageName}.`,
+                'general',
+                [admin.id]
+            );
+        }
+    }
   }
 
   const addTeamMember = (memberData: { name: string, email: string, aadharUrl?: string, panUrl?: string, joiningLetterUrl?: string }) => {
@@ -525,3 +541,4 @@ export function useData() {
   }
   return context;
 }
+
