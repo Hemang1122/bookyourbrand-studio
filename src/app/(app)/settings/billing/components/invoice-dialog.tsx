@@ -92,10 +92,8 @@ export function InvoiceDialog({ client, packageName, open, onOpenChange }: Invoi
     doc.text('Invoice #:', pageWidth - margin - 100, rightColY);
     doc.setFont('helvetica', 'normal');
     doc.text(invoiceNum, pageWidth - margin, rightColY, { align: 'right' });
-    rightColY += 20; // Increased spacing
+    rightColY += 20;
     
-    doc.setFont('helvetica', 'bold');
-    doc.text('Invoice Date:', pageWidth - margin - 100, rightColY);
     doc.setFont('helvetica', 'normal');
     doc.text(invoiceDate, pageWidth - margin, rightColY, { align: 'right' });
     
