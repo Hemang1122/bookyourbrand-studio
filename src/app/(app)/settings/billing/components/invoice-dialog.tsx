@@ -41,6 +41,11 @@ export function InvoiceDialog({ client, packageName, open, onOpenChange }: Invoi
     const margin = 40;
     const contentWidth = pageWidth - margin * 2;
     let y = 0;
+    const addressLines = [
+      'Shop No 14, Vishwakarma Nagar building. 03',
+      '60 feet road, Landmark:, opposite old swaminarayan temple,',
+      'Vasai West, Vasai-Virar, Maharashtra 401202',
+    ]
 
     // --- Header ---
     doc.setFont('helvetica', 'bold');
@@ -51,13 +56,7 @@ export function InvoiceDialog({ client, packageName, open, onOpenChange }: Invoi
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
-    const addressLines = [
-      'Shop No 14, Vishwakarma Nagar building. 03',
-      '60 feet road, Landmark:, opposite old swaminarayan temple,',
-      'Vasai West, Vasai-Virar, Maharashtra 401202',
-    ]
     doc.text(addressLines, margin, 75);
-    doc.text('contact@bookyourbrands.com', margin, 75 + (addressLines.length * 12));
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(28);
@@ -140,17 +139,11 @@ export function InvoiceDialog({ client, packageName, open, onOpenChange }: Invoi
     // --- Signature ---
     const signatureY = doc.internal.pageSize.getHeight() - 130;
     const signatureX = pageWidth - margin - 180;
-
-    // Draw the vertical bar for the "A" in Arpit
-    doc.setLineWidth(2.5);
-    doc.setDrawColor(0, 0, 0);
-    doc.line(signatureX, signatureY - 15, signatureX, signatureY + 5);
-
-    // Draw the name with an italic font
+    
     doc.setFont('times', 'italic');
     doc.setFontSize(22);
     doc.setTextColor(0, 0, 0);
-    doc.text('rpit Lalani', signatureX + 2, signatureY);
+    doc.text('Arpit Lalani', signatureX + 2, signatureY);
     
     // Line under signature
     doc.setDrawColor(200, 200, 200);
@@ -163,11 +156,20 @@ export function InvoiceDialog({ client, packageName, open, onOpenChange }: Invoi
     doc.text('Founder and CEO', pageWidth - margin, signatureY + 25, { align: 'right' });
     
     // --- Footer ---
-    const footerY = pageHeight - 30;
-    doc.setFont('helvetica', 'italic');
+    const footerY = pageHeight - 60;
+    doc.setLineWidth(1);
+    doc.setDrawColor(220, 220, 220);
+    doc.line(margin, footerY, pageWidth - margin, footerY);
+
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
-    doc.text('This is a computer-generated invoice and does not require a signature.', pageWidth / 2, footerY, { align: 'center' });
+
+    const fullAddress = addressLines.join(' ');
+    doc.text(fullAddress, pageWidth / 2, footerY + 20, { align: 'center', maxWidth: contentWidth });
+    
+    doc.setFont('helvetica', 'italic');
+    doc.text('This is a computer-generated invoice and does not require a signature.', pageWidth / 2, footerY + 40, { align: 'center' });
 
 
     doc.save(`invoice_${client.name.replace(/\s/g, '_')}_${invoiceNum}.pdf`);
