@@ -61,7 +61,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { toast } = useToast();
   const router = useRouter();
   const { firestore, auth, firebaseApp } = useFirebaseServices();
-
+  
+  const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
 
   const addNotification = useCallback((message: string, projectId: string, recipients: string[]) => {
     if (!firestore || recipients.length === 0 || !usersData) return;
@@ -80,7 +81,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
   const { data: files, isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? collection(firestore, 'files') : null, [firestore]));
   const { data: messagesData, isLoading: messagesLoading } = useCollection<ChatMessage>(useMemoFirebase(() => firestore ? collection(firestore, 'messages') : null, [firestore]));
-  const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
   const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
   const { data: scrumUpdatesData, isLoading: scrumUpdatesLoading } = useCollection<ScrumUpdate>(useMemoFirebase(() => firestore ? collection(firestore, 'scrum-updates') : null, [firestore]));
   
