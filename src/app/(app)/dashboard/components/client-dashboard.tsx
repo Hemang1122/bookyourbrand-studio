@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -53,7 +54,7 @@ export function ClientDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between animate-fade-in-up" style={{animationDelay: '200ms'}}>
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Client Dashboard</h2>
           <p className="text-muted-foreground">Welcome to your personal dashboard.</p>
@@ -78,7 +79,7 @@ export function ClientDashboard() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-         <Card>
+         <Card className="animate-card-in" style={{ animationDelay: '300ms' }}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Subscription</CardTitle>
             <Film className="h-4 w-4 text-muted-foreground" />
@@ -91,7 +92,7 @@ export function ClientDashboard() {
              <Progress value={(reelsLimit > 0 ? (reelsUsed / reelsLimit) * 100 : 0)} className="mt-2 h-2" />
           </CardContent>
         </Card>
-        <Card>
+        <Card className="animate-card-in" style={{ animationDelay: '400ms' }}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
             <FolderKanban className="h-4 w-4 text-muted-foreground" />
@@ -102,7 +103,7 @@ export function ClientDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="animate-card-in" style={{ animationDelay: '500ms' }}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Projects on Hold</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
@@ -113,7 +114,7 @@ export function ClientDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="animate-card-in" style={{ animationDelay: '600ms' }}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Completed Projects</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
@@ -125,7 +126,7 @@ export function ClientDashboard() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="animate-card-in" style={{ animationDelay: '700ms' }}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
