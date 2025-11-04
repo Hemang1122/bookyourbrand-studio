@@ -37,6 +37,7 @@ export function InvoiceDialog({ client, packageName, open, onOpenChange }: Invoi
 
     const doc = new jsPDF('p', 'pt', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 40;
     const contentWidth = pageWidth - margin * 2;
     let y = 0;
@@ -136,36 +137,37 @@ export function InvoiceDialog({ client, packageName, open, onOpenChange }: Invoi
     doc.text('Thank you for your business!', margin, y + 15);
     y += 30;
 
-    // --- Stamp ---
-    const stampY = doc.internal.pageSize.getHeight() - 150;
-    doc.setDrawColor(40, 120, 180);
-    doc.setLineWidth(3);
-    doc.setLineDashPattern([5, 5], 0);
-    doc.roundedRect(margin, stampY, 140, 60, 10, 10, 'S');
-    doc.setLineDashPattern([], 0);
-    
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.setTextColor(40, 120, 180);
-    doc.text('BookYourBrands', margin + 70, stampY + 30, { align: 'center' });
-    doc.setFontSize(8);
-    doc.text('OFFICIAL', margin + 70, stampY + 45, { align: 'center' });
-
     // --- Signature ---
     const signatureY = doc.internal.pageSize.getHeight() - 130;
+    const signatureX = pageWidth - margin - 180;
+
+    // Draw the vertical bar for the "A" in Arpit
+    doc.setLineWidth(2.5);
+    doc.setDrawColor(0, 0, 0);
+    doc.line(signatureX, signatureY - 15, signatureX, signatureY + 5);
+
+    // Draw the name with an italic font
     doc.setFont('times', 'italic');
     doc.setFontSize(22);
     doc.setTextColor(0, 0, 0);
-    doc.text('Arpit Lalani', pageWidth - margin - 100, signatureY);
-
+    doc.text('rpit Lalani', signatureX + 2, signatureY);
+    
+    // Line under signature
     doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
-    doc.line(pageWidth - margin - 180, signatureY + 10, pageWidth - margin, signatureY + 10);
+    doc.line(signatureX, signatureY + 10, pageWidth - margin, signatureY + 10);
     
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
     doc.text('Founder and CEO', pageWidth - margin, signatureY + 25, { align: 'right' });
+    
+    // --- Footer ---
+    const footerY = pageHeight - 30;
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text('This is a computer-generated invoice and does not require a signature.', pageWidth / 2, footerY, { align: 'center' });
 
 
     doc.save(`invoice_${client.name.replace(/\s/g, '_')}_${invoiceNum}.pdf`);
