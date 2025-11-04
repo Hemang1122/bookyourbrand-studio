@@ -26,6 +26,7 @@ import { MultiSelect } from '@/components/ui/multi-select';
 import { useData } from '../../data-provider';
 import { useAuth } from '@/firebase/provider';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { UpgradeDialog } from '../../settings/billing/components/upgrade-dialog';
 
 type AddProjectDialogProps = {
   onProjectAdd: (project: Omit<Project, 'id' | 'coverImage'>) => void;
@@ -55,12 +56,12 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
     clientForProject = clients.find(c => c.id === selectedClientId);
   }
   
-  const clientProjectsCount = projects.filter(p => p.client.id === clientForProject?.id).length;
+  const clientProjectsCount = clientForProject ? projects.filter(p => p.client.id === clientForProject?.id).length : 0;
   const canAddProject = clientForProject ? clientProjectsCount < (clientForProject.reelsLimit || 0) : false;
 
   const handleAddProject = () => {
     if (!canAddProject) {
-        toast({ title: 'Limit Reached', description: 'This client has reached their project limit for the current plan.', variant: 'destructive'});
+        toast({ title: 'Limit Reached', description: 'This client has reached their project limit. Please upgrade their plan.', variant: 'destructive'});
         return;
     }
 
@@ -129,8 +130,13 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
                 <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Project Limit Reached</AlertTitle>
-                    <AlertDescription>
-                        This client is on the {clientForProject.packageName} plan and has reached their limit of {clientForProject.reelsLimit} projects.
+                    <AlertDescription className="flex items-center justify-between">
+                        <span>This client has reached their project limit.</span>
+                         {isClientUser && clientForProject && (
+                            <UpgradeDialog client={clientForProject}>
+                                <Button variant="secondary" size="sm">Upgrade</Button>
+                            </UpgradeDialog>
+                        )}
                     </AlertDescription>
                 </Alert>
             )}
@@ -194,7 +200,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleAddProject} disabled={!canAddProject && !!clientForProject}>Add Project</Button>
+          <Button onClick={handleAddProject} disabled={!canAddProject}>Add Project</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -9,8 +9,8 @@ import { Progress } from '@/components/ui/progress';
 import { AddProjectDialog } from '../../projects/components/add-project-dialog';
 import { useData } from '../../data-provider';
 import { useAuth } from '@/firebase/provider';
-import type { Client } from '@/lib/types';
 import { useMemo } from 'react';
+import { UpgradeDialog } from '../../settings/billing/components/upgrade-dialog';
 
 export function ClientDashboard() {
   const { user } = useAuth();
@@ -59,12 +59,21 @@ export function ClientDashboard() {
           <p className="text-muted-foreground">Welcome to your personal dashboard.</p>
         </div>
         <div className="flex items-center gap-2">
-            <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
-            <Button disabled={!canAddProject}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Project
-            </Button>
-            </AddProjectDialog>
+            {canAddProject ? (
+              <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
+                <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Project
+                </Button>
+              </AddProjectDialog>
+            ) : (
+              <UpgradeDialog client={myClientRecord}>
+                 <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Upgrade Plan
+                </Button>
+              </UpgradeDialog>
+            )}
         </div>
       </div>
 
@@ -155,12 +164,21 @@ export function ClientDashboard() {
           ) : (
             <div className="text-center py-8">
               <p className="text-muted-foreground mb-4">You have no projects yet.</p>
-              <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
-                <Button disabled={!canAddProject}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add First Project
-                </Button>
-              </AddProjectDialog>
+              {canAddProject ? (
+                  <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add First Project
+                    </Button>
+                  </AddProjectDialog>
+              ) : (
+                  <UpgradeDialog client={myClientRecord}>
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Upgrade to Add Project
+                    </Button>
+                  </UpgradeDialog>
+              )}
             </div>
           )}
         </CardContent>
