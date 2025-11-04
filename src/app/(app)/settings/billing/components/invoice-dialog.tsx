@@ -50,15 +50,20 @@ export function InvoiceDialog({ client, packageName, open, onOpenChange }: Invoi
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
-    doc.text('123 Creative Lane, Mumbai, MH 400001, IN', margin, 75);
-    doc.text('contact@bookyourbrands.com', margin, 90);
+    const addressLines = [
+      'Shop No 14, Vishwakarma Nagar building. 03',
+      '60 feet road, Landmark:, opposite old swaminarayan temple,',
+      'Vasai West, Vasai-Virar, Maharashtra 401202',
+    ]
+    doc.text(addressLines, margin, 75);
+    doc.text('contact@bookyourbrands.com', margin, 75 + (addressLines.length * 12));
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(28);
     doc.setTextColor(22, 22, 22);
     doc.text('INVOICE', pageWidth - margin, 60, { align: 'right' });
 
-    y = 130;
+    y = 140;
     doc.setLineWidth(1);
     doc.setDrawColor(240, 240, 240);
     doc.line(margin, y, pageWidth - margin, y);
@@ -81,18 +86,20 @@ export function InvoiceDialog({ client, packageName, open, onOpenChange }: Invoi
     
     const invoiceDate = format(new Date(), 'PPP');
     const invoiceNum = `INV-${Date.now().toString().slice(-6)}`;
-
+    
+    let rightColY = y;
     doc.setFont('helvetica', 'bold');
-    doc.text('Invoice #:', pageWidth - margin - 100, y);
+    doc.text('Invoice #:', pageWidth - margin - 100, rightColY);
     doc.setFont('helvetica', 'normal');
-    doc.text(invoiceNum, pageWidth - margin, y, { align: 'right' });
-    y += 15;
+    doc.text(invoiceNum, pageWidth - margin, rightColY, { align: 'right' });
+    rightColY += 20; // Increased spacing
     
     doc.setFont('helvetica', 'bold');
-    doc.text('Invoice Date:', pageWidth - margin - 100, y);
+    doc.text('Invoice Date:', pageWidth - margin - 100, rightColY);
     doc.setFont('helvetica', 'normal');
-    doc.text(invoiceDate, pageWidth - margin, y, { align: 'right' });
-    y += 50;
+    doc.text(invoiceDate, pageWidth - margin, rightColY, { align: 'right' });
+    
+    y += 80;
 
     // --- Table Header ---
     doc.setFillColor(248, 248, 248);
