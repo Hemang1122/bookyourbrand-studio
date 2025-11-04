@@ -13,6 +13,7 @@ import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
 import type { FirebaseApp } from 'firebase/app';
 import { packages as subscriptionPackages } from './settings/billing/packages-data';
+import { sendPushNotificationFlow } from '@/ai/flows/send-push-notification';
 
 type DataContextType = {
   projects: Project[];
@@ -64,7 +65,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
 
   const addNotification = useCallback((message: string, projectId: string, recipients: string[]) => {
-    if (!firestore || recipients.length === 0) return;
+    if (!firestore || recipients.length === 0 || !usersData) return;
     const newNotif: Omit<Notification, 'id'> = {
       message,
       projectId,
@@ -73,7 +74,22 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       timestamp: Timestamp.now(),
     };
     addDocumentNonBlocking(collection(firestore, 'notifications'), newNotif);
-  }, [firestore]);
+    
+    // Send push notifications
+    const recipientUsers = usersData.filter(u => recipients.includes(u.id));
+    const tokens = recipientUsers.flatMap(u => u.fcmTokens || []);
+    
+    if (tokens.length > 0) {
+      const url = projectId === 'general' ? '/dashboard' : `/projects/${projectId}`;
+      sendPushNotificationFlow({
+        tokens,
+        title: 'BookYourBrands CRM',
+        body: message,
+        url: `${window.location.origin}${url}`,
+      });
+    }
+
+  }, [firestore, usersData]);
   
   const { data: projectsData, isLoading: projectsLoading } = useCollection<Project>(useMemoFirebase(() => firestore ? collection(firestore, 'projects') : null, [firestore]));
   const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
@@ -97,7 +113,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     usersData
       .filter(u => u.role === 'team' || u.role === 'admin')
       .forEach(u => {
-        const name = u.role === 'admin' ? `Admin ${editorCount++}` : `Editor ${editorCount++}`;
+        const name = `Editor ${editorCount++}`;
         mapping.set(u.id, name);
       });
     return mapping;
