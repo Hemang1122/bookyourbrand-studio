@@ -11,6 +11,7 @@ import { useData } from '../../../data-provider';
 import { Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
+import { uploadFile } from '@/lib/storage';
 
 type ChatRoomProps = {
   projectId: string;
