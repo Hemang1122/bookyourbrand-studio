@@ -55,7 +55,7 @@ function LoginPageContent() {
 
       <div className="relative z-10 hidden flex-col items-center justify-center text-center lg:flex">
         <h2 className="font-signature text-5xl mb-6 text-foreground/80 animate-fade-in-up">
-            We get you notified
+            We get you noticied
         </h2>
         <LoginLogo className="text-5xl mb-4" />
         <p className="text-xl font-medium text-foreground">
