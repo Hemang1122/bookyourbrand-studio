@@ -1,12 +1,16 @@
+
 'use client';
 import { Separator } from '@/components/ui/separator';
 import { SettingsForm } from './components/settings-form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import BillingPage from './billing/page';
 import { CreditCard, User } from 'lucide-react';
+import { useAuth } from '@/firebase/provider';
 
 
 export default function SettingsPage() {
+  const { user } = useAuth();
+  
   return (
     <div className="space-y-6">
       <div>
@@ -18,16 +22,18 @@ export default function SettingsPage() {
       <Separator />
       
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className={`grid w-full ${user?.role === 'team' ? 'grid-cols-1' : 'grid-cols-2'}`}>
             <TabsTrigger value="profile"><User className="mr-2 h-4 w-4"/>Profile</TabsTrigger>
-            <TabsTrigger value="billing"><CreditCard className="mr-2 h-4 w-4"/>Billing</TabsTrigger>
+            {user?.role !== 'team' && <TabsTrigger value="billing"><CreditCard className="mr-2 h-4 w-4"/>Billing</TabsTrigger>}
         </TabsList>
         <TabsContent value="profile">
             <SettingsForm />
         </TabsContent>
-        <TabsContent value="billing">
-            <BillingPage />
-        </TabsContent>
+        {user?.role !== 'team' && (
+          <TabsContent value="billing">
+              <BillingPage />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
