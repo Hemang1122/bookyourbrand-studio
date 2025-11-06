@@ -12,10 +12,13 @@ import { LoginLogo } from '@/components/login-logo';
 import { LoginForm } from './components/login-form';
 import { Suspense, useEffect, useState } from 'react';
 import { FirebaseClientProvider } from '@/firebase';
-import { Facebook, Instagram, Youtube } from 'lucide-react';
+import { Facebook, Instagram, Youtube, UserSquare } from 'lucide-react';
+import { FaceRecognitionLogin } from './components/face-recognition-login';
+import { Button } from '@/components/ui/button';
 
 function LoginPageContent() {
   const [isMounted, setIsMounted] = useState(false);
+  const [loginMethod, setLoginMethod] = useState<'password' | 'face'>('password');
 
   useEffect(() => {
     setIsMounted(true);
@@ -72,15 +75,24 @@ function LoginPageContent() {
             <div className="mb-4 flex justify-center lg:hidden">
               <LoginLogo />
             </div>
-            <CardTitle className={`text-2xl font-bold transition-all duration-1000 ease-out ${isMounted ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>Welcome Back!</CardTitle>
+            <CardTitle className={`text-2xl font-bold transition-all duration-1000 ease-out ${isMounted ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
+                {loginMethod === 'password' ? 'Welcome Back!' : 'Face Recognition'}
+            </CardTitle>
             <CardDescription className={`transition-all duration-1000 ease-out delay-200 ${isMounted ? 'translate-y-0 opacity-100' : '-translate-y-10 opacity-0'}`}>
-              Sign in to your account to continue.
+              {loginMethod === 'password' ? 'Sign in to your account to continue.' : 'Position your face in the frame to log in.'}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Suspense fallback={<div>Loading...</div>}>
-              <LoginForm />
-            </Suspense>
+            {loginMethod === 'password' ? (
+                <Suspense fallback={<div>Loading...</div>}>
+                    <LoginForm />
+                </Suspense>
+            ) : (
+                <FaceRecognitionLogin />
+            )}
+             <Button variant="link" className="w-full mt-4" onClick={() => setLoginMethod(loginMethod === 'password' ? 'face' : 'password')}>
+                {loginMethod === 'password' ? 'Login with Face ID instead' : 'Login with Email/Password'}
+            </Button>
           </CardContent>
         </Card>
       </div>
