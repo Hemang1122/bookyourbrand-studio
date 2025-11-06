@@ -12,13 +12,10 @@ import { LoginLogo } from '@/components/login-logo';
 import { LoginForm } from './components/login-form';
 import { Suspense, useEffect, useState } from 'react';
 import { FirebaseClientProvider } from '@/firebase';
-import { Facebook, Instagram, Youtube, UserSquare } from 'lucide-react';
-import { FaceRecognitionLogin } from './components/face-recognition-login';
-import { Button } from '@/components/ui/button';
+import { Facebook, Instagram, Youtube } from 'lucide-react';
 
 function LoginPageContent() {
   const [isMounted, setIsMounted] = useState(false);
-  const [loginMethod, setLoginMethod] = useState<'password' | 'face'>('password');
 
   useEffect(() => {
     setIsMounted(true);
@@ -76,23 +73,16 @@ function LoginPageContent() {
               <LoginLogo />
             </div>
             <CardTitle className={`text-2xl font-bold transition-all duration-1000 ease-out ${isMounted ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
-                {loginMethod === 'password' ? 'Welcome Back!' : 'Face Recognition'}
+                Welcome Back!
             </CardTitle>
             <CardDescription className={`transition-all duration-1000 ease-out delay-200 ${isMounted ? 'translate-y-0 opacity-100' : '-translate-y-10 opacity-0'}`}>
-              {loginMethod === 'password' ? 'Sign in to your account to continue.' : 'Position your face in the frame to log in.'}
+              Sign in to your account to continue.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {loginMethod === 'password' ? (
-                <Suspense fallback={<div>Loading...</div>}>
-                    <LoginForm />
-                </Suspense>
-            ) : (
-                <FaceRecognitionLogin />
-            )}
-             <Button variant="link" className="w-full mt-4" onClick={() => setLoginMethod(loginMethod === 'password' ? 'face' : 'password')}>
-                {loginMethod === 'password' ? 'Login with Face ID instead' : 'Login with Email/Password'}
-            </Button>
+            <Suspense fallback={<div>Loading...</div>}>
+                <LoginForm />
+            </Suspense>
           </CardContent>
         </Card>
       </div>
