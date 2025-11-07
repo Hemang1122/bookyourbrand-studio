@@ -6,6 +6,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import * as admin from 'firebase-admin';
+import path from 'path';
 
 const CreateUserAccountSchema = z.object({
   email: z.string().email().describe('The email address for the new user.'),
@@ -17,19 +18,17 @@ const CreateUserAccountSchema = z.object({
 export type CreateUserAccountInput = z.infer<typeof CreateUserAccountSchema>;
 
 // Initialize Firebase Admin SDK if it hasn't been already.
-// This check is important to prevent re-initialization on hot reloads.
 if (!admin.apps.length) {
-    try {
-        // Use application default credentials which are automatically
-        // available in a managed Google Cloud environment.
-        admin.initializeApp({
-            credential: admin.credential.applicationDefault(),
-        });
-    } catch (e) {
-        console.error('Firebase Admin SDK initialization error:', e);
-        // This error will be caught, and the flow will attempt to proceed,
-        // but subsequent admin actions will likely fail. This is logged for debugging.
-    }
+  const serviceAccountPath = path.resolve(process.cwd(), 'config/serviceAccountKey.json');
+
+  try {
+    const serviceAccount = require(serviceAccountPath);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+  } catch (e) {
+    console.error('Firebase Admin SDK initialization error:', e);
+  }
 }
 
 
