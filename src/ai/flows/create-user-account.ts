@@ -20,14 +20,16 @@ export type CreateUserAccountInput = z.infer<typeof CreateUserAccountSchema>;
 const initializeFirebaseAdmin = () => {
     if (admin.apps.length === 0) {
         try {
+            // Use environment variables for service account credentials
+            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!);
             admin.initializeApp({
-                credential: admin.credential.applicationDefault(),
+                credential: admin.credential.cert(serviceAccount),
             });
         } catch (e) {
             console.error('Firebase Admin SDK initialization error:', e);
             // This error should be thrown to prevent the flow from continuing
             // with an uninitialized SDK.
-            throw new Error('Could not initialize Firebase Admin SDK.');
+            throw new Error('Could not initialize Firebase Admin SDK. Check service account credentials.');
         }
     }
 }
