@@ -6,7 +6,6 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import * as admin from 'firebase-admin';
-import path from 'path';
 
 const CreateUserAccountSchema = z.object({
   email: z.string().email().describe('The email address for the new user.'),
@@ -29,18 +28,19 @@ export const createUserAccountFlow = ai.defineFlow(
   },
   async ({ email, password, displayName, role }) => {
     // Initialize Firebase Admin SDK if it hasn't been already.
-    // This is done inside the flow to ensure it runs at execution time, not build time.
     if (!admin.apps.length) {
-      const serviceAccountPath = path.resolve(process.cwd(), 'config/serviceAccountKey.json');
       try {
-        const serviceAccount = require(serviceAccountPath);
         admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
+          credential: admin.credential.cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+          }),
         });
       } catch (e) {
         console.error('Firebase Admin SDK initialization error:', e);
         // If this fails, it's a fundamental configuration issue.
-        throw new Error('Could not initialize Firebase Admin SDK. Service account credentials may be missing or invalid.');
+        throw new Error('Could not initialize Firebase Admin SDK. Service account credentials may be missing or invalid in environment variables.');
       }
     }
     
