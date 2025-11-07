@@ -16,6 +16,23 @@ const CreateUserAccountSchema = z.object({
 
 export type CreateUserAccountInput = z.infer<typeof CreateUserAccountSchema>;
 
+// Helper function to initialize the Firebase Admin SDK securely.
+async function initializeFirebaseAdmin() {
+  if (admin.apps.length > 0) {
+    return;
+  }
+  try {
+    // This will use the service account from the environment
+    admin.initializeApp({
+      credential: admin.credential.applicationDefault(),
+    });
+  } catch (e) {
+    console.error('Firebase Admin SDK initialization error:', e);
+    // If this fails, it's a fundamental configuration issue.
+    throw new Error('Could not initialize Firebase Admin SDK. Service account credentials may be missing or invalid.');
+  }
+}
+
 export const createUserAccountFlow = ai.defineFlow(
   {
     name: 'createUserAccountFlow',
@@ -27,24 +44,11 @@ export const createUserAccountFlow = ai.defineFlow(
     }),
   },
   async ({ email, password, displayName, role }) => {
-    // Initialize Firebase Admin SDK if it hasn't been already.
-    if (!admin.apps.length) {
-      try {
-        admin.initializeApp({
-          credential: admin.credential.cert({
-            projectId: process.env.FIREBASE_PROJECT_ID,
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-          }),
-        });
-      } catch (e) {
-        console.error('Firebase Admin SDK initialization error:', e);
-        // If this fails, it's a fundamental configuration issue.
-        throw new Error('Could not initialize Firebase Admin SDK. Service account credentials may be missing or invalid in environment variables.');
-      }
-    }
+    // Ensure the Admin SDK is initialized before proceeding.
+    await initializeFirebaseAdmin();
     
     try {
+      // Create the user in Firebase Authentication.
       const userRecord = await admin.auth().createUser({
         email,
         password,
@@ -52,9 +56,10 @@ export const createUserAccountFlow = ai.defineFlow(
         disabled: false,
       });
 
-      // Set a custom claim for the user's role
+      // Set a custom claim for the user's role, critical for security rules.
       await admin.auth().setCustomUserClaims(userRecord.uid, { role });
 
+      // Return the details of the newly created user.
       return {
         uid: userRecord.uid,
         email: userRecord.email!,
@@ -62,18 +67,20 @@ export const createUserAccountFlow = ai.defineFlow(
       };
     } catch (error: any) {
       console.error('Error creating new user:', error);
-      // Provide a more descriptive error message
+      // Provide more specific error messages for common issues.
       if (error.code === 'auth/email-already-exists') {
         throw new Error('A user with this email address already exists.');
       }
        if (error.code === 'auth/invalid-password') {
         throw new Error('The password must be a string with at least six characters.');
       }
+      // For other errors, re-throw a generic message.
       throw new Error('An unexpected error occurred while creating the user account.');
     }
   }
 );
 
+// Export a wrapper function for easier client-side consumption.
 export async function createUserAccount(input: CreateUserAccountInput) {
     return await createUserAccountFlow(input);
 }
