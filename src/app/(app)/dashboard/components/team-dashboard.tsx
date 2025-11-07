@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,18 +8,26 @@ import { Badge } from '@/components/ui/badge';
 import { useData } from '../../data-provider';
 import { DailyStandupCard } from './daily-standup-card';
 import { useAuth } from '@/firebase/provider';
-import { useMemo } from 'react';
-import { format } from 'date-fns';
+import { useMemo, useState } from 'react';
+import { format, isSameDay, parseISO } from 'date-fns';
+import { Calendar } from '@/components/ui/calendar';
 
 
 export function TeamDashboard() {
   const { user } = useAuth();
   const { projects, tasks } = useData();
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
   const myProjects = useMemo(() => {
     if (!user || !projects) return [];
     return projects.filter(p => p.team_ids && p.team_ids.includes(user.id));
   }, [projects, user]);
+
+  const projectsForSelectedDate = useMemo(() => {
+    if (!selectedDate) return [];
+    return myProjects.filter(p => isSameDay(parseISO(p.startDate), selectedDate));
+  }, [myProjects, selectedDate]);
+
 
   const myTasks = useMemo(() => {
     if (!user || !tasks) return [];
@@ -48,7 +55,7 @@ export function TeamDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{myProjects.length}</div>
-            <p className="text-xs text-muted-foreground">Projects you are a member of.</p>
+            <p className="text-xs text-muted-foreground">Total projects you are a member of.</p>
           </CardContent>
         </Card>
         <Card>
@@ -86,21 +93,21 @@ export function TeamDashboard() {
         <div className="lg:col-span-2">
             <Card>
                 <CardHeader>
-                <CardTitle>My Assigned Projects</CardTitle>
+                <CardTitle>Projects Starting on {selectedDate ? format(selectedDate, 'PPP') : '...'}</CardTitle>
                 <CardDescription>
-                    Here are the projects you are currently a member of.
+                    Here are the projects scheduled to start on the selected date.
                 </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                   {myProjects.length > 0 ? (
-                        myProjects.map(project => (
+                   {projectsForSelectedDate.length > 0 ? (
+                        projectsForSelectedDate.map(project => (
                             <div key={project.id} className="flex items-center justify-between rounded-lg border p-4">
                                 <div>
                                     <h3 className="font-semibold">{project.name}</h3>
                                     <p className="text-sm text-muted-foreground">Client: {project.client.name}</p>
                                      <div className="flex items-center text-sm text-muted-foreground mt-1">
                                         <CalendarDays className="mr-2 h-4 w-4" />
-                                        <span>Start: {format(new Date(project.startDate), 'PP')}</span>
+                                        <span>Deadline: {format(new Date(project.deadline), 'PP')}</span>
                                     </div>
                                 </div>
                                  <div className='flex items-center gap-4'>
@@ -113,13 +120,31 @@ export function TeamDashboard() {
                         ))
                    ) : (
                      <div className="text-center py-8">
-                        <p className="text-muted-foreground">You have not been assigned to any projects yet.</p>
+                        <p className="text-muted-foreground">No projects starting on this day.</p>
                     </div>
                    )}
                 </CardContent>
             </Card>
         </div>
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base">Project Calendar</CardTitle>
+                    <CardDescription className="text-sm">Select a date to see projects.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex justify-center">
+                    <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        className="rounded-md border"
+                        disabled={(date) => {
+                            // Disable dates that have no projects starting
+                            return !myProjects.some(p => isSameDay(parseISO(p.startDate), date));
+                        }}
+                    />
+                </CardContent>
+            </Card>
             <DailyStandupCard />
         </div>
       </div>
