@@ -13,17 +13,13 @@ import {
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
-import { Loader2, Upload, Eye, EyeOff } from 'lucide-react';
-import { uploadFile } from '@/lib/storage';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 
 type AddTeamMemberDialogProps = {
   onTeamMemberAdd: (memberData: {
     name: string;
     email: string;
     password: string;
-    aadharUrl?: string;
-    panUrl?: string;
-    joiningLetterUrl?: string;
   }) => Promise<void>;
   children: React.ReactNode;
 };
@@ -34,25 +30,13 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [aadharFile, setAadharFile] = useState<File | null>(null);
-  const [panFile, setPanFile] = useState<File | null>(null);
-  const [joiningLetterFile, setJoiningLetterFile] = useState<File | null>(null);
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setFile: React.Dispatch<React.SetStateAction<File | null>>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0]);
-    }
-  };
 
   const resetForm = () => {
     setName('');
     setEmail('');
     setPassword('');
-    setAadharFile(null);
-    setPanFile(null);
-    setJoiningLetterFile(null);
     setShowPassword(false);
   };
 
@@ -65,19 +49,7 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
     setIsProcessing(true);
 
     try {
-      let aadharUrl, panUrl, joiningLetterUrl;
-
-      if (aadharFile) {
-        aadharUrl = await uploadFile(aadharFile, `documents/team/${name}`);
-      }
-      if (panFile) {
-        panUrl = await uploadFile(panFile, `documents/team/${name}`);
-      }
-      if (joiningLetterFile) {
-        joiningLetterUrl = await uploadFile(joiningLetterFile, `documents/team/${name}`);
-      }
-
-      await onTeamMemberAdd({ name, email, password, aadharUrl, panUrl, joiningLetterUrl });
+      await onTeamMemberAdd({ name, email, password });
       toast({ title: 'Team Member Added', description: `"${name}" has been added.` });
       
       setOpen(false);
@@ -129,45 +101,6 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
                 >
                 {showPassword ? <EyeOff /> : <Eye />}
                 </Button>
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <Label>Aadhar Card</Label>
-            <div className="flex items-center gap-2">
-                <Button asChild variant="outline" disabled={isProcessing}>
-                    <label htmlFor="aadhar-upload" className="cursor-pointer">
-                        <Upload className="mr-2 h-4 w-4" /> Upload File
-                    </label>
-                </Button>
-                <Input id="aadhar-upload" type="file" className="hidden" onChange={e => handleFileChange(e, setAadharFile)} disabled={isProcessing}/>
-                {aadharFile && <span className="text-sm text-muted-foreground truncate">{aadharFile.name}</span>}
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <Label>PAN Card</Label>
-            <div className="flex items-center gap-2">
-                <Button asChild variant="outline" disabled={isProcessing}>
-                    <label htmlFor="pan-upload" className="cursor-pointer">
-                        <Upload className="mr-2 h-4 w-4" /> Upload File
-                    </label>
-                </Button>
-                <Input id="pan-upload" type="file" className="hidden" onChange={e => handleFileChange(e, setPanFile)} disabled={isProcessing}/>
-                {panFile && <span className="text-sm text-muted-foreground truncate">{panFile.name}</span>}
-            </div>
-          </div>
-
-           <div className="space-y-2">
-            <Label>Joining Letter</Label>
-            <div className="flex items-center gap-2">
-                <Button asChild variant="outline" disabled={isProcessing}>
-                    <label htmlFor="joining-letter-upload" className="cursor-pointer">
-                        <Upload className="mr-2 h-4 w-4" /> Upload File
-                    </label>
-                </Button>
-                <Input id="joining-letter-upload" type="file" className="hidden" onChange={e => handleFileChange(e, setJoiningLetterFile)} disabled={isProcessing}/>
-                {joiningLetterFile && <span className="text-sm text-muted-foreground truncate">{joiningLetterFile.name}</span>}
             </div>
           </div>
         </div>

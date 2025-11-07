@@ -14,8 +14,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Upload, Eye, EyeOff } from 'lucide-react';
-import { uploadFile } from '@/lib/storage';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 
 type AddClientDialogProps = {
   onClientAdd: (clientData: {
@@ -24,8 +23,6 @@ type AddClientDialogProps = {
     email: string;
     password: string;
     founderDetails: string;
-    agreementUrl?: string;
-    idCardUrl?: string;
   }) => Promise<void>;
   children: React.ReactNode;
 };
@@ -38,25 +35,15 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [founderDetails, setFounderDetails] = useState('');
-  const [agreementFile, setAgreementFile] = useState<File | null>(null);
-  const [idCardFile, setIdCardFile] = useState<File | null>(null);
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setFile: React.Dispatch<React.SetStateAction<File | null>>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0]);
-    }
-  };
-  
   const resetForm = () => {
     setName('');
     setCompany('');
     setEmail('');
     setPassword('');
     setFounderDetails('');
-    setAgreementFile(null);
-    setIdCardFile(null);
     setShowPassword(false);
   }
 
@@ -69,17 +56,7 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
     setIsProcessing(true);
 
     try {
-      let agreementUrl: string | undefined;
-      let idCardUrl: string | undefined;
-
-      if (agreementFile) {
-        agreementUrl = await uploadFile(agreementFile, `documents/clients/${name}`);
-      }
-      if (idCardFile) {
-        idCardUrl = await uploadFile(idCardFile, `documents/clients/${name}`);
-      }
-
-      await onClientAdd({ name, company, email, password, founderDetails, agreementUrl, idCardUrl });
+      await onClientAdd({ name, company, email, password, founderDetails });
       toast({ title: 'Client Added', description: `"${name}" has been added.` });
       setOpen(false);
       resetForm();
@@ -139,30 +116,6 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
           <div className="space-y-2">
             <Label htmlFor="founder-details">Founder Details</Label>
             <Textarea id="founder-details" value={founderDetails} onChange={(e) => setFounderDetails(e.target.value)} placeholder="Enter details about the founder(s)." disabled={isProcessing}/>
-          </div>
-           <div className="space-y-2">
-            <Label>Client Agreement</Label>
-            <div className="flex items-center gap-2">
-                <Button asChild variant="outline" disabled={isProcessing}>
-                    <label htmlFor="agreement-upload" className="cursor-pointer">
-                        <Upload className="mr-2 h-4 w-4" /> Upload File
-                    </label>
-                </Button>
-                <Input id="agreement-upload" type="file" className="hidden" onChange={e => handleFileChange(e, setAgreementFile)} disabled={isProcessing} />
-                {agreementFile && <span className="text-sm text-muted-foreground truncate">{agreementFile.name}</span>}
-            </div>
-          </div>
-           <div className="space-y-2">
-            <Label>Founder's Identity Card</Label>
-            <div className="flex items-center gap-2">
-                <Button asChild variant="outline" disabled={isProcessing}>
-                    <label htmlFor="id-card-upload" className="cursor-pointer">
-                        <Upload className="mr-2 h-4 w-4" /> Upload File
-                    </label>
-                </Button>
-                <Input id="id-card-upload" type="file" className="hidden" onChange={e => handleFileChange(e, setIdCardFile)} disabled={isProcessing}/>
-                {idCardFile && <span className="text-sm text-muted-foreground truncate">{idCardFile.name}</span>}
-            </div>
           </div>
         </div>
         <DialogFooter>

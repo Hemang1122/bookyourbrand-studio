@@ -35,17 +35,12 @@ type DataContextType = {
     email: string;
     password: string;
     founderDetails: string;
-    agreementUrl?: string;
-    idCardUrl?: string;
   }) => Promise<void>;
   updateClient: (clientId: string, clientData: Partial<Client>) => void;
   addTeamMember: (memberData: {
     name: string;
     email: string;
     password: string;
-    aadharUrl?: string;
-    panUrl?: string;
-    joiningLetterUrl?: string;
   }) => Promise<void>;
   updateTeamMember: (userId: string, memberData: Partial<User>) => void;
   addScrumUpdate: (update: Omit<ScrumUpdate, 'id'>) => void;
@@ -313,7 +308,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     addNotification(`Task '${task.title}' in project '${project.name}' was updated to '${status}'.`, project.id, recipients.filter(id => id !== currentUser.id));
   }
 
-  const addClient = async (clientData: {name: string, company: string, email: string, password: string, founderDetails: string, agreementUrl?: string, idCardUrl?: string}) => {
+  const addClient = async (clientData: {name: string, company: string, email: string, password: string, founderDetails: string}) => {
     if (!firestore) throw new Error("Firestore is not available");
 
     // 1. Create the auth user first
@@ -336,8 +331,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       company: clientData.company,
       email: clientData.email,
       founderDetails: clientData.founderDetails,
-      agreementUrl: clientData.agreementUrl,
-      idCardUrl: clientData.idCardUrl,
       avatar: '',
       packageName: 'Gold',
       reelsLimit: defaultTier?.reels ?? 10,
@@ -377,7 +370,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     }
   }
 
-  const addTeamMember = async (memberData: { name: string, email: string, password: string, aadharUrl?: string, panUrl?: string, joiningLetterUrl?: string }) => {
+  const addTeamMember = async (memberData: { name: string, email: string, password: string }) => {
     if (!firestore) throw new Error("Firestore is not available");
 
     const authUser = await createUserAccount({
@@ -394,9 +387,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         role: 'team',
         username: memberData.name.toLowerCase().replace(/\s/g, ''),
         avatar: '',
-        aadharUrl: memberData.aadharUrl,
-        panUrl: memberData.panUrl,
-        joiningLetterUrl: memberData.joiningLetterUrl,
      };
 
      Object.keys(newMember).forEach(keyStr => {
