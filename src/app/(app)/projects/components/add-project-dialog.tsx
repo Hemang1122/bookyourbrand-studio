@@ -39,6 +39,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [guidelines, setGuidelines] = useState('');
+  const [startDate, setStartDate] = useState<Date>();
   const [deadline, setDeadline] = useState<Date>();
   const [selectedClientId, setSelectedClientId] = useState<string | undefined>(preselectedClient?.id);
   const [team_ids, setTeamIds] = useState<string[]>([]);
@@ -65,8 +66,8 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
         return;
     }
 
-    if (!name || !description || !deadline) {
-      toast({ title: 'Error', description: 'Project name, description, and deadline are required.', variant: 'destructive' });
+    if (!name || !description || !startDate || !deadline) {
+      toast({ title: 'Error', description: 'All fields are required.', variant: 'destructive' });
       return;
     }
 
@@ -91,6 +92,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
       name,
       description,
       guidelines,
+      startDate: format(startDate, 'yyyy-MM-dd'),
       deadline: format(deadline, 'yyyy-MM-dd'),
       client: clientForProject,
       team_ids: selectedTeamIds,
@@ -104,6 +106,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
     setName('');
     setDescription('');
     setGuidelines('');
+    setStartDate(undefined);
     setDeadline(undefined);
     setSelectedClientId(preselectedClient?.id);
     setTeamIds([]);
@@ -177,25 +180,47 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
               />
             </div>
           )}
-          <div className="space-y-2">
-            <Label htmlFor="deadline">Deadline</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !deadline && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {deadline ? format(deadline, "PPP") : <span>Pick a date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={deadline} onSelect={setDeadline} initialFocus />
-              </PopoverContent>
-            </Popover>
+           <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="start-date">Start Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !startDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="deadline">Deadline</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !deadline && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {deadline ? format(deadline, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={deadline} onSelect={setDeadline} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         </div>
         <DialogFooter>

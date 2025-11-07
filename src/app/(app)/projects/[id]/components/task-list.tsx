@@ -103,7 +103,6 @@ const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
         </CardHeader>
         <CardContent className="flex items-center justify-between p-4 pt-0">
             <div className="flex items-center gap-4">
-                <Badge variant="outline">Start: {new Date(task.startDate).toLocaleDateString()}</Badge>
                 <Badge variant="outline">Due: {new Date(task.dueDate).toLocaleDateString()}</Badge>
             </div>
           <TooltipProvider>

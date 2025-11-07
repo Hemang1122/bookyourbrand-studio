@@ -1,7 +1,8 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ListTodo, Clock, CheckCircle2, FolderKanban } from 'lucide-react';
+import { ListTodo, Clock, CheckCircle2, FolderKanban, CalendarDays } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +10,7 @@ import { useData } from '../../data-provider';
 import { DailyStandupCard } from './daily-standup-card';
 import { useAuth } from '@/firebase/provider';
 import { useMemo } from 'react';
+import { format } from 'date-fns';
 
 
 export function TeamDashboard() {
@@ -96,6 +98,10 @@ export function TeamDashboard() {
                                 <div>
                                     <h3 className="font-semibold">{project.name}</h3>
                                     <p className="text-sm text-muted-foreground">Client: {project.client.name}</p>
+                                     <div className="flex items-center text-sm text-muted-foreground mt-1">
+                                        <CalendarDays className="mr-2 h-4 w-4" />
+                                        <span>Start: {format(new Date(project.startDate), 'PP')}</span>
+                                    </div>
                                 </div>
                                  <div className='flex items-center gap-4'>
                                     <Badge variant={project.status === 'Completed' ? 'secondary' : 'default'}>{project.status}</Badge>

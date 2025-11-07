@@ -20,7 +20,7 @@ import { format } from 'date-fns';
 
 type AddTaskDialogProps = {
   projectId: string;
-  onTaskAdd: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks'>) => void;
+  onTaskAdd: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks' | 'dueDate'>) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
@@ -49,13 +49,10 @@ export function AddTaskDialog({ projectId, onTaskAdd, open, onOpenChange }: AddT
   };
 
   const handleAddTask = (title: string, description: string) => {
-    const now = new Date();
     const newTask = {
         projectId: projectId,
         title,
         description,
-        startDate: format(now, 'yyyy-MM-dd'),
-        dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 1 week from now
     };
     onTaskAdd(newTask);
     toast({ title: 'Task Added', description: `"${title}" has been added to the project.` });

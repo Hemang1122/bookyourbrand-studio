@@ -13,6 +13,7 @@ import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
 import type { FirebaseApp } from 'firebase/app';
 import { packages as subscriptionPackages } from './settings/billing/packages-data';
+import { format, addWeeks } from 'date-fns';
 
 type DataContextType = {
   projects: Project[];
@@ -25,7 +26,7 @@ type DataContextType = {
   messages: ChatMessage[];
   notifications: Notification[];
   addProject: (project: Omit<Project, 'id' | 'coverImage' >) => void;
-  addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks'>) => void;
+  addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks' | 'dueDate'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
   updateTaskStatus: (taskId: string, status: TaskStatus, remark: string) => void;
   addClient: (clientData: {
@@ -128,22 +129,35 @@ export function DataProvider({ children, user: currentUser }: { children: React.
             ...p,
             client: client || p.client,
             team_ids: p.team_ids || [],
+            startDate: p.startDate || format(new Date(), 'yyyy-MM-dd'),
         };
     }).filter(p => p.client);
   }, [projectsData, clientsData]);
 
   const tasks = useMemo(() => {
     if (!tasksData) return initialTasks;
-    if (currentUser?.role !== 'client') return tasksData;
-    return tasksData.map(t => ({
-        ...t,
-        assignedTo: anonymizeUser(t.assignedTo),
-        remarks: t.remarks.map(r => ({
-            ...r,
-            userName: teamEditorMapping.get(r.userId) || 'Editor',
-        }))
-    }));
-  }, [tasksData, currentUser, anonymizeUser, teamEditorMapping, usersData]);
+    return tasksData.map(t => {
+      const project = projects.find(p => p.id === t.projectId);
+      const dueDate = t.dueDate || format(addWeeks(new Date(project?.startDate || Date.now()), 1), 'yyyy-MM-dd');
+      
+      const anonymizedTask = {
+          ...t,
+          dueDate,
+          assignedTo: t.assignedTo,
+          remarks: t.remarks || [],
+      };
+
+      if (currentUser?.role === 'client') {
+          anonymizedTask.assignedTo = anonymizeUser(t.assignedTo);
+          anonymizedTask.remarks = (t.remarks || []).map(r => ({
+              ...r,
+              userName: teamEditorMapping.get(r.userId) || 'Editor',
+          }));
+      }
+
+      return anonymizedTask;
+    });
+  }, [tasksData, projects, currentUser, anonymizeUser, teamEditorMapping]);
   
   const messages = useMemo(() => {
     if (!messagesData) return [];
@@ -234,7 +248,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     router.push(`/projects/${newProject.id}`);
   };
 
-  const addTask = (taskData: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks'>) => {
+  const addTask = (taskData: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks' | 'dueDate'>) => {
     if (!firestore || !projects || !currentUser || !usersData) return;
     const project = projects.find(p => p.id === taskData.projectId);
     if (!project) return;
@@ -247,12 +261,13 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         return;
     }
     const newTaskId = doc(collection(firestore, 'tasks')).id;
-    const newTask: Task = {
+    const newTask: Omit<Task, 'id'> & { id: string } = {
       id: newTaskId,
       ...taskData,
       assignedTo: assignedTo,
       status: 'Pending',
       remarks: [],
+      dueDate: format(addWeeks(new Date(project.startDate), 1), 'yyyy-MM-dd'),
     };
     setDocumentNonBlocking(doc(firestore, 'tasks', newTask.id), newTask, {});
 
@@ -297,7 +312,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const taskRef = doc(firestore, 'tasks', taskId);
     updateDocumentNonBlocking(taskRef, {
       status: status,
-      remarks: [...task.remarks, newRemark]
+      remarks: [...(task.remarks || []), newRemark]
     });
     
     toast({ title: 'Task Updated', description: `Task status changed to "${status}".` });
