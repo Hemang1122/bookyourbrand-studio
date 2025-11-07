@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 type EditProjectDialogProps = {
   project: Project;
-  onProjectUpdate: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team' | 'coverImage'>>) => void;
+  onProjectUpdate: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => void;
   children: React.ReactNode;
 };
 
@@ -34,7 +34,6 @@ export function EditProjectDialog({ project, onProjectUpdate, children }: EditPr
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description);
   const [guidelines, setGuidelines] = useState(project.guidelines || '');
-  const [startDate, setStartDate] = useState<Date | undefined>(new Date(project.startDate));
   const [deadline, setDeadline] = useState<Date | undefined>(new Date(project.deadline));
   const [status, setStatus] = useState<ProjectStatus>(project.status);
   const { toast } = useToast();
@@ -44,7 +43,6 @@ export function EditProjectDialog({ project, onProjectUpdate, children }: EditPr
       setName(project.name);
       setDescription(project.description);
       setGuidelines(project.guidelines || '');
-      setStartDate(new Date(project.startDate));
       setDeadline(new Date(project.deadline));
       setStatus(project.status);
     }
@@ -52,16 +50,15 @@ export function EditProjectDialog({ project, onProjectUpdate, children }: EditPr
 
 
   const handleUpdateProject = () => {
-    if (!name || !description || !startDate || !deadline || !status) {
+    if (!name || !description || !deadline || !status) {
       toast({ title: 'Error', description: 'All fields are required.', variant: 'destructive' });
       return;
     }
 
-    const updatedData = {
+    const updatedData: Partial<Project> = {
       name,
       description,
       guidelines,
-      startDate: format(startDate, 'yyyy-MM-dd'),
       deadline: format(deadline, 'yyyy-MM-dd'),
       status,
     };
@@ -77,7 +74,7 @@ export function EditProjectDialog({ project, onProjectUpdate, children }: EditPr
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle>Edit Project: {project.name}</DialogTitle>
-          <DialogDescription>Update the details for this project.</DialogDescription>
+          <DialogDescription>Update the details for this project. Start date is set when managing the team.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
@@ -93,26 +90,6 @@ export function EditProjectDialog({ project, onProjectUpdate, children }: EditPr
             <Textarea id="guidelines" value={guidelines} onChange={(e) => setGuidelines(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-4">
-             <div className="space-y-2">
-                <Label htmlFor="start-date">Start Date</Label>
-                <Popover>
-                <PopoverTrigger asChild>
-                    <Button
-                    variant={"outline"}
-                    className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !startDate && "text-muted-foreground"
-                    )}
-                    >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus />
-                </PopoverContent>
-                </Popover>
-            </div>
             <div className="space-y-2">
                 <Label htmlFor="deadline">Deadline</Label>
                 <Popover>
@@ -133,8 +110,7 @@ export function EditProjectDialog({ project, onProjectUpdate, children }: EditPr
                 </PopoverContent>
                 </Popover>
             </div>
-          </div>
-           <div className="space-y-2">
+             <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
                 <Select onValueChange={(value: ProjectStatus) => setStatus(value)} value={status}>
                     <SelectTrigger>
@@ -148,6 +124,7 @@ export function EditProjectDialog({ project, onProjectUpdate, children }: EditPr
                     </SelectContent>
                 </Select>
             </div>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

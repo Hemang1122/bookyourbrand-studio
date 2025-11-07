@@ -39,7 +39,6 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [guidelines, setGuidelines] = useState('');
-  const [startDate, setStartDate] = useState<Date>();
   const [deadline, setDeadline] = useState<Date>();
   const [selectedClientId, setSelectedClientId] = useState<string | undefined>(preselectedClient?.id);
   const [team_ids, setTeamIds] = useState<string[]>([]);
@@ -66,8 +65,8 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
         return;
     }
 
-    if (!name || !description || !startDate || !deadline) {
-      toast({ title: 'Error', description: 'All fields are required.', variant: 'destructive' });
+    if (!name || !description || !deadline) {
+      toast({ title: 'Error', description: 'Name, description, and deadline are required.', variant: 'destructive' });
       return;
     }
 
@@ -92,7 +91,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
       name,
       description,
       guidelines,
-      startDate: format(startDate, 'yyyy-MM-dd'),
+      startDate: format(new Date(), 'yyyy-MM-dd'), // Set a default start date
       deadline: format(deadline, 'yyyy-MM-dd'),
       client: clientForProject,
       team_ids: selectedTeamIds,
@@ -106,7 +105,6 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
     setName('');
     setDescription('');
     setGuidelines('');
-    setStartDate(undefined);
     setDeadline(undefined);
     setSelectedClientId(preselectedClient?.id);
     setTeamIds([]);
@@ -118,7 +116,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle>Add New Project</DialogTitle>
-          <DialogDescription>Fill in the details for the new project.</DialogDescription>
+          <DialogDescription>Fill in the details for the new project. You can set the start date after creation.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
             {!isClientUser && !selectedClientId && (
@@ -171,7 +169,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
           )}
           {!isClientUser && (
             <div className="space-y-2">
-              <Label>Assign Team Members</Label>
+              <Label>Assign Team Members (initial)</Label>
               <MultiSelect
                 options={teamMemberOptions}
                 selected={team_ids}
@@ -180,28 +178,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
               />
             </div>
           )}
-           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="start-date">Start Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !startDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-2">
+           <div className="space-y-2">
               <Label htmlFor="deadline">Deadline</Label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -221,7 +198,6 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
                 </PopoverContent>
               </Popover>
             </div>
-          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
