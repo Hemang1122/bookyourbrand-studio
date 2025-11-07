@@ -13,6 +13,7 @@ import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
 import type { FirebaseApp } from 'firebase/app';
 import { packages as subscriptionPackages } from './settings/billing/packages-data';
+import { createUserAccount } from '@/ai/flows/create-user-account';
 
 type DataContextType = {
   projects: Project[];
@@ -32,18 +33,20 @@ type DataContextType = {
     name: string;
     company: string;
     email: string;
+    password: string;
     founderDetails: string;
     agreementUrl?: string;
     idCardUrl?: string;
-  }) => void;
+  }) => Promise<void>;
   updateClient: (clientId: string, clientData: Partial<Client>) => void;
   addTeamMember: (memberData: {
     name: string;
     email: string;
+    password: string;
     aadharUrl?: string;
     panUrl?: string;
     joiningLetterUrl?: string;
-  }) => void;
+  }) => Promise<void>;
   updateTeamMember: (userId: string, memberData: Partial<User>) => void;
   addScrumUpdate: (update: Omit<ScrumUpdate, 'id'>) => void;
   isLoading: boolean;
@@ -310,17 +313,25 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     addNotification(`Task '${task.title}' in project '${project.name}' was updated to '${status}'.`, project.id, recipients.filter(id => id !== currentUser.id));
   }
 
-  const addClient = (clientData: {name: string, company: string, email: string, founderDetails: string, agreementUrl?: string, idCardUrl?: string}) => {
-    if (!firestore || !firebaseApp) return;
-    const newClientId = `client-${Date.now()}`;
+  const addClient = async (clientData: {name: string, company: string, email: string, password: string, founderDetails: string, agreementUrl?: string, idCardUrl?: string}) => {
+    if (!firestore) throw new Error("Firestore is not available");
+
+    // 1. Create the auth user first
+    const authUser = await createUserAccount({
+        email: clientData.email,
+        password: clientData.password,
+        displayName: clientData.name,
+        role: 'client'
+    });
+
+    // 2. Once auth user is created, create the Firestore documents
     const defaultPackage = subscriptionPackages.find(p => p.name === 'Gold');
     const defaultTier = defaultPackage?.tiers?.[0];
     const durationString = defaultTier?.duration || defaultPackage?.duration;
     const maxDuration = durationString ? parseInt(durationString.replace(/[^0-9]/g, ''), 10) : 90;
 
-
     const newClient: Client = {
-      id: newClientId,
+      id: authUser.uid,
       name: clientData.name,
       company: clientData.company,
       email: clientData.email,
@@ -334,15 +345,17 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       maxDuration: isNaN(maxDuration) ? 90 : maxDuration,
     };
     const newUser: User = {
-        id: newClient.id,
+        id: authUser.uid,
         name: clientData.name,
         email: clientData.email,
         role: 'client',
         username: clientData.name.toLowerCase().replace(/\s/g, ''),
         avatar: ''
     }
-    setDocumentNonBlocking(doc(firestore, 'clients', newClient.id), newClient, {});
-    setDocumentNonBlocking(doc(firestore, 'users', newUser.id), newUser, {});
+    await Promise.all([
+      setDocumentNonBlocking(doc(firestore, 'clients', newClient.id), newClient, {}),
+      setDocumentNonBlocking(doc(firestore, 'users', newUser.id), newUser, {})
+    ]);
   }
   
   const updateClient = (clientId: string, clientData: Partial<Client>) => {
@@ -364,17 +377,26 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     }
   }
 
-  const addTeamMember = (memberData: { name: string, email: string, aadharUrl?: string, panUrl?: string, joiningLetterUrl?: string }) => {
-    if (!firestore) return;
-     const newMemberId = `user-${Date.now()}`;
+  const addTeamMember = async (memberData: { name: string, email: string, password: string, aadharUrl?: string, panUrl?: string, joiningLetterUrl?: string }) => {
+    if (!firestore) throw new Error("Firestore is not available");
+
+    const authUser = await createUserAccount({
+        email: memberData.email,
+        password: memberData.password,
+        displayName: memberData.name,
+        role: 'team'
+    });
+
      const newMember: Partial<User> = {
-        id: newMemberId,
+        id: authUser.uid,
         name: memberData.name,
         email: memberData.email,
         role: 'team',
         username: memberData.name.toLowerCase().replace(/\s/g, ''),
         avatar: '',
-        ...memberData,
+        aadharUrl: memberData.aadharUrl,
+        panUrl: memberData.panUrl,
+        joiningLetterUrl: memberData.joiningLetterUrl,
      };
 
      Object.keys(newMember).forEach(keyStr => {
@@ -384,7 +406,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         }
     });
 
-    setDocumentNonBlocking(doc(firestore, 'users', newMemberId), newMember, {});
+    await setDocumentNonBlocking(doc(firestore, 'users', newMember.id!), newMember, {});
   }
 
   const updateTeamMember = (userId: string, memberData: Partial<User>) => {
