@@ -16,22 +16,22 @@ const CreateUserAccountSchema = z.object({
 
 export type CreateUserAccountInput = z.infer<typeof CreateUserAccountSchema>;
 
-// Function to initialize Firebase Admin SDK if it hasn't been already.
-const initializeFirebaseAdmin = () => {
-    if (admin.apps.length === 0) {
-        try {
-            // Use application default credentials which are automatically
-            // available in a managed Google Cloud environment.
-            admin.initializeApp({
-                credential: admin.credential.applicationDefault(),
-            });
-        } catch (e) {
-            console.error('Firebase Admin SDK initialization error:', e);
-            // If this fails, it's a fundamental configuration issue.
-            throw new Error('Could not initialize Firebase Admin SDK. Service account credentials may be missing or invalid.');
-        }
+// Initialize Firebase Admin SDK if it hasn't been already.
+// This check is important to prevent re-initialization on hot reloads.
+if (!admin.apps.length) {
+    try {
+        // Use application default credentials which are automatically
+        // available in a managed Google Cloud environment.
+        admin.initializeApp({
+            credential: admin.credential.applicationDefault(),
+        });
+    } catch (e) {
+        console.error('Firebase Admin SDK initialization error:', e);
+        // This error will be caught, and the flow will attempt to proceed,
+        // but subsequent admin actions will likely fail. This is logged for debugging.
     }
 }
+
 
 export const createUserAccountFlow = ai.defineFlow(
   {
@@ -44,8 +44,10 @@ export const createUserAccountFlow = ai.defineFlow(
     }),
   },
   async ({ email, password, displayName, role }) => {
-    // Ensure Firebase Admin is initialized before proceeding
-    initializeFirebaseAdmin();
+    // Check if the SDK is initialized before proceeding.
+    if (admin.apps.length === 0) {
+        throw new Error("Firebase Admin SDK not initialized. Service account credentials may be missing or invalid.");
+    }
     
     try {
       const userRecord = await admin.auth().createUser({
