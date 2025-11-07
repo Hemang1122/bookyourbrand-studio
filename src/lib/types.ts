@@ -65,6 +65,7 @@ export type Task = {
   description: string;
   assignedTo: User;
   status: TaskStatus;
+  startDate: string;
   dueDate: string;
   remarks: TaskRemark[];
 };

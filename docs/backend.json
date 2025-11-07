@@ -131,6 +131,11 @@
           "type": "string",
           "description": "A description of the task."
         },
+        "startDate": {
+          "type": "string",
+          "description": "The start date for the task.",
+          "format": "date"
+        },
         "dueDate": {
           "type": "string",
           "description": "The due date for the task.",
@@ -151,6 +156,7 @@
         "assignedTo",
         "title",
         "description",
+        "startDate",
         "dueDate",
         "status"
       ]

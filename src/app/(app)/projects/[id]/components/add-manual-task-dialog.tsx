@@ -15,6 +15,11 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import type { Task } from '@/lib/types';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 
 type AddManualTaskDialogProps = {
   projectId: string;
@@ -26,18 +31,20 @@ type AddManualTaskDialogProps = {
 export function AddManualTaskDialog({ projectId, onTaskAdd, open, onOpenChange }: AddManualTaskDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [startDate, setStartDate] = useState<Date>();
   const { toast } = useToast();
 
   const handleAddTask = () => {
-    if (!title) {
-        toast({ title: 'Error', description: 'Task title is required.', variant: 'destructive'});
+    if (!title || !startDate) {
+        toast({ title: 'Error', description: 'Task title and start date are required.', variant: 'destructive'});
         return;
     }
     const newTask = {
         projectId: projectId,
         title,
         description,
-        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 1 week from now
+        startDate: format(startDate, 'yyyy-MM-dd'),
+        dueDate: new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 1 week from start date
     };
     onTaskAdd(newTask);
     toast({ title: 'Task Added', description: `"${title}" has been added to the project.` });
@@ -49,6 +56,7 @@ export function AddManualTaskDialog({ projectId, onTaskAdd, open, onOpenChange }
     onOpenChange(false);
     setTitle('');
     setDescription('');
+    setStartDate(undefined);
   }
 
   return (
@@ -79,6 +87,27 @@ export function AddManualTaskDialog({ projectId, onTaskAdd, open, onOpenChange }
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
             />
+          </div>
+           <div className="space-y-2">
+            <Label htmlFor="start-date">Start Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  id="start-date"
+                  variant={"outline"}
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !startDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus />
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
         <DialogFooter>

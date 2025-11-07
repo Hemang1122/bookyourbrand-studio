@@ -339,16 +339,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   const addTeamMember = (memberData: { name: string, email: string }) => {
     if (!firestore) return;
-     const newMember: Partial<User> = {
-        name: memberData.name,
-        email: memberData.email,
-        role: 'team',
-        username: memberData.name.toLowerCase().replace(/\s/g, ''),
-        avatar: `avatar-${Math.floor(Math.random() * 3) + 2}`,
-     };
-
-     // This is a placeholder as user creation is disabled
-     console.log("Adding new team member (placeholder):", newMember);
+     console.log("Adding new team member (placeholder):", memberData);
   }
 
   const updateTeamMember = (userId: string, memberData: Partial<User>) => {

@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { summarizeProjectBrief, SummarizeProjectBriefOutput } from '@/ai/flows/ai-powered-task-summarization';
 import { Wand2, Plus, Bot, Loader2 } from 'lucide-react';
 import type { Task } from '@/lib/types';
+import { format } from 'date-fns';
 
 type AddTaskDialogProps = {
   projectId: string;
@@ -48,11 +49,13 @@ export function AddTaskDialog({ projectId, onTaskAdd, open, onOpenChange }: AddT
   };
 
   const handleAddTask = (title: string, description: string) => {
+    const now = new Date();
     const newTask = {
         projectId: projectId,
         title,
         description,
-        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 1 week from now
+        startDate: format(now, 'yyyy-MM-dd'),
+        dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 1 week from now
     };
     onTaskAdd(newTask);
     toast({ title: 'Task Added', description: `"${title}" has been added to the project.` });

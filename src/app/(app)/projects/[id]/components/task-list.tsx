@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -101,7 +102,10 @@ const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
           </div>
         </CardHeader>
         <CardContent className="flex items-center justify-between p-4 pt-0">
-          <Badge variant="outline">Due: {new Date(task.dueDate).toLocaleDateString()}</Badge>
+            <div className="flex items-center gap-4">
+                <Badge variant="outline">Start: {new Date(task.startDate).toLocaleDateString()}</Badge>
+                <Badge variant="outline">Due: {new Date(task.dueDate).toLocaleDateString()}</Badge>
+            </div>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
