@@ -31,7 +31,7 @@ export default function TeamPage() {
                 </p>
             </div>
             {user?.role === 'admin' && (
-              <AddTeamMemberDialog onTeamMemberAdd={addTeamMember}>
+              <AddTeamMemberDialog onTeamMemberAdd={addTeamMember as any}>
                 <Button>
                     <Plus className="mr-2 h-4 w-4" /> Add Team Member
                 </Button>

@@ -33,34 +33,8 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const resetForm = () => {
-    setName('');
-    setEmail('');
-    setPassword('');
-    setShowPassword(false);
-  };
-
   const handleAddMember = async () => {
-    if (!name || !email || !password) {
-      toast({ title: 'Error', description: 'Name, email, and password are required.', variant: 'destructive' });
-      return;
-    }
-    
-    setIsProcessing(true);
-
-    try {
-      await onTeamMemberAdd({ name, email, password });
-      toast({ title: 'Team Member Added', description: `"${name}" has been added.` });
-      
-      setOpen(false);
-      resetForm();
-      
-    } catch (error: any) {
-      console.error(error);
-      toast({ title: 'Error Adding Member', description: error.message || 'Could not add team member.', variant: 'destructive' });
-    } finally {
-      setIsProcessing(false);
-    }
+    toast({ title: 'Feature Unavailable', description: 'This feature is temporarily disabled.', variant: 'destructive' });
   };
 
   return (
@@ -74,11 +48,11 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., John Doe" disabled={isProcessing}/>
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., John Doe" disabled={true}/>
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g., john.d@example.com" disabled={isProcessing}/>
+            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g., john.d@example.com" disabled={true}/>
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Set Initial Password</Label>
@@ -89,7 +63,7 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Must be at least 6 characters"
-                disabled={isProcessing}
+                disabled={true}
                 />
                 <Button
                 type="button"
@@ -97,7 +71,7 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
                 size="icon"
                 className="absolute inset-y-0 right-0 h-full px-3"
                 onClick={() => setShowPassword((prev) => !prev)}
-                disabled={isProcessing}
+                disabled={true}
                 >
                 {showPassword ? <EyeOff /> : <Eye />}
                 </Button>
@@ -106,8 +80,8 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isProcessing}>Cancel</Button>
-          <Button onClick={handleAddMember} disabled={isProcessing}>
-            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : 'Add Member'}
+          <Button onClick={handleAddMember} disabled={true}>
+            Add Member
           </Button>
         </DialogFooter>
       </DialogContent>
