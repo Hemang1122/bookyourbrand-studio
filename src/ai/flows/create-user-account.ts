@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A flow for creating a Firebase Authentication user.
@@ -15,15 +16,20 @@ const CreateUserAccountSchema = z.object({
 
 export type CreateUserAccountInput = z.infer<typeof CreateUserAccountSchema>;
 
-// Initialize Firebase Admin SDK if it hasn't been already
-if (!admin.apps.length) {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-    });
-  } catch (e) {
-    console.error('Firebase Admin SDK initialization error:', e);
-  }
+// Function to initialize Firebase Admin SDK if it hasn't been already
+const initializeFirebaseAdmin = () => {
+    if (admin.apps.length === 0) {
+        try {
+            admin.initializeApp({
+                credential: admin.credential.applicationDefault(),
+            });
+        } catch (e) {
+            console.error('Firebase Admin SDK initialization error:', e);
+            // This error should be thrown to prevent the flow from continuing
+            // with an uninitialized SDK.
+            throw new Error('Could not initialize Firebase Admin SDK.');
+        }
+    }
 }
 
 export const createUserAccountFlow = ai.defineFlow(
@@ -37,9 +43,8 @@ export const createUserAccountFlow = ai.defineFlow(
     }),
   },
   async ({ email, password, displayName, role }) => {
-    if (!admin.apps.length) {
-        throw new Error("Firebase Admin SDK not initialized.");
-    }
+    // Ensure Firebase Admin is initialized before proceeding
+    initializeFirebaseAdmin();
     
     try {
       const userRecord = await admin.auth().createUser({
