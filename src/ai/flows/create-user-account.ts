@@ -17,21 +17,6 @@ const CreateUserAccountSchema = z.object({
 
 export type CreateUserAccountInput = z.infer<typeof CreateUserAccountSchema>;
 
-// Initialize Firebase Admin SDK if it hasn't been already.
-if (!admin.apps.length) {
-  const serviceAccountPath = path.resolve(process.cwd(), 'config/serviceAccountKey.json');
-
-  try {
-    const serviceAccount = require(serviceAccountPath);
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
-  } catch (e) {
-    console.error('Firebase Admin SDK initialization error:', e);
-  }
-}
-
-
 export const createUserAccountFlow = ai.defineFlow(
   {
     name: 'createUserAccountFlow',
@@ -43,9 +28,20 @@ export const createUserAccountFlow = ai.defineFlow(
     }),
   },
   async ({ email, password, displayName, role }) => {
-    // Check if the SDK is initialized before proceeding.
-    if (admin.apps.length === 0) {
-        throw new Error("Firebase Admin SDK not initialized. Service account credentials may be missing or invalid.");
+    // Initialize Firebase Admin SDK if it hasn't been already.
+    // This is done inside the flow to ensure it runs at execution time, not build time.
+    if (!admin.apps.length) {
+      const serviceAccountPath = path.resolve(process.cwd(), 'config/serviceAccountKey.json');
+      try {
+        const serviceAccount = require(serviceAccountPath);
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+        });
+      } catch (e) {
+        console.error('Firebase Admin SDK initialization error:', e);
+        // If this fails, it's a fundamental configuration issue.
+        throw new Error('Could not initialize Firebase Admin SDK. Service account credentials may be missing or invalid.');
+      }
     }
     
     try {
