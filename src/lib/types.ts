@@ -33,7 +33,7 @@ export type Client = {
   maxDuration?: number; // in seconds
 };
 
-export type ProjectStatus = 'Active' | 'On Hold' | 'Completed' | 'In Progress';
+export type ProjectStatus = 'Active' | 'On Hold' | 'Completed' | 'In Progress' | 'Rework';
 
 export type Project = {
   id: string;

@@ -74,7 +74,7 @@ export function EditProjectDialog({ project, onProjectUpdate, children }: EditPr
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle>Edit Project: {project.name}</DialogTitle>
-          <DialogDescription>Update the details for this project. Start date is set when managing the team.</DialogDescription>
+          <DialogDescription>Update the details for this project. The start date is set when managing the team.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
@@ -120,6 +120,7 @@ export function EditProjectDialog({ project, onProjectUpdate, children }: EditPr
                         <SelectItem value="Active">Active</SelectItem>
                         <SelectItem value="In Progress">In Progress</SelectItem>
                         <SelectItem value="On Hold">On Hold</SelectItem>
+                        <SelectItem value="Rework">Rework</SelectItem>
                         <SelectItem value="Completed">Completed</SelectItem>
                     </SelectContent>
                 </Select>

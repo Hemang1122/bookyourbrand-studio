@@ -2,7 +2,7 @@
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, ChatMessage, Notification, TaskRemark, MessageType, PackageName } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, ChatMessage, Notification, TaskRemark, MessageType, PackageName, ProjectStatus } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -385,13 +385,25 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   };
 
   const updateProject = (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => {
-    if (!firestore || !projects) return;
+    if (!firestore || !projects || !currentUser || !usersData) return;
     const projectRef = doc(firestore, 'projects', projectId);
-    updateDocumentNonBlocking(projectRef, projectData);
     const project = projects.find(p => p.id === projectId);
-    if(project) {
-        toast({ title: 'Project Updated', description: `Project "${project.name}" has been updated.`});
+    if (!project) return;
+
+    updateDocumentNonBlocking(projectRef, projectData);
+    
+    if (projectData.status && project.status !== projectData.status) {
+        const clientRecipients = [project.client.id];
+        const teamRecipients = project.team_ids.filter(id => id !== currentUser.id);
+
+        addNotification(
+            `Project '${project.name}' status has been updated to '${projectData.status}' by ${currentUser.name}.`,
+            projectId,
+            [...clientRecipients, ...teamRecipients]
+        );
     }
+
+    toast({ title: 'Project Updated', description: `Project "${project.name}" has been updated.`});
   };
 
   const addFile = (fileData: Omit<ProjectFile, 'id'>) => {

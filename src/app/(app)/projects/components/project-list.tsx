@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { Project, User } from '@/lib/types';
+import type { Project, User, ProjectStatus } from '@/lib/types';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,20 +12,30 @@ import { useData } from '../../data-provider';
 import { useAuth } from '@/firebase/provider';
 import { useMemo } from 'react';
 
-export function ProjectList() {
+type ProjectListProps = {
+  statusFilter: ProjectStatus | 'All';
+};
+
+export function ProjectList({ statusFilter }: ProjectListProps) {
   const { projects, users, isLoading } = useData();
   const { user } = useAuth();
 
   const filteredProjects = useMemo(() => {
     if (!user || !projects) return [];
+    
+    let userProjects = projects;
     if (user.role === 'client') {
-      return projects.filter(p => p.client.id === user.id);
+      userProjects = projects.filter(p => p.client.id === user.id);
+    } else if (user.role === 'team') {
+      userProjects = projects.filter(p => p.team_ids && p.team_ids.includes(user.id));
     }
-    if (user.role === 'team') {
-      return projects.filter(p => p.team_ids && p.team_ids.includes(user.id));
+
+    if (statusFilter === 'All') {
+      return userProjects;
     }
-    return projects; // Admins see all projects
-  }, [projects, user]);
+    return userProjects.filter(p => p.status === statusFilter);
+
+  }, [projects, user, statusFilter]);
 
   const teamEditorMapping = useMemo(() => {
     if (!users) return new Map<string, string>();
@@ -105,7 +115,7 @@ export function ProjectList() {
       })}
        {filteredProjects.length === 0 && (
           <div className="md:col-span-2 lg:col-span-3 text-center text-muted-foreground py-12">
-              No projects found.
+              No projects found for the selected filter.
           </div>
       )}
     </div>

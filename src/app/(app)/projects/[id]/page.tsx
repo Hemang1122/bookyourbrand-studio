@@ -12,23 +12,35 @@ import { Badge } from '@/components/ui/badge';
 import { ListTodo, MessageSquare, Files, Info, Users, Edit, Trash2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
-import type { Project, Client, User } from '@/lib/types';
+import type { Project, Client, User, ProjectStatus } from '@/lib/types';
 import { useAuth } from '@/firebase/provider';
 import { Button } from '@/components/ui/button';
 import { ManageTeamDialog } from './components/manage-team-dialog';
 import { EditProjectDialog } from './components/edit-project-dialog';
 import { DeleteProjectDialog } from './components/delete-project-dialog';
-
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ProjectDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const { user } = useAuth();
   const { projects, isLoading, deleteProject, updateProject, users } = useData();
+  const { toast } = useToast();
 
   const project = useMemo(() => {
     return projects.find((p) => p.id === id);
   }, [id, projects]);
+  
+  const handleStatusChange = (newStatus: ProjectStatus) => {
+    if (project) {
+      updateProject(project.id, { status: newStatus });
+      toast({
+        title: 'Status Updated',
+        description: `Project status changed to ${newStatus}.`,
+      });
+    }
+  };
 
   const teamEditorMapping = useMemo(() => {
     if (!users) return new Map<string, string>();
@@ -99,19 +111,34 @@ export default function ProjectDetailPage() {
               <>
                 <EditProjectDialog project={project} onProjectUpdate={updateProject}>
                   <Button variant="outline">
-                    <Edit className="mr-2 h-4 w-4" /> Edit Project
+                    <Edit className="mr-2 h-4 w-4" /> Edit
                   </Button>
                 </EditProjectDialog>
                 <DeleteProjectDialog project={project} onProjectDelete={deleteProject}>
                    <Button variant="destructive">
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                    <Trash2 className="mr-2 h-4 w-4" />
                   </Button>
                 </DeleteProjectDialog>
               </>
             )}
-            <Badge variant={project.status === 'Completed' ? 'secondary' : 'default'} className="text-base px-4 py-2">
-                {project.status}
-            </Badge>
+             {user?.role === 'team' ? (
+              <Select onValueChange={(value: ProjectStatus) => handleStatusChange(value)} value={project.status}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Update status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="In Progress">In Progress</SelectItem>
+                  <SelectItem value="On Hold">On Hold</SelectItem>
+                  <SelectItem value="Rework">Rework</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+               <Badge variant={project.status === 'Completed' ? 'secondary' : 'default'} className="text-base px-4 py-2">
+                  {project.status}
+              </Badge>
+            )}
         </div>
       </div>
       
