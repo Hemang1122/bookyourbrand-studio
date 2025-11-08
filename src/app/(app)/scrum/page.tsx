@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -62,41 +61,43 @@ export default function ScrumPage() {
             </p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>My Daily Update</CardTitle>
-            <CardDescription>What are your goals for today and what did you accomplish yesterday? Your update will be visible to the admin.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="yesterday" className="text-base font-medium">What did you accomplish yesterday?</Label>
-                <Textarea
-                  id="yesterday"
-                  value={yesterday}
-                  onChange={(e) => setYesterday(e.target.value)}
-                  placeholder="e.g., - Completed the final draft of the campaign visuals. - Attended the client sync call and took notes."
-                  rows={4}
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="today" className="text-base font-medium">What are your goals for today? (Include any questions or blockers)</Label>
-                <Textarea
-                  id="today"
-                  value={today}
-                  onChange={(e) => setToday(e.target.value)}
-                  placeholder="e.g., - Start developing the content calendar for Project X. - I have a question about the new brand guidelines."
-                  rows={4}
-                  disabled={isLoading}
-                />
-              </div>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? 'Submitting...' : 'Submit Update'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+        {user?.role !== 'admin' && (
+            <Card>
+            <CardHeader>
+                <CardTitle>My Daily Update</CardTitle>
+                <CardDescription>What are your goals for today and what did you accomplish yesterday? Your update will be visible to the admin.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-2">
+                    <Label htmlFor="yesterday" className="text-base font-medium">What did you accomplish yesterday?</Label>
+                    <Textarea
+                    id="yesterday"
+                    value={yesterday}
+                    onChange={(e) => setYesterday(e.target.value)}
+                    placeholder="e.g., - Completed the final draft of the campaign visuals. - Attended the client sync call and took notes."
+                    rows={4}
+                    disabled={isLoading}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="today" className="text-base font-medium">What are your goals for today? (Include any questions or blockers)</Label>
+                    <Textarea
+                    id="today"
+                    value={today}
+                    onChange={(e) => setToday(e.target.value)}
+                    placeholder="e.g., - Start developing the content calendar for Project X. - I have a question about the new brand guidelines."
+                    rows={4}
+                    disabled={isLoading}
+                    />
+                </div>
+                <Button type="submit" disabled={isLoading}>
+                    {isLoading ? 'Submitting...' : 'Submit Update'}
+                </Button>
+                </form>
+            </CardContent>
+            </Card>
+        )}
 
         {user?.role === 'admin' && (
             <Card>
