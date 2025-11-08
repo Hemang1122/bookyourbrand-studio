@@ -7,12 +7,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/firebase/provider';
-import type { ScrumUpdate } from '@/lib/types';
 import { useData } from '../data-provider';
-import { format, isToday } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Download } from 'lucide-react';
 import { ScrumExportDialog } from './components/scrum-export-dialog';
+import { Calendar } from '@/components/ui/calendar';
 
 export default function ScrumPage() {
   const { user } = useAuth();
@@ -21,6 +21,7 @@ export default function ScrumPage() {
   const [yesterday, setYesterday] = useState('');
   const [today, setToday] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +39,6 @@ export default function ScrumPage() {
       userId: user.id,
       yesterday,
       today,
-      timestamp: new Date().toISOString(),
     });
     setYesterday('');
     setToday('');
@@ -49,7 +49,7 @@ export default function ScrumPage() {
     setIsLoading(false);
   };
   
-  const updatesForToday = scrumUpdates.filter(u => isToday(new Date(u.timestamp)));
+  const updatesForSelectedDate = scrumUpdates.filter(u => selectedDate && isSameDay(new Date(u.timestamp), selectedDate));
 
   return (
     <div className="container mx-auto py-10">
@@ -100,61 +100,81 @@ export default function ScrumPage() {
         )}
 
         {user?.role === 'admin' && (
-            <Card>
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <CardTitle>Team & Client Updates for Today</CardTitle>
-                            <CardDescription>Review the daily updates from your team and clients.</CardDescription>
-                        </div>
-                        <ScrumExportDialog updates={scrumUpdates} users={users || []}>
-                            <Button variant="outline">
-                                <Download className="mr-2 h-4 w-4" />
-                                Export as PDF
-                            </Button>
-                        </ScrumExportDialog>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                   <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-[15%]">Team Member / Client</TableHead>
-                                <TableHead className="w-[35%]">Yesterday's Accomplishments</TableHead>
-                                <TableHead className="w-[35%]">Today's Goals / Questions</TableHead>
-                                <TableHead className="w-[15%] text-right">Timestamp</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {updatesForToday.length > 0 ? (
-                                updatesForToday.map(update => {
-                                    const author = users.find(u => u.id === update.userId);
-                                    if (!author) return null;
+             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-1">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Select Date</CardTitle>
+                            <CardDescription>Pick a day to review updates.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex justify-center">
+                             <Calendar
+                                mode="single"
+                                selected={selectedDate}
+                                onSelect={setSelectedDate}
+                                className="rounded-md border"
+                            />
+                        </CardContent>
+                    </Card>
+                </div>
+                <div className="lg:col-span-2">
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle>Updates for {selectedDate ? format(selectedDate, 'PPP') : '...'}</CardTitle>
+                                    <CardDescription>Review the daily updates from your team and clients.</CardDescription>
+                                </div>
+                                <ScrumExportDialog updates={scrumUpdates} users={users || []}>
+                                    <Button variant="outline">
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Export as PDF
+                                    </Button>
+                                </ScrumExportDialog>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                        <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-[15%]">Team Member / Client</TableHead>
+                                        <TableHead className="w-[35%]">Yesterday's Accomplishments</TableHead>
+                                        <TableHead className="w-[35%]">Today's Goals / Questions</TableHead>
+                                        <TableHead className="w-[15%] text-right">Timestamp</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {updatesForSelectedDate.length > 0 ? (
+                                        updatesForSelectedDate.map(update => {
+                                            const author = users.find(u => u.id === update.userId);
+                                            if (!author) return null;
 
-                                    return (
-                                        <TableRow key={update.id}>
-                                            <TableCell>
-                                                <div className="font-medium">{author.name}</div>
-                                            </TableCell>
-                                            <TableCell className="whitespace-pre-line text-muted-foreground">{update.yesterday}</TableCell>
-                                            <TableCell className="whitespace-pre-line text-muted-foreground">{update.today}</TableCell>
-                                            <TableCell className="text-right text-muted-foreground">
-                                                {format(new Date(update.timestamp), 'p')}
+                                            return (
+                                                <TableRow key={update.id}>
+                                                    <TableCell>
+                                                        <div className="font-medium">{author.name}</div>
+                                                    </TableCell>
+                                                    <TableCell className="whitespace-pre-line text-muted-foreground">{update.yesterday}</TableCell>
+                                                    <TableCell className="whitespace-pre-line text-muted-foreground">{update.today}</TableCell>
+                                                    <TableCell className="text-right text-muted-foreground">
+                                                        {format(new Date(update.timestamp), 'p')}
+                                                    </TableCell>
+                                                </TableRow>
+                                            )
+                                        })
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={4} className="h-24 text-center">
+                                                No updates have been submitted for this day.
                                             </TableCell>
                                         </TableRow>
-                                    )
-                                })
-                            ) : (
-                                 <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center">
-                                        No updates have been submitted yet today.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </div>
+             </div>
         )}
       </div>
     </div>

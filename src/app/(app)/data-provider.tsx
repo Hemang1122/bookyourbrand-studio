@@ -43,7 +43,7 @@ type DataContextType = {
     email: string;
   }) => void;
   updateTeamMember: (userId: string, memberData: Partial<User>) => void;
-  addScrumUpdate: (update: Omit<ScrumUpdate, 'id'>) => void;
+  addScrumUpdate: (update: Omit<ScrumUpdate, 'id' | 'timestamp'>) => void;
   isLoading: boolean;
   deleteProject: (projectId: string) => void;
   updateProject: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => void;
@@ -210,7 +210,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }, [clientsData]);
 
   const notifications = notificationsData;
-  const scrumUpdates = scrumUpdatesData || [];
+  const scrumUpdates = scrumUpdatesData ? [...scrumUpdatesData].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : [];
 
   const addProject = (projectData: Omit<Project, 'id' | 'coverImage'>) => {
     if (!firestore || !currentUser || !usersData) return;
@@ -363,11 +363,10 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     updateDocumentNonBlocking(userRef, memberData);
   }
 
-  const addScrumUpdate = (update: Omit<ScrumUpdate, 'id'>) => {
+  const addScrumUpdate = (update: Omit<ScrumUpdate, 'id' | 'timestamp'>) => {
     if (!firestore || !currentUser || !usersData) return;
-    const newUpdateId = doc(collection(firestore, 'scrum-updates')).id;
-    const newUpdate: ScrumUpdate = { ...update, id: newUpdateId, timestamp: new Date().toISOString() };
-    setDocumentNonBlocking(doc(firestore, 'scrum-updates', newUpdate.id), newUpdate, {});
+    const newUpdate: Omit<ScrumUpdate, 'id'> = { ...update, timestamp: new Date().toISOString() };
+    addDocumentNonBlocking(collection(firestore, 'scrum-updates'), newUpdate);
 
     const admins = usersData.filter(u => u.role === 'admin');
     if (admins.length > 0) {
