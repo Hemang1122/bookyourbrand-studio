@@ -10,6 +10,7 @@ import {
   Settings,
   Briefcase,
   GitCommit,
+  CalendarDays,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -25,6 +26,7 @@ const navItems = [
   { href: '/clients', icon: Briefcase, label: 'Clients', roles: ['admin'] },
   { href: '/team', icon: Users, label: 'Team', roles: ['admin'] },
   { href: '/scrum', icon: GitCommit, label: 'Scrum', roles: ['admin', 'team'] },
+  { href: '/schedule', icon: CalendarDays, label: 'Schedule', roles: ['admin'] },
   { href: '/settings', icon: Settings, label: 'Settings', roles: ['admin', 'team', 'client'] },
 ];
 
