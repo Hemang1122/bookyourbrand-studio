@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ListTodo, Clock, CheckCircle2, FolderKanban, CalendarDays } from 'lucide-react';
+import { ListTodo, Clock, CheckCircle2, FolderKanban, CalendarDays, History } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import { useAuth } from '@/firebase/provider';
 import { useMemo, useState } from 'react';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
+import { WorkTimer } from './work-timer';
 
 export function TeamDashboard() {
   const { user } = useAuth();
@@ -43,10 +44,24 @@ export function TeamDashboard() {
   const completedTasks = myTasks.filter(t => t.status === 'Completed').length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+       
+       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-start-2">
+            <WorkTimer />
+        </div>
+       </div>
+
        <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold tracking-tight">My Dashboard</h2>
+         <Button variant="outline" asChild>
+            <Link href="/work-timer">
+                <History className="mr-2 h-4 w-4"/>
+                View Session History
+            </Link>
+        </Button>
       </div>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
          <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
