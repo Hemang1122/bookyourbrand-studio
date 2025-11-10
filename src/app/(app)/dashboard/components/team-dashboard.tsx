@@ -13,7 +13,7 @@ import { format, isSameDay, parseISO } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { WorkTimer } from './work-timer';
 
-function GradientZigzag() {
+function GradientScribble() {
     const id = useMemo(() => `grad-${Math.random().toString(36).substr(2, 9)}`, []);
     return (
         <svg
@@ -23,27 +23,29 @@ function GradientZigzag() {
             xmlns="http://www.w3.org/2000/svg"
         >
             <defs>
-                <linearGradient id={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" style={{ stopColor: 'hsl(var(--primary)/0.5)', stopOpacity: 1 }} />
-                    <stop offset="50%" style={{ stopColor: 'hsl(var(--accent)/0.5)', stopOpacity: 1 }} />
-                    <stop offset="100%" style={{ stopColor: 'hsl(var(--primary)/0.5)', stopOpacity: 1 }} />
+                <linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style={{ stopColor: 'hsl(var(--primary))', stopOpacity: 0.7 }} />
+                    <stop offset="50%" style={{ stopColor: 'hsl(var(--accent))', stopOpacity: 0.5 }} />
+                    <stop offset="100%" style={{ stopColor: 'hsl(var(--primary))', stopOpacity: 0.7 }} />
                 </linearGradient>
             </defs>
             <path
-                d="M 20,0 Q 40,20 20,40 T 20,80 Q 40,100 20,120"
+                d="M 5,5 C 25,25 30,5 50,20 S 70,60 95,55 S 80,80 50,95 S 20,80 5,95"
                 stroke={`url(#${id})`}
                 strokeWidth="2"
                 fill="none"
                 strokeLinecap="round"
-                className="opacity-50"
+                strokeLinejoin="round"
+                className="opacity-60"
             />
              <path
-                d="M 80,0 Q 60,20 80,40 T 80,80 Q 60,100 80,120"
+                d="M 95,5 C 75,25 70,5 50,20 S 30,60 5,55 S 20,80 50,95 S 80,80 95,95"
                 stroke={`url(#${id})`}
-                strokeWidth="2"
+                strokeWidth="1.5"
                 fill="none"
                 strokeLinecap="round"
-                 className="opacity-50"
+                strokeLinejoin="round"
+                className="opacity-40"
             />
         </svg>
     );
@@ -83,13 +85,13 @@ export function TeamDashboard() {
        
        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-center">
             <div className="hidden md:block md:col-span-1 h-32">
-                <GradientZigzag />
+                <GradientScribble />
             </div>
             <div className="md:col-span-3">
                 <WorkTimer />
             </div>
             <div className="hidden md:block md:col-span-1 h-32 scale-x-[-1]">
-                 <GradientZigzag />
+                 <GradientScribble />
             </div>
        </div>
 
