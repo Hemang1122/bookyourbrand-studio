@@ -112,7 +112,7 @@ export function ReportDialog({ open, onOpenChange, sessions, totalTime, reportDa
     doc.setFontSize(10);
     doc.setTextColor(22, 22, 22);
     sessions.forEach((session) => {
-        if (y > doc.internal.pageSize.getHeight() - 100) {
+        if (y > doc.internal.pageSize.getHeight() - 150) { // Adjusted for footer space
             doc.addPage();
             y = margin;
         }
@@ -125,10 +125,19 @@ export function ReportDialog({ open, onOpenChange, sessions, totalTime, reportDa
     });
 
      // --- Footer ---
-    const footerY = doc.internal.pageSize.getHeight() - 80;
+    const footerY = doc.internal.pageSize.getHeight() - 100;
     doc.setLineWidth(0.5);
     doc.setDrawColor(220);
     doc.line(margin, footerY, pageWidth - margin, footerY);
+
+    doc.setFont('times', 'italic');
+    doc.setFontSize(16);
+    doc.text('Arpit Lalani', pageWidth - margin, footerY - 20, { align: 'right' });
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text('Founder & CEO, BookYourBrands', pageWidth - margin, footerY - 5, { align: 'right' });
 
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(8);
