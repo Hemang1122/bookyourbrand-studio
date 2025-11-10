@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarDays } from 'lucide-react';
@@ -16,14 +16,35 @@ export function ProjectCalendarCard() {
   const { projects, isLoading } = useData();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   
-  const projectsForDate = (projects || [])
-    .filter(p => p.team_ids?.includes(user?.id || ''))
-    .filter(p => selectedDate && isSameDay(parseISO(p.startDate), selectedDate));
+  const projectsForDate = useMemo(() => {
+    if (!projects || !selectedDate) return [];
+
+    return projects.filter(p => {
+      const isCorrectDate = isSameDay(parseISO(p.startDate), selectedDate);
+      if (!isCorrectDate) return false;
+
+      if (user?.role === 'admin') {
+        return true;
+      }
+      
+      if (user?.role === 'team') {
+        return p.team_ids?.includes(user.id);
+      }
+
+      // Clients don't see this card, but as a fallback, show their projects.
+      if (user?.role === 'client') {
+          return p.client.id === user.id;
+      }
+
+      return false;
+    });
+  }, [projects, selectedDate, user]);
+
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">My Project Starts</CardTitle>
+        <CardTitle className="text-sm font-medium">Project Start Dates</CardTitle>
         <CalendarDays className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent className="space-y-4">

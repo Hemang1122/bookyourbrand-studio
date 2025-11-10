@@ -128,8 +128,8 @@ export function TeamDashboard() {
             </Card>
         </div>
         <div className="lg:col-span-1 grid grid-cols-1 gap-4">
-            <DailyStandupCard />
-            <ProjectCalendarCard />
+          <DailyStandupCard />
+          { user.role === 'team' && <ProjectCalendarCard /> }
         </div>
       </div>
     </div>
