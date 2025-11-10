@@ -137,3 +137,11 @@ export type Notification = {
   readBy: string[]; // Array of user IDs who have read it
   recipients: string[]; // Array of user IDs who should receive the notification
 }
+
+export interface TimerSession {
+  id: string;
+  name: string;
+  startTime: number;
+  endTime: number | null;
+  date: string; // YYYY-MM-DD
+}

@@ -1,70 +1,70 @@
+
 'use client';
-import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Timer, Play, StopCircle, FileDown } from 'lucide-react';
-import { format, isToday } from 'date-fns';
-import { ReportDialog } from './report-dialog';
+import { Timer, Play, StopCircle } from 'lucide-react';
+import { format } from 'date-fns';
 import { useAuth } from '@/firebase/provider';
+import type { TimerSession } from '@/lib/types';
+import { v4 as uuidv4 } from 'uuid';
+import { SaveSessionDialog } from './save-session-dialog';
 
-interface TimerSession {
-  startTime: number;
-  endTime: number | null;
-}
-
-// Helper to get a value from localStorage
-const getLocalStorage = (key: string, defaultValue: any) => {
+// Helper to get a value from localStorage, keyed by user ID
+const getLocalStorage = (key: string, userId: string, defaultValue: any) => {
     if (typeof window === 'undefined') return defaultValue;
-    const storedValue = window.localStorage.getItem(key);
+    const userKey = `${key}_${userId}`;
+    const storedValue = window.localStorage.getItem(userKey);
     return storedValue ? JSON.parse(storedValue) : defaultValue;
 };
 
-// Helper to set a value in localStorage
-const setLocalStorage = (key: string, value: any) => {
+// Helper to set a value in localStorage, keyed by user ID
+const setLocalStorage = (key: string, userId: string, value: any) => {
     if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(value));
+        const userKey = `${key}_${userId}`;
+        window.localStorage.setItem(userKey, JSON.stringify(value));
     }
 };
 
 export function WorkTimer() {
   const { user } = useAuth();
+  const userId = user?.id;
+
   const [isRunning, setIsRunning] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [sessions, setSessions] = useState<TimerSession[]>([]);
-  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [currentSessionStart, setCurrentSessionStart] = useState(0);
 
-  const userId = user?.id; // Make sure we have a unique key per user
+  // State for the session saving dialog
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+  const [sessionToSave, setSessionToSave] = useState<Omit<TimerSession, 'name' | 'date'> | null>(null);
 
   // Load state from localStorage on initial render
   useEffect(() => {
     if (!userId) return;
 
     const todayStr = format(new Date(), 'yyyy-MM-dd');
-    const storedDate = getLocalStorage(`timerDate_${userId}`, null);
+    const storedDate = getLocalStorage('timerDate', userId, null);
     
-    // If it's a new day, reset everything
+    // If it's a new day, reset today's timer state
     if (storedDate !== todayStr) {
-      setLocalStorage(`timerRunning_${userId}`, false);
-      setLocalStorage(`timerStartTime_${userId}`, 0);
-      setLocalStorage(`timerElapsedTime_${userId}`, 0);
-      setLocalStorage(`timerSessions_${userId}`, []);
-      setLocalStorage(`timerDate_${userId}`, todayStr);
+      setLocalStorage('timerRunning', userId, false);
+      setLocalStorage('timerCurrentSessionStart', userId, 0);
+      setLocalStorage('timerElapsedTimeToday', userId, 0);
+      setLocalStorage('timerDate', userId, todayStr);
       setIsRunning(false);
       setElapsedTime(0);
-      setSessions([]);
+      setCurrentSessionStart(0);
       return;
     }
 
-    const running = getLocalStorage(`timerRunning_${userId}`, false);
-    const startTime = getLocalStorage(`timerStartTime_${userId}`, 0);
-    const savedElapsedTime = getLocalStorage(`timerElapsedTime_${userId}`, 0);
-    const savedSessions = getLocalStorage(`timerSessions_${userId}`, []);
+    const running = getLocalStorage('timerRunning', userId, false);
+    const startTime = getLocalStorage('timerCurrentSessionStart', userId, 0);
+    const savedElapsedTime = getLocalStorage('timerElapsedTimeToday', userId, 0);
 
     setIsRunning(running);
-    setSessions(savedSessions);
+    setCurrentSessionStart(startTime);
     
     if (running && startTime > 0) {
-      // If timer was running, calculate elapsed time since last load
       setElapsedTime(savedElapsedTime + (Date.now() - startTime));
     } else {
       setElapsedTime(savedElapsedTime);
@@ -76,8 +76,8 @@ export function WorkTimer() {
     let interval: NodeJS.Timeout | null = null;
     if (isRunning) {
       interval = setInterval(() => {
-        const startTime = getLocalStorage(`timerStartTime_${userId}`, Date.now());
-        const savedElapsedTime = getLocalStorage(`timerElapsedTime_${userId}`, 0);
+        const savedElapsedTime = getLocalStorage('timerElapsedTimeToday', userId!, 0);
+        const startTime = getLocalStorage('timerCurrentSessionStart', userId!, Date.now());
         setElapsedTime(savedElapsedTime + (Date.now() - startTime));
       }, 1000);
     }
@@ -87,35 +87,55 @@ export function WorkTimer() {
   }, [isRunning, userId]);
 
   const handleStart = () => {
-    if (isRunning) return;
+    if (isRunning || !userId) return;
     const startTime = Date.now();
-    setLocalStorage(`timerStartTime_${userId}`, startTime);
-    setLocalStorage(`timerRunning_${userId}`, true);
+    setCurrentSessionStart(startTime);
+    setLocalStorage('timerCurrentSessionStart', userId, startTime);
+    setLocalStorage('timerRunning', userId, true);
     setIsRunning(true);
-    setSessions(prev => [...prev, { startTime, endTime: null }]);
   };
 
   const handleStop = () => {
-    if (!isRunning) return;
-    const startTime = getLocalStorage(`timerStartTime_${userId}`, 0);
-    const savedElapsedTime = getLocalStorage(`timerElapsedTime_${userId}`, 0);
-    const sessionElapsedTime = Date.now() - startTime;
-    const newTotalElapsedTime = savedElapsedTime + sessionElapsedTime;
+    if (!isRunning || !userId) return;
 
-    setLocalStorage(`timerElapsedTime_${userId}`, newTotalElapsedTime);
-    setLocalStorage(`timerStartTime_${userId}`, 0);
-    setLocalStorage(`timerRunning_${userId}`, false);
-    setIsRunning(false);
+    const endTime = Date.now();
+    const startTime = currentSessionStart;
+    const sessionElapsedTime = endTime - startTime;
+    const oldTotalElapsedTime = getLocalStorage('timerElapsedTimeToday', userId, 0);
+    const newTotalElapsedTime = oldTotalElapsedTime + sessionElapsedTime;
+
+    // Update today's total elapsed time
+    setLocalStorage('timerElapsedTimeToday', userId, newTotalElapsedTime);
     setElapsedTime(newTotalElapsedTime);
-
-    const updatedSessions = [...sessions];
-    const currentSession = updatedSessions.find(s => s.endTime === null);
-    if (currentSession) {
-        currentSession.endTime = Date.now();
-        setSessions(updatedSessions);
-        setLocalStorage(`timerSessions_${userId}`, updatedSessions);
-    }
+    
+    // Stop the timer
+    setLocalStorage('timerRunning', userId, false);
+    setIsRunning(false);
+    setCurrentSessionStart(0);
+    setLocalStorage('timerCurrentSessionStart', userId, 0);
+    
+    // Prepare session for saving and open dialog
+    setSessionToSave({ id: uuidv4(), startTime, endTime });
+    setIsSaveDialogOpen(true);
   };
+
+  const handleSaveSession = (name: string) => {
+    if (!sessionToSave || !userId) return;
+
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const newSession: TimerSession = {
+      ...sessionToSave,
+      name,
+      date: todayStr,
+    };
+
+    // Get all historical sessions, add the new one, and save back
+    const allSessions = getLocalStorage('timerAllSessions', userId, []);
+    setLocalStorage('timerAllSessions', userId, [...allSessions, newSession]);
+    
+    setSessionToSave(null);
+  };
+
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -132,7 +152,7 @@ export function WorkTimer() {
           <CardTitle className="text-sm font-medium">Work Timer</CardTitle>
           <Timer className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 pt-2">
           <div className="text-center">
             <p className="font-signature text-5xl text-primary">{formatTime(elapsedTime)}</p>
             <p className="text-xs text-muted-foreground">Total time tracked today</p>
@@ -148,18 +168,17 @@ export function WorkTimer() {
               </Button>
             )}
           </div>
-           <Button variant="outline" className="w-full" onClick={() => setIsReportDialogOpen(true)} disabled={sessions.length === 0}>
-                <FileDown className="mr-2 h-4 w-4" /> Submit Report
-           </Button>
         </CardContent>
       </Card>
-
-      <ReportDialog
-        open={isReportDialogOpen}
-        onOpenChange={setIsReportDialogOpen}
-        sessions={sessions}
-        totalTime={elapsedTime}
-      />
+      
+      {sessionToSave && (
+        <SaveSessionDialog
+          open={isSaveDialogOpen}
+          onOpenChange={setIsSaveDialogOpen}
+          onSave={handleSaveSession}
+          session={sessionToSave}
+        />
+      )}
     </>
   );
 }

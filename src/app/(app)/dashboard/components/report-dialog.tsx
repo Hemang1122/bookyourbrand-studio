@@ -1,6 +1,6 @@
 
 'use client';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,20 +15,18 @@ import jsPDF from 'jspdf';
 import { useAuth } from '@/firebase/provider';
 import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { TimerSession } from '@/lib/types';
 
-interface TimerSession {
-  startTime: number;
-  endTime: number | null;
-}
 
 type ReportDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sessions: TimerSession[];
   totalTime: number;
+  reportDate: Date;
 };
 
-export function ReportDialog({ open, onOpenChange, sessions, totalTime }: ReportDialogProps) {
+export function ReportDialog({ open, onOpenChange, sessions, totalTime, reportDate }: ReportDialogProps) {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -84,7 +82,7 @@ export function ReportDialog({ open, onOpenChange, sessions, totalTime }: Report
     doc.setFontSize(12);
     doc.setTextColor(22, 22, 22);
     doc.text(user.name, margin, y);
-    doc.text(format(new Date(), 'PPP'), pageWidth / 2, y);
+    doc.text(format(reportDate, 'PPP'), pageWidth / 2, y);
     doc.text(formatTime(totalTime), pageWidth - margin, y, { align: 'right' });
     y += 40;
 
@@ -93,22 +91,22 @@ export function ReportDialog({ open, onOpenChange, sessions, totalTime }: Report
     doc.rect(margin, y, pageWidth - margin*2, 30, 'F');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    doc.text('SESSION', margin + 15, y + 20);
-    doc.text('START TIME', margin + 150, y + 20);
+    doc.text('SESSION NAME', margin + 15, y + 20);
+    doc.text('START TIME', margin + 200, y + 20);
     doc.text('END TIME', margin + 300, y + 20);
     doc.text('DURATION', pageWidth - margin - 15, y + 20, { align: 'right' });
     y += 45;
 
     // --- Table Content ---
     doc.setFont('helvetica', 'normal');
-    sessions.forEach((session, index) => {
+    sessions.forEach((session) => {
         if (y > doc.internal.pageSize.getHeight() - 100) {
             doc.addPage();
             y = margin;
         }
         const duration = session.endTime ? session.endTime - session.startTime : 0;
-        doc.text(`${index + 1}`, margin + 15, y);
-        doc.text(format(new Date(session.startTime), 'p'), margin + 150, y);
+        doc.text(session.name || 'Untitled Session', margin + 15, y);
+        doc.text(format(new Date(session.startTime), 'p'), margin + 200, y);
         doc.text(session.endTime ? format(new Date(session.endTime), 'p') : 'Running', margin + 300, y);
         doc.text(formatTime(duration), pageWidth - margin - 15, y, { align: 'right' });
         y += 20;
@@ -126,7 +124,7 @@ export function ReportDialog({ open, onOpenChange, sessions, totalTime }: Report
     doc.text('This is a computer-generated report.', pageWidth / 2, footerY + 20, { align: 'center' });
 
 
-    doc.save(`timesheet_${user.name.replace(/\s/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    doc.save(`timesheet_${user.name.replace(/\s/g, '_')}_${format(reportDate, 'yyyy-MM-dd')}.pdf`);
     
     setIsLoading(false);
     onOpenChange(false);
@@ -136,15 +134,15 @@ export function ReportDialog({ open, onOpenChange, sessions, totalTime }: Report
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Submit Daily Report</DialogTitle>
+          <DialogTitle>Download Report for {format(reportDate, 'PPP')}</DialogTitle>
           <DialogDescription>
-            Review your tracked time for today and download the PDF report.
+            Review the tracked time for the selected date and download the PDF report.
           </DialogDescription>
         </DialogHeader>
         <div className="my-6 space-y-4">
             <Card className="bg-muted/50">
                 <CardHeader>
-                     <CardTitle className="text-lg">Today's Summary</CardTitle>
+                     <CardTitle className="text-lg">Summary for {format(reportDate, 'PPP')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="mb-4 flex items-center justify-between rounded-lg bg-background p-4">
@@ -159,24 +157,27 @@ export function ReportDialog({ open, onOpenChange, sessions, totalTime }: Report
                     </div>
                      <h4 className="mb-2 font-medium">Logged Sessions</h4>
                      <div className="max-h-60 overflow-y-auto rounded-md border">
-                        {sessions.map((session, index) => {
+                        {sessions.map((session) => {
                             const duration = session.endTime ? session.endTime - session.startTime : 0;
                             return (
-                                <div key={index} className="flex justify-between p-3 border-b last:border-b-0">
-                                    <span className="font-semibold text-sm">Session {index + 1}</span>
+                                <div key={session.id} className="flex justify-between p-3 border-b last:border-b-0 items-center">
+                                    <span className="font-semibold text-sm flex-1 truncate pr-2">{session.name || 'Untitled Session'}</span>
                                     <span className="text-sm text-muted-foreground">
                                         {format(new Date(session.startTime), 'p')} - {session.endTime ? format(new Date(session.endTime), 'p') : '...'}
                                     </span>
-                                    <span className="text-sm font-mono">{formatTime(duration)}</span>
+                                    <span className="text-sm font-mono w-24 text-right">{formatTime(duration)}</span>
                                 </div>
                             )
                         })}
+                        {sessions.length === 0 && (
+                            <p className="p-4 text-center text-sm text-muted-foreground">No sessions logged for this date.</p>
+                        )}
                      </div>
                 </CardContent>
             </Card>
-            <Button onClick={handleDownloadPdf} disabled={isLoading} className="w-full" size="lg">
+            <Button onClick={handleDownloadPdf} disabled={isLoading || sessions.length === 0} className="w-full" size="lg">
                 {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Download className="mr-2 h-5 w-5" />}
-                Download and Submit PDF
+                Download PDF
             </Button>
         </div>
         <DialogFooter>

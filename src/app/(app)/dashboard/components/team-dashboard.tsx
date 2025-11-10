@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -11,8 +12,6 @@ import { useAuth } from '@/firebase/provider';
 import { useMemo, useState } from 'react';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
-import { WorkTimer } from './work-timer';
-
 
 export function TeamDashboard() {
   const { user } = useAuth();
@@ -49,7 +48,16 @@ export function TeamDashboard() {
         <h2 className="text-2xl font-bold tracking-tight">My Dashboard</h2>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <WorkTimer />
+         <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Assigned Projects</CardTitle>
+            <FolderKanban className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{myProjects.length}</div>
+            <p className="text-xs text-muted-foreground">Projects you are a member of.</p>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
