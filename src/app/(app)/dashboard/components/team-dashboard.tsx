@@ -13,42 +13,64 @@ import { format, isSameDay, parseISO } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { WorkTimer } from './work-timer';
 
-function GradientScribble() {
+function AnimatedBybLogo({ className }: { className?: string }) {
     const id = useMemo(() => `grad-${Math.random().toString(36).substr(2, 9)}`, []);
     return (
-        <svg
-            className="w-full h-full"
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-            xmlns="http://www.w3.org/2000/svg"
-        >
+      <div className={className}>
+        <style jsx>{`
+          .byb-logo-animate {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: draw 5s linear forwards, move-gradient 3s linear infinite alternate;
+          }
+
+          @keyframes draw {
+            to {
+              stroke-dashoffset: 0;
+            }
+          }
+          
+          @keyframes move-gradient {
+            0% {
+              stroke: url(#${id}-1);
+            }
+            100% {
+              stroke: url(#${id}-2);
+            }
+          }
+        `}</style>
+        <svg viewBox="0 0 400 100" preserveAspectRatio="xMidYMid meet" className="w-full h-full">
             <defs>
-                <linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style={{ stopColor: 'hsl(var(--primary))', stopOpacity: 0.7 }} />
-                    <stop offset="50%" style={{ stopColor: 'hsl(var(--accent))', stopOpacity: 0.5 }} />
-                    <stop offset="100%" style={{ stopColor: 'hsl(var(--primary))', stopOpacity: 0.7 }} />
+                <linearGradient id={`${id}-1`} x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="hsl(var(--primary))" />
+                    <stop offset="50%" stopColor="hsl(var(--accent))" />
+                    <stop offset="100%" stopColor="hsl(var(--primary))" />
+                </linearGradient>
+                 <linearGradient id={`${id}-2`} x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="hsl(var(--accent))" />
+                    <stop offset="50%" stopColor="hsl(var(--primary))" />
+                    <stop offset="100%" stopColor="hsl(var(--accent))" />
                 </linearGradient>
             </defs>
-            <path
-                d="M 5,5 C 25,25 30,5 50,20 S 70,60 95,55 S 80,80 50,95 S 20,80 5,95"
-                stroke={`url(#${id})`}
-                strokeWidth="2"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="opacity-60"
-            />
-             <path
-                d="M 95,5 C 75,25 70,5 50,20 S 30,60 5,55 S 20,80 50,95 S 80,80 95,95"
-                stroke={`url(#${id})`}
-                strokeWidth="1.5"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="opacity-40"
-            />
+            
+            <g fill="none" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="byb-logo-animate">
+                {/* B */}
+                <path d="M 50 10 V 90" />
+                <path d="M 50 10 C 100 10, 100 50, 50 50" />
+                <path d="M 50 50 C 110 50, 110 90, 50 90" />
+
+                {/* Y */}
+                <path d="M 150 10 L 175 50 L 200 10" />
+                <path d="M 175 50 V 90" />
+                
+                {/* B */}
+                <path d="M 250 10 V 90" />
+                <path d="M 250 10 C 300 10, 300 50, 250 50" />
+                <path d="M 250 50 C 310 50, 310 90, 250 90" />
+            </g>
         </svg>
-    );
+    </div>
+    )
 }
 
 export function TeamDashboard() {
@@ -84,15 +106,11 @@ export function TeamDashboard() {
     <div className="space-y-6">
        
        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-center">
-            <div className="hidden md:block md:col-span-1 h-32">
-                <GradientScribble />
-            </div>
+            <AnimatedBybLogo className="hidden md:block md:col-span-1 h-20" />
             <div className="md:col-span-3">
                 <WorkTimer />
             </div>
-            <div className="hidden md:block md:col-span-1 h-32 scale-x-[-1]">
-                 <GradientScribble />
-            </div>
+            <AnimatedBybLogo className="hidden md:block md:col-span-1 h-20 scale-x-[-1]" />
        </div>
 
        <div className="flex items-center justify-between">
