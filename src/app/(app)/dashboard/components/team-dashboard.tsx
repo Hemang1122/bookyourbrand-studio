@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,6 +12,42 @@ import { useMemo, useState } from 'react';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { WorkTimer } from './work-timer';
+
+function GradientZigzag() {
+    const id = useMemo(() => `grad-${Math.random().toString(36).substr(2, 9)}`, []);
+    return (
+        <svg
+            className="w-full h-full"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            xmlns="http://www.w3.org/2000/svg"
+        >
+            <defs>
+                <linearGradient id={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" style={{ stopColor: 'hsl(var(--primary)/0.5)', stopOpacity: 1 }} />
+                    <stop offset="50%" style={{ stopColor: 'hsl(var(--accent)/0.5)', stopOpacity: 1 }} />
+                    <stop offset="100%" style={{ stopColor: 'hsl(var(--primary)/0.5)', stopOpacity: 1 }} />
+                </linearGradient>
+            </defs>
+            <path
+                d="M 20,0 Q 40,20 20,40 T 20,80 Q 40,100 20,120"
+                stroke={`url(#${id})`}
+                strokeWidth="2"
+                fill="none"
+                strokeLinecap="round"
+                className="opacity-50"
+            />
+             <path
+                d="M 80,0 Q 60,20 80,40 T 80,80 Q 60,100 80,120"
+                stroke={`url(#${id})`}
+                strokeWidth="2"
+                fill="none"
+                strokeLinecap="round"
+                 className="opacity-50"
+            />
+        </svg>
+    );
+}
 
 export function TeamDashboard() {
   const { user } = useAuth();
@@ -46,10 +81,16 @@ export function TeamDashboard() {
   return (
     <div className="space-y-6">
        
-       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-start-2">
-            <WorkTimer />
-        </div>
+       <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-center">
+            <div className="hidden md:block md:col-span-1 h-32">
+                <GradientZigzag />
+            </div>
+            <div className="md:col-span-3">
+                <WorkTimer />
+            </div>
+            <div className="hidden md:block md:col-span-1 h-32 scale-x-[-1]">
+                 <GradientZigzag />
+            </div>
        </div>
 
        <div className="flex items-center justify-between">
