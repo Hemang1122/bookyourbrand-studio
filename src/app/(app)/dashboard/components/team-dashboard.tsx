@@ -8,19 +8,28 @@ import { Badge } from '@/components/ui/badge';
 import { useData } from '../../data-provider';
 import { DailyStandupCard } from './daily-standup-card';
 import { useAuth } from '@/firebase/provider';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { History } from 'lucide-react';
 import { WorkTimer } from './work-timer';
 import { ProjectCalendarCard } from './project-calendar-card';
+import { isSameDay, parseISO } from 'date-fns';
 
 export function TeamDashboard() {
   const { user } = useAuth();
   const { projects, tasks } = useData();
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
   const myProjects = useMemo(() => {
     if (!user || !projects) return [];
-    return projects.filter(p => p.team_ids && p.team_ids.includes(user.id));
-  }, [projects, user]);
+    
+    const assignedProjects = projects.filter(p => p.team_ids && p.team_ids.includes(user.id));
+    
+    if (selectedDate) {
+      return assignedProjects.filter(p => isSameDay(parseISO(p.startDate), selectedDate));
+    }
+
+    return assignedProjects;
+  }, [projects, user, selectedDate]);
 
   const myTasks = useMemo(() => {
     if (!user || !tasks) return [];
@@ -100,7 +109,7 @@ export function TeamDashboard() {
                 <CardHeader>
                 <CardTitle>My Assigned Projects</CardTitle>
                 <CardDescription>
-                    Here are the projects you are currently a member of.
+                    {selectedDate ? `Showing projects starting on ${selectedDate.toLocaleDateString()}` : "Here are the projects you are currently a member of."}
                 </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -121,7 +130,9 @@ export function TeamDashboard() {
                         ))
                    ) : (
                      <div className="text-center py-8">
-                        <p className="text-muted-foreground">You have not been assigned to any projects yet.</p>
+                        <p className="text-muted-foreground">
+                          {selectedDate ? "No assigned projects start on this date." : "You have not been assigned to any projects yet."}
+                        </p>
                     </div>
                    )}
                 </CardContent>
@@ -129,7 +140,7 @@ export function TeamDashboard() {
         </div>
         <div className="lg:col-span-1 grid grid-cols-1 gap-4">
           <DailyStandupCard />
-          { user.role === 'team' && <ProjectCalendarCard /> }
+          { user.role === 'team' && <ProjectCalendarCard selectedDate={selectedDate} onDateChange={setSelectedDate} /> }
         </div>
       </div>
     </div>

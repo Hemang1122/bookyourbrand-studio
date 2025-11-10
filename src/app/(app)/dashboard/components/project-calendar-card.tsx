@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarDays } from 'lucide-react';
@@ -11,10 +11,14 @@ import Link from 'next/link';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 
-export function ProjectCalendarCard() {
+type ProjectCalendarCardProps = {
+  selectedDate: Date | undefined;
+  onDateChange: (date: Date | undefined) => void;
+};
+
+export function ProjectCalendarCard({ selectedDate, onDateChange }: ProjectCalendarCardProps) {
   const { user } = useAuth();
   const { projects, isLoading } = useData();
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   
   const projectsForDate = useMemo(() => {
     if (!projects || !selectedDate) return [];
@@ -52,7 +56,7 @@ export function ProjectCalendarCard() {
             <Calendar
                 mode="single"
                 selected={selectedDate}
-                onSelect={setSelectedDate}
+                onSelect={onDateChange}
                 className="rounded-md border p-0"
             />
         </div>
