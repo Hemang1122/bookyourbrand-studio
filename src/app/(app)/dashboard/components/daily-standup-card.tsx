@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 
 export function DailyStandupCard({ className, style }: { className?: string, style?: React.CSSProperties }) {
   return (
-    <Card className={cn(className)} style={style}>
+    <Card className={cn("col-span-1", className)} style={style}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">Daily Standup Meeting</CardTitle>
         <Video className="h-4 w-4 text-muted-foreground" />

@@ -13,66 +13,6 @@ import { format, isSameDay, parseISO } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { WorkTimer } from './work-timer';
 
-function AnimatedBybLogo({ className }: { className?: string }) {
-    const id = useMemo(() => `grad-${Math.random().toString(36).substr(2, 9)}`, []);
-    return (
-      <div className={className}>
-        <style jsx>{`
-          .byb-logo-animate {
-            stroke-dasharray: 1000;
-            stroke-dashoffset: 1000;
-            animation: draw 5s linear forwards, move-gradient 3s linear infinite alternate;
-          }
-
-          @keyframes draw {
-            to {
-              stroke-dashoffset: 0;
-            }
-          }
-          
-          @keyframes move-gradient {
-            0% {
-              stroke: url(#${id}-1);
-            }
-            100% {
-              stroke: url(#${id}-2);
-            }
-          }
-        `}</style>
-        <svg viewBox="0 0 400 100" preserveAspectRatio="xMidYMid meet" className="w-full h-full">
-            <defs>
-                <linearGradient id={`${id}-1`} x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="hsl(var(--primary))" />
-                    <stop offset="50%" stopColor="hsl(var(--accent))" />
-                    <stop offset="100%" stopColor="hsl(var(--primary))" />
-                </linearGradient>
-                 <linearGradient id={`${id}-2`} x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="hsl(var(--accent))" />
-                    <stop offset="50%" stopColor="hsl(var(--primary))" />
-                    <stop offset="100%" stopColor="hsl(var(--accent))" />
-                </linearGradient>
-            </defs>
-            
-            <g fill="none" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="byb-logo-animate">
-                {/* B */}
-                <path d="M 50 10 V 90" />
-                <path d="M 50 10 C 100 10, 100 50, 50 50" />
-                <path d="M 50 50 C 110 50, 110 90, 50 90" />
-
-                {/* Y */}
-                <path d="M 150 10 L 175 50 L 200 10" />
-                <path d="M 175 50 V 90" />
-                
-                {/* B */}
-                <path d="M 250 10 V 90" />
-                <path d="M 250 10 C 300 10, 300 50, 250 50" />
-                <path d="M 250 50 C 310 50, 310 90, 250 90" />
-            </g>
-        </svg>
-    </div>
-    )
-}
-
 export function TeamDashboard() {
   const { user } = useAuth();
   const { projects, tasks } = useData();
@@ -105,12 +45,27 @@ export function TeamDashboard() {
   return (
     <div className="space-y-6">
        
-       <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-center">
-            <AnimatedBybLogo className="hidden md:block md:col-span-1 h-20" />
-            <div className="md:col-span-3">
-                <WorkTimer />
-            </div>
-            <AnimatedBybLogo className="hidden md:block md:col-span-1 h-20 scale-x-[-1]" />
+       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <DailyStandupCard className="h-full" />
+          <WorkTimer />
+           <Card>
+                <CardHeader>
+                    <CardTitle className="text-base">Project Calendar</CardTitle>
+                    <CardDescription className="text-sm">Select a date to see projects.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex justify-center">
+                    <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        className="rounded-md border"
+                        disabled={(date) => {
+                            // Disable dates that have no projects starting
+                            return !myProjects.some(p => isSameDay(parseISO(p.startDate), date));
+                        }}
+                    />
+                </CardContent>
+            </Card>
        </div>
 
        <div className="flex items-center justify-between">
@@ -165,7 +120,7 @@ export function TeamDashboard() {
           </CardContent>
         </Card>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1">
         <div className="lg:col-span-2">
             <Card>
                 <CardHeader>
@@ -201,27 +156,6 @@ export function TeamDashboard() {
                    )}
                 </CardContent>
             </Card>
-        </div>
-        <div className="lg:col-span-1 space-y-4">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">Project Calendar</CardTitle>
-                    <CardDescription className="text-sm">Select a date to see projects.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex justify-center">
-                    <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={setSelectedDate}
-                        className="rounded-md border"
-                        disabled={(date) => {
-                            // Disable dates that have no projects starting
-                            return !myProjects.some(p => isSameDay(parseISO(p.startDate), date));
-                        }}
-                    />
-                </CardContent>
-            </Card>
-            <DailyStandupCard />
         </div>
       </div>
     </div>
