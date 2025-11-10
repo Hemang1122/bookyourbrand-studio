@@ -1,3 +1,4 @@
+
 'use client';
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -9,10 +10,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Loader2, Download, FileText } from 'lucide-react';
+import { Loader2, Download } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { useAuth } from '@/firebase/provider';
 import { format } from 'date-fns';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface TimerSession {
   startTime: number;
