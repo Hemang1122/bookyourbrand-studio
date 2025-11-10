@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -7,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AddTaskDialog } from './add-task-dialog';
 import { Button } from '@/components/ui/button';
-import { Plus, Wand2, CheckCircle, Play, History, MoreHorizontal } from 'lucide-react';
+import { Plus, Wand2, CheckCircle, Play, History, MoreHorizontal, AlertCircle } from 'lucide-react';
 import { useData } from '../../../data-provider';
 import { useAuth } from '@/firebase/provider';
 import {
@@ -33,18 +32,13 @@ import { AddManualTaskDialog } from './add-manual-task-dialog';
 
 type TaskCardProps = {
   task: Task;
-  onStatusUpdate: (task: Task) => void;
+  onStatusUpdate: (task: Task, newStatus: TaskStatus) => void;
 };
 
 const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
   const { user } = useAuth();
-
   const canUpdateStatus = (user?.role === 'admin' || (user?.role === 'team' && user.id === task.assignedTo?.id));
 
-  const nextStatus: TaskStatus | null = task.status === 'Pending' ? 'In Progress' : task.status === 'In Progress' ? 'Completed' : null;
-  const nextActionText = task.status === 'Pending' ? 'Start Progress' : 'Mark as Complete';
-  const nextActionIcon = task.status === 'Pending' ? <Play className="mr-2 h-4 w-4" /> : <CheckCircle className="mr-2 h-4 w-4" />;
-  
   return (
       <Card className="bg-background">
         <CardHeader className="p-4 flex flex-row items-start justify-between">
@@ -81,7 +75,7 @@ const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
                 </PopoverContent>
               </Popover>
             )}
-            {canUpdateStatus && nextStatus && (
+            {canUpdateStatus && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -89,13 +83,26 @@ const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onSelect={() => onStatusUpdate(task)}
-                      className="cursor-pointer"
-                    >
-                      {nextActionIcon}
-                      <span>{nextActionText}</span>
-                    </DropdownMenuItem>
+                    {task.status === 'Pending' && (
+                        <DropdownMenuItem onSelect={() => onStatusUpdate(task, 'In Progress')} className="cursor-pointer">
+                            <Play className="mr-2 h-4 w-4" /> <span>Start Progress</span>
+                        </DropdownMenuItem>
+                    )}
+                    {task.status === 'In Progress' && (
+                        <DropdownMenuItem onSelect={() => onStatusUpdate(task, 'Completed')} className="cursor-pointer">
+                            <CheckCircle className="mr-2 h-4 w-4" /> <span>Mark as Complete</span>
+                        </DropdownMenuItem>
+                    )}
+                    {(task.status === 'Completed' || task.status === 'Rework') && (
+                        <DropdownMenuItem onSelect={() => onStatusUpdate(task, 'In Progress')} className="cursor-pointer">
+                            <Play className="mr-2 h-4 w-4" /> <span>Re-Open Task</span>
+                        </DropdownMenuItem>
+                    )}
+                     {task.status === 'Completed' && (
+                        <DropdownMenuItem onSelect={() => onStatusUpdate(task, 'Rework')} className="cursor-pointer text-amber-600 focus:text-amber-700">
+                           <AlertCircle className="mr-2 h-4 w-4" /> <span>Request Rework</span>
+                        </DropdownMenuItem>
+                    )}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
@@ -132,21 +139,23 @@ export function TaskList({ projectId }: TaskListProps) {
   const [isManualTaskOpen, setIsManualTaskOpen] = useState(false);
   const [isAiTaskOpen, setIsAiTaskOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
+  const [nextStatus, setNextStatus] = useState<TaskStatus | null>(null);
+
 
   const projectTasks = (tasks || []).filter((t) => t.projectId === projectId);
 
   const columns = {
     Pending: projectTasks.filter((t) => t.status === 'Pending'),
     'In Progress': projectTasks.filter((t) => t.status === 'In Progress'),
+    'Rework': projectTasks.filter((t) => t.status === 'Rework'),
     Completed: projectTasks.filter((t) => t.status === 'Completed'),
   };
 
-  const handleStatusUpdateClick = (task: Task) => {
+  const handleStatusUpdateClick = (task: Task, newStatus: TaskStatus) => {
     setCurrentTask(task);
+    setNextStatus(newStatus);
     setIsStatusUpdateOpen(true);
   };
-  
-  const nextStatus = currentTask?.status === 'Pending' ? 'In Progress' : currentTask?.status === 'In Progress' ? 'Completed' : null;
 
   return (
     <>
@@ -163,7 +172,7 @@ export function TaskList({ projectId }: TaskListProps) {
               </Button>
           </div>
         )}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
           {(Object.keys(columns) as Array<keyof typeof columns>).map((status) => (
             <div key={status} className="flex flex-col gap-4">
               <h3 className="text-lg font-semibold tracking-tight">

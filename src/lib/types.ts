@@ -48,7 +48,7 @@ export type Project = {
   coverImage: string;
 };
 
-export type TaskStatus = 'Pending' | 'In Progress' | 'Completed';
+export type TaskStatus = 'Pending' | 'In Progress' | 'Completed' | 'Rework';
 
 export type TaskRemark = {
   userId: string;

@@ -48,6 +48,7 @@ type DataContextType = {
   deleteProject: (projectId: string) => void;
   updateProject: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => void;
   addFile: (file: Omit<ProjectFile, 'id'>) => void;
+  deleteFile: (fileId: string) => void;
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   markNotificationsAsRead: () => void;
   uploadAndAddMessage: (projectId: string, audioBlob: Blob) => Promise<void>;
@@ -415,6 +416,12 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     };
     setDocumentNonBlocking(doc(firestore, 'files', newFile.id), newFile, {});
   }
+  
+  const deleteFile = (fileId: string) => {
+    if (!firestore) return;
+    const fileRef = doc(firestore, 'files', fileId);
+    deleteDocumentNonBlocking(fileRef);
+  };
 
   const addMessage = useCallback((messageData: Omit<ChatMessage, 'id' | 'timestamp'>) => {
     if (!firestore || !currentUser || !usersData || !projectsData) return;
@@ -515,6 +522,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         deleteProject,
         updateProject,
         addFile,
+        deleteFile,
         addMessage,
         markNotificationsAsRead,
         uploadAndAddMessage,

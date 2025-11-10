@@ -11,17 +11,24 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Link, Download, Plus } from 'lucide-react';
+import { Link, Download, Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/lib/auth-client';
+import { useAuth } from '@/firebase/provider';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { AddFileLinkDialog } from './add-file-link-dialog';
 import { useData } from '../../../data-provider';
-import { Timestamp } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
-import { addDocumentNonBlocking } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 type FileManagerProps = {
   projectId: string;
@@ -30,7 +37,7 @@ type FileManagerProps = {
 export function FileManager({ projectId }: FileManagerProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { addFile, files: allFiles } = useData();
+  const { addFile, files: allFiles, deleteFile } = useData();
 
   const files = allFiles.filter(f => f.projectId === projectId);
 
@@ -49,6 +56,11 @@ export function FileManager({ projectId }: FileManagerProps) {
 
     toast({ title: 'File Link Added', description: `${name} has been added to the project.` });
   };
+  
+  const handleDeleteFile = (file: ProjectFile) => {
+    deleteFile(file.id);
+    toast({ title: 'File Deleted', description: `${file.name} has been removed.` });
+  }
 
   return (
     <div className="space-y-4">
@@ -96,6 +108,28 @@ export function FileManager({ projectId }: FileManagerProps) {
                         <span className="sr-only">Open Link</span>
                       </a>
                     </Button>
+                     <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete the file link for "{file.name}".
+                            The linked file itself will not be affected.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDeleteFile(file)} className="bg-destructive hover:bg-destructive/90">
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </TableCell>
                 </TableRow>
               );
