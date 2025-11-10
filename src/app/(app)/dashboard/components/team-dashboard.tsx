@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -11,6 +10,8 @@ import { DailyStandupCard } from './daily-standup-card';
 import { useAuth } from '@/firebase/provider';
 import { useMemo } from 'react';
 import { History } from 'lucide-react';
+import { WorkTimer } from './work-timer';
+import { ProjectCalendarCard } from './project-calendar-card';
 
 export function TeamDashboard() {
   const { user } = useAuth();
@@ -36,6 +37,12 @@ export function TeamDashboard() {
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-center">
+        <div className="w-full max-w-sm">
+          <WorkTimer />
+        </div>
+      </div>
+
        <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold tracking-tight">My Dashboard</h2>
          <Button variant="outline" asChild>
@@ -88,7 +95,7 @@ export function TeamDashboard() {
         </Card>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-4">
             <Card>
                 <CardHeader>
                 <CardTitle>My Assigned Projects</CardTitle>
@@ -120,8 +127,9 @@ export function TeamDashboard() {
                 </CardContent>
             </Card>
         </div>
-        <div className="lg:col-span-1 space-y-4">
+        <div className="lg:col-span-1 grid grid-cols-1 gap-4">
             <DailyStandupCard />
+            <ProjectCalendarCard />
         </div>
       </div>
     </div>
