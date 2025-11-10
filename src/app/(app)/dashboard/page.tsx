@@ -6,6 +6,7 @@ import { ClientDashboard } from './components/client-dashboard';
 import { WelcomeHeader } from './components/welcome-header';
 import { useAuth } from '@/firebase/provider';
 import { Loader2 } from 'lucide-react';
+import { WorkTimer } from './components/work-timer';
 
 
 export default function DashboardPage() {
@@ -25,8 +26,18 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex-1 space-y-4">
-      <WelcomeHeader name={user.name || 'User'} />
+    <div className="flex-1 space-y-6">
+       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+            <WelcomeHeader name={user.name || 'User'} />
+        </div>
+        {user.role === 'team' && (
+            <div className="lg:col-span-1">
+                 <WorkTimer />
+            </div>
+        )}
+      </div>
+
       {user.role === 'admin' && <AdminDashboard />}
       {user.role === 'team' && <TeamDashboard />}
       {user.role === 'client' && <ClientDashboard />}

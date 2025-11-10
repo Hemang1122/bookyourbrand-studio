@@ -10,8 +10,6 @@ import { DailyStandupCard } from './daily-standup-card';
 import { useAuth } from '@/firebase/provider';
 import { useMemo } from 'react';
 import { History } from 'lucide-react';
-import { WorkTimer } from './work-timer';
-
 
 export function TeamDashboard() {
   const { user } = useAuth();
@@ -122,7 +120,6 @@ export function TeamDashboard() {
             </Card>
         </div>
         <div className="lg:col-span-1 space-y-4">
-            <WorkTimer />
             <DailyStandupCard />
         </div>
       </div>
