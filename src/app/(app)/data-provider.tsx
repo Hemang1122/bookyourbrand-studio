@@ -51,7 +51,7 @@ type DataContextType = {
   deleteFile: (fileId: string) => void;
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   markNotificationsAsRead: () => void;
-  uploadAndAddMessage: (projectId: string, audioBlob: Blob) => Promise<void>;
+  uploadAndAddMessage: (projectId: string, file: File | Blob) => Promise<void>;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -441,7 +441,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       const finalRecipients = recipients.filter(id => id !== currentUser.id);
       let messageSnippet = '';
       if (messageData.messageType === 'file') {
-        messageSnippet = 'Sent a file';
+        messageSnippet = `Sent a file: ${messageData.message}`;
       } else if (messageData.messageType === 'voice') {
         messageSnippet = 'Sent a voice message';
       }
@@ -452,13 +452,16 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     }
   }, [firestore, currentUser, usersData, projectsData, addNotification]);
 
-  const uploadAndAddMessage = async (projectId: string, audioBlob: Blob) => {
+  const uploadAndAddMessage = async (projectId: string, file: File | Blob) => {
     if (!currentUser || !firebaseApp) return;
   
     try {
+      const isVoice = file.type.startsWith('audio/');
+      const fileName = file instanceof File ? file.name : 'voice-message.webm';
+
       const url = await uploadFile(
-        audioBlob,
-        `voice-messages/${projectId}/${uuidv4()}.webm`
+        file,
+        isVoice ? `voice-messages/${projectId}` : `chat/${projectId}`
       );
   
       addMessage({
@@ -466,14 +469,14 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         senderId: currentUser.id,
         senderName: currentUser.name,
         senderAvatar: currentUser.avatar || '',
-        message: '🎤 Voice message',
+        message: isVoice ? '🎤 Voice message' : fileName,
         fileUrl: url,
-        messageType: 'voice',
+        messageType: isVoice ? 'voice' : 'file',
       });
   
     } catch (error) {
       console.error("Upload and add message failed:", error);
-      toast({ title: "Upload failed", description: "Could not send voice message.", variant: 'destructive' });
+      toast({ title: "Upload failed", description: `Could not send ${file.type.startsWith('audio/') ? 'voice message' : 'file'}.`, variant: 'destructive' });
       throw error;
     }
   };

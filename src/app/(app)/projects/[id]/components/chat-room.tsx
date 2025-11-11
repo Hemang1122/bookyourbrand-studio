@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
@@ -11,7 +12,6 @@ import { useData } from '../../../data-provider';
 import { Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
-import { uploadFile } from '@/lib/storage';
 
 type ChatRoomProps = {
   projectId: string;
@@ -131,18 +131,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     setOptimisticMessages(prev => [...prev, tempMessage]);
 
     try {
-        const downloadURL = await uploadFile(file, `chat/${projectId}`);
-        
-        addMessage({
-            projectId,
-            senderId: currentUser.id,
-            senderName: currentUser.name,
-            senderAvatar: currentUser.avatar || '',
-            message: file.name,
-            fileUrl: downloadURL,
-            messageType: 'file',
-        });
-        
+        await uploadAndAddMessage(projectId, file);
         toast({ title: 'File Uploaded', description: `${file.name} has been attached to the chat.` });
     } catch (error) {
         console.error("File upload error:", error);
