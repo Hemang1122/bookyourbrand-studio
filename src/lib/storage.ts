@@ -1,5 +1,5 @@
 'use client';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL, setMaxUploadRetryTime } from 'firebase/storage';
 import { getApp } from 'firebase/app';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -11,6 +11,11 @@ export const uploadFile = (
   return new Promise((resolve, reject) => {
     const app = getApp();
     const storage = getStorage(app);
+
+    // Increase the maximum time allowed for uploads to 10 minutes (600,000 milliseconds)
+    // This helps prevent timeouts on slow connections or with large files.
+    setMaxUploadRetryTime(storage, 10 * 60 * 1000);
+
     const fileName = file instanceof File ? file.name : 'voice-message.webm';
     const storageRef = ref(storage, `${path}/${uuidv4()}-${fileName}`);
     const uploadTask = uploadBytesResumable(storageRef, file);
