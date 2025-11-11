@@ -453,18 +453,21 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }, [firestore, currentUser, usersData, projectsData, addNotification]);
 
   const uploadAndAddMessage = async (projectId: string, file: File | Blob) => {
-    if (!currentUser || !firebaseApp) return;
+    if (!currentUser || !firebaseApp) {
+        throw new Error("User or Firebase App not available for upload.");
+    }
   
-    try {
-      const isVoice = file.type.startsWith('audio/');
-      const fileName = file instanceof File ? file.name : 'voice-message.webm';
+    const isVoice = file.type.startsWith('audio/');
+    const fileName = file instanceof File ? file.name : 'voice-message.webm';
 
+    try {
       const url = await uploadFile(
         file,
         isVoice ? `voice-messages/${projectId}` : `chat/${projectId}`
       );
   
-      addMessage({
+      // This is the message that will be saved to Firestore
+      const messagePayload: Omit<ChatMessage, 'id' | 'timestamp'> = {
         projectId,
         senderId: currentUser.id,
         senderName: currentUser.name,
@@ -472,11 +475,13 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         message: isVoice ? '🎤 Voice message' : fileName,
         fileUrl: url,
         messageType: isVoice ? 'voice' : 'file',
-      });
+      };
+
+      addMessage(messagePayload);
   
     } catch (error) {
       console.error("Upload and add message failed:", error);
-      toast({ title: "Upload failed", description: `Could not send ${file.type.startsWith('audio/') ? 'voice message' : 'file'}.`, variant: 'destructive' });
+      // Let the caller handle UI updates for the error
       throw error;
     }
   };

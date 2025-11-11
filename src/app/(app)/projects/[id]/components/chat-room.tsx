@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
@@ -156,6 +155,8 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
       mediaRecorderRef.current.onstop = () => {
         const blob = new Blob(chunks, { type: 'audio/webm' });
         setAudioBlob(blob);
+        // Stop all tracks on the stream to turn off the mic indicator
+        stream.getTracks().forEach(track => track.stop());
       };
       mediaRecorderRef.current.start();
       setIsRecording(true);
