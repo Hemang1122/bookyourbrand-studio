@@ -36,7 +36,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
 
   const teamMemberOptions = useMemo(() => {
     return users
-      .filter(u => u.role === 'team')
+      .filter(u => u.role === 'team' || u.role === 'admin')
       .map(u => ({ value: u.id, label: u.name }));
   }, [users]);
   
@@ -53,7 +53,6 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
   };
 
   useEffect(() => {
-    // When the dialog opens, pre-select all team members who have an update for the selected date
     if (open && selectedDate) {
         const usersWithUpdates = updates
             .filter(u => isSameDay(new Date(u.timestamp), selectedDate))
@@ -76,12 +75,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 40;
-    const addressLines = [
-      'Shop No 14, Vishwakarma Nagar building. 03',
-      '60 feet road, Landmark:, opposite old swaminarayan temple,',
-      'Vasai West, Vasai-Virar, Maharashtra 401202',
-    ];
-
+    
     updatesToExport.forEach((update, index) => {
         const author = users.find(u => u.id === update.userId);
         if (!author) return;
@@ -90,8 +84,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
             doc.addPage();
         }
 
-        // Header section
-        doc.setFillColor(54, 8, 120); // --primary color
+        doc.setFillColor(54, 8, 120);
         doc.rect(0, 0, pageWidth, 90, 'F');
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(24);
@@ -104,7 +97,6 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
         
         let y = 120;
 
-        // Sub-header with author and date
         doc.setFontSize(12);
         doc.setTextColor(100);
         doc.setFont('helvetica', 'bold');
@@ -122,7 +114,6 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
 
         y += 40;
 
-        // Yesterday's Work
         if (update.yesterday) {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(11);
@@ -137,7 +128,6 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
             y += yesterdayLines.length * 12 + 20;
         }
 
-        // Today's Plan
         if (update.today) {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(11);
@@ -152,7 +142,6 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
             y += todayLines.length * 12 + 20;
         }
         
-        // Table using jspdf-autotable
         const tableData = (update.reels || []).map(reel => [
             reel.reelName,
             reel.duration,
@@ -167,7 +156,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
                 body: tableData,
                 theme: 'grid',
                 headStyles: {
-                    fillColor: [54, 8, 120], // --primary color
+                    fillColor: [54, 8, 120],
                     textColor: 255,
                     fontStyle: 'bold',
                 },
@@ -177,7 +166,6 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
             });
         }
 
-        // Footer
         const footerY = doc.internal.pageSize.getHeight() - 30;
         doc.setFontSize(8);
         doc.setTextColor(150);
@@ -235,7 +223,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
             </div>
           <div className="flex flex-col gap-4">
              <h3 className="font-semibold">
-                Preview for {selectedDate ? format(selectedDate, 'PPP') : '...'}
+                Preview for {selectedDate ? format(selectedDate, 'PPP') : '...'} ({updatesForPreview.length})
              </h3>
             <ScrollArea className="h-96 w-full rounded-md border bg-muted/50">
               <div className="p-4 bg-background">
