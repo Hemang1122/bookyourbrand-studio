@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/firebase/provider';
 import { useData } from '../data-provider';
@@ -13,38 +11,71 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Download } from 'lucide-react';
 import { ScrumExportDialog } from './components/scrum-export-dialog';
 import { Calendar } from '@/components/ui/calendar';
+import type { ScrumUpdate } from '@/lib/types';
+import { Input } from '@/components/ui/input';
+import { Plus, Trash2 } from 'lucide-react';
+
+type ReelUpdate = {
+  id: string;
+  reelName: string;
+  duration: string;
+  issues: string;
+  remarks: string;
+};
 
 export default function ScrumPage() {
   const { user } = useAuth();
   const { users, scrumUpdates, addScrumUpdate } = useData();
   const { toast } = useToast();
-  const [yesterday, setYesterday] = useState('');
-  const [today, setToday] = useState('');
+  
+  const [reelUpdates, setReelUpdates] = useState<ReelUpdate[]>([{ id: `reel-${Date.now()}`, reelName: '', duration: '', issues: '', remarks: '' }]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
+  const handleAddRow = () => {
+    setReelUpdates(prev => [...prev, { id: `reel-${Date.now()}`, reelName: '', duration: '', issues: '', remarks: '' }]);
+  };
+
+  const handleRemoveRow = (id: string) => {
+    if (reelUpdates.length > 1) {
+      setReelUpdates(prev => prev.filter(row => row.id !== id));
+    }
+  };
+
+  const handleInputChange = (id: string, field: keyof Omit<ReelUpdate, 'id'>, value: string) => {
+    setReelUpdates(prev => prev.map(row => row.id === id ? { ...row, [field]: value } : row));
+  };
+
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !yesterday || !today) {
-      toast({
-        title: 'Error',
-        description: 'Please fill out both fields.',
-        variant: 'destructive',
-      });
+    if (!user) {
+      toast({ title: 'Error', description: 'You must be logged in.', variant: 'destructive' });
       return;
     }
+    const hasEmptyReelName = reelUpdates.some(update => !update.reelName.trim());
+    if (hasEmptyReelName) {
+      toast({ title: 'Error', description: 'Reel Name is required for all entries.', variant: 'destructive' });
+      return;
+    }
+
     setIsLoading(true);
 
-    addScrumUpdate({
+    const newScrumUpdate: Omit<ScrumUpdate, 'id'> = {
       userId: user.id,
-      yesterday,
-      today,
-    });
-    setYesterday('');
-    setToday('');
+      timestamp: new Date().toISOString(),
+      reels: reelUpdates,
+      // Deprecated fields, kept for compatibility if needed.
+      yesterday: '', 
+      today: '',
+    };
+    
+    addScrumUpdate(newScrumUpdate);
+    
+    setReelUpdates([{ id: `reel-${Date.now()}`, reelName: '', duration: '', issues: '', remarks: '' }]);
     toast({
       title: 'Update Submitted',
-      description: 'Your daily update has been recorded.',
+      description: 'Your daily scrum update has been recorded.',
     });
     setIsLoading(false);
   };
@@ -57,7 +88,7 @@ export default function ScrumPage() {
         <div className="space-y-2">
             <h2 className="text-3xl font-bold tracking-tight">Daily Scrum Sheet</h2>
             <p className="text-muted-foreground">
-            Log your progress. Keep everyone in sync.
+            Log your reel progress. Keep everyone in sync.
             </p>
         </div>
 
@@ -65,35 +96,54 @@ export default function ScrumPage() {
             <Card>
             <CardHeader>
                 <CardTitle>My Daily Update</CardTitle>
-                <CardDescription>What are your goals for today and what did you accomplish yesterday? Your update will be visible to the admin.</CardDescription>
+                <CardDescription>Log the details for each reel you've worked on. Your update will be visible to the admin.</CardDescription>
             </CardHeader>
             <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-2">
-                    <Label htmlFor="yesterday" className="text-base font-medium">What did you accomplish yesterday?</Label>
-                    <Textarea
-                    id="yesterday"
-                    value={yesterday}
-                    onChange={(e) => setYesterday(e.target.value)}
-                    placeholder="e.g., - Completed the final draft of the campaign visuals. - Attended the client sync call and took notes."
-                    rows={4}
-                    disabled={isLoading}
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="today" className="text-base font-medium">What are your goals for today? (Include any questions or blockers)</Label>
-                    <Textarea
-                    id="today"
-                    value={today}
-                    onChange={(e) => setToday(e.target.value)}
-                    placeholder="e.g., - Start developing the content calendar for Project X. - I have a question about the new brand guidelines."
-                    rows={4}
-                    disabled={isLoading}
-                    />
-                </div>
-                <Button type="submit" disabled={isLoading}>
-                    {isLoading ? 'Submitting...' : 'Submit Update'}
-                </Button>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="min-w-[200px]">Reel Name</TableHead>
+                          <TableHead>Reel duration (min:sec)</TableHead>
+                          <TableHead>Issues (if any)</TableHead>
+                          <TableHead>Remarks</TableHead>
+                          <TableHead></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {reelUpdates.map((update) => (
+                          <TableRow key={update.id}>
+                            <TableCell>
+                              <Input placeholder="e.g., Avhyay Monsoon Offer" value={update.reelName} onChange={(e) => handleInputChange(update.id, 'reelName', e.target.value)} disabled={isLoading} />
+                            </TableCell>
+                            <TableCell>
+                              <Input placeholder="00:45" value={update.duration} onChange={(e) => handleInputChange(update.id, 'duration', e.target.value)} disabled={isLoading} />
+                            </TableCell>
+                            <TableCell>
+                              <Input value={update.issues} onChange={(e) => handleInputChange(update.id, 'issues', e.target.value)} disabled={isLoading} />
+                            </TableCell>
+                            <TableCell>
+                              <Input value={update.remarks} onChange={(e) => handleInputChange(update.id, 'remarks', e.target.value)} disabled={isLoading} />
+                            </TableCell>
+                            <TableCell>
+                              <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveRow(update.id)} disabled={isLoading || reelUpdates.length <= 1}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <div className="flex justify-between">
+                    <Button type="button" variant="outline" onClick={handleAddRow} disabled={isLoading}>
+                      <Plus className="mr-2 h-4 w-4" /> Add Row
+                    </Button>
+                    <Button type="submit" disabled={isLoading}>
+                        {isLoading ? 'Submitting...' : 'Submit Update'}
+                    </Button>
+                  </div>
                 </form>
             </CardContent>
             </Card>
@@ -123,7 +173,7 @@ export default function ScrumPage() {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <CardTitle>Updates for {selectedDate ? format(selectedDate, 'PPP') : '...'}</CardTitle>
-                                    <CardDescription>Review the daily updates from your team and clients.</CardDescription>
+                                    <CardDescription>Review the daily updates from your team.</CardDescription>
                                 </div>
                                 <ScrumExportDialog updates={scrumUpdates} users={users || []}>
                                     <Button variant="outline">
@@ -134,43 +184,53 @@ export default function ScrumPage() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                        <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-[15%]">Team Member / Client</TableHead>
-                                        <TableHead className="w-[35%]">Yesterday's Accomplishments</TableHead>
-                                        <TableHead className="w-[35%]">Today's Goals / Questions</TableHead>
-                                        <TableHead className="w-[15%] text-right">Timestamp</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {updatesForSelectedDate.length > 0 ? (
-                                        updatesForSelectedDate.map(update => {
-                                            const author = users.find(u => u.id === update.userId);
-                                            if (!author) return null;
-
-                                            return (
-                                                <TableRow key={update.id}>
-                                                    <TableCell>
-                                                        <div className="font-medium">{author.name}</div>
-                                                    </TableCell>
-                                                    <TableCell className="whitespace-pre-line text-muted-foreground">{update.yesterday}</TableCell>
-                                                    <TableCell className="whitespace-pre-line text-muted-foreground">{update.today}</TableCell>
-                                                    <TableCell className="text-right text-muted-foreground">
-                                                        {format(new Date(update.timestamp), 'p')}
-                                                    </TableCell>
-                                                </TableRow>
-                                            )
-                                        })
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={4} className="h-24 text-center">
-                                                No updates have been submitted for this day.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
+                          {updatesForSelectedDate.length > 0 ? (
+                            updatesForSelectedDate.map(update => {
+                              const author = users.find(u => u.id === update.userId);
+                              if (!author) return null;
+                              return (
+                                <div key={update.id} className="mb-8">
+                                  <h4 className="font-semibold mb-2">{author.name}'s Update</h4>
+                                  <Table>
+                                      <TableHeader>
+                                          <TableRow>
+                                              <TableHead>Reel Name</TableHead>
+                                              <TableHead>Duration</TableHead>
+                                              <TableHead>Issues</TableHead>
+                                              <TableHead>Remarks</TableHead>
+                                          </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                          {(update.reels && update.reels.length > 0) ? (
+                                            update.reels.map((reel, index) => (
+                                              <TableRow key={index}>
+                                                  <TableCell>{reel.reelName}</TableCell>
+                                                  <TableCell>{reel.duration}</TableCell>
+                                                  <TableCell>{reel.issues}</TableCell>
+                                                  <TableCell>{reel.remarks}</TableCell>
+                                              </TableRow>
+                                            ))
+                                          ) : (
+                                            // Fallback for old format
+                                             <TableRow>
+                                                <TableCell colSpan={4}>
+                                                  <div className='text-sm text-muted-foreground'>
+                                                    <p><b>Yesterday:</b> {update.yesterday}</p>
+                                                    <p><b>Today:</b> {update.today}</p>
+                                                  </div>
+                                                </TableCell>
+                                              </TableRow>
+                                          )}
+                                      </TableBody>
+                                  </Table>
+                                </div>
+                              )
+                            })
+                          ) : (
+                             <div className="h-24 text-center flex items-center justify-center">
+                                <p>No updates have been submitted for this day.</p>
+                            </div>
+                          )}
                         </CardContent>
                     </Card>
                 </div>

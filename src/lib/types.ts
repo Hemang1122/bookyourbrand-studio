@@ -1,4 +1,5 @@
 
+
 import { FieldValue, Timestamp } from 'firebase/firestore';
 
 export type UserRole = 'admin' | 'team' | 'client';
@@ -13,6 +14,7 @@ export type User = {
   aadharUrl?: string;
   panUrl?: string;
   joiningLetterUrl?: string;
+  fcmTokens?: string[];
 };
 
 export type PackageName = 'Bronze' | 'Silver' | 'Gold' | 'Advanced Editing' | 'Podcast';
@@ -102,12 +104,21 @@ export type ProjectFile = {
   type?: string;
 };
 
+export type ReelUpdate = {
+  reelName: string;
+  duration: string;
+  issues: string;
+  remarks: string;
+};
+
+
 export type ScrumUpdate = {
   id: string;
   userId: string;
   yesterday: string;
   today: string;
   timestamp: string;
+  reels?: ReelUpdate[];
 };
 
 // New types for file uploads
