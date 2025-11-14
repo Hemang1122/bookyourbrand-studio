@@ -16,8 +16,8 @@ import { Loader2, Download } from 'lucide-react';
 import { format, isSameDay } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import type { ScrumUpdate, User } from '@/lib/types';
-import { useData } from '../../data-provider';
 
 type ScrumExportDialogProps = {
   updates: ScrumUpdate[];
@@ -47,25 +47,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
 
     const doc = new jsPDF('p', 'pt', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 60;
-    const contentWidth = pageWidth - margin * 2;
-    
-    const drawLetterhead = () => {
-        // Draw border
-        doc.setDrawColor(0);
-        doc.setLineWidth(1.5);
-        doc.rect(20, 20, pageWidth - 40, pageHeight - 40);
-
-        // Add "BookYourBrands" Title
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(22);
-        doc.text("BookYourBrands", pageWidth / 2, 70, { align: 'center' });
-
-        // Add a line under the title
-        doc.setLineWidth(0.5);
-        doc.line(margin, 90, pageWidth - margin, 90);
-    }
+    const margin = 40;
 
     updatesForSelectedDate.forEach((update, index) => {
         const author = users.find(u => u.id === update.userId);
@@ -75,76 +57,72 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
             doc.addPage();
         }
 
-        drawLetterhead();
-        
-        let y = 120; 
+        // Header section
+        doc.setFillColor(54, 8, 120); // --primary color
+        doc.rect(0, 0, pageWidth, 90, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(24);
+        doc.setTextColor(255, 255, 255);
+        doc.text('BookYourBrands', margin, 55);
 
-        // --- Report Header ---
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
-        doc.setTextColor(0, 0, 0);
-
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Date:`, margin, y);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`${format(selectedDate, 'PPP')}`, margin + 80, y);
-        y += 15;
-
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Project Name:`, margin, y);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`General Update`, margin + 80, y);
-        y += 15;
+        doc.text('Daily Scrum Report', pageWidth - margin, 55, { align: 'right' });
         
+        let y = 120;
+
+        // Sub-header with author and date
+        doc.setFontSize(12);
+        doc.setTextColor(100);
+        doc.text('Team Member:', margin, y);
         doc.setFont('helvetica', 'bold');
-        doc.text(`Team Members:`, margin, y);
-        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0);
         doc.text(author.name, margin + 80, y);
-        y += 30;
-
-        // --- Report Body ---
-        const addSection = (title: string, content: string) => {
-            if (y > pageHeight - 150) { // Check if new page is needed
-                doc.addPage();
-                drawLetterhead();
-                y = 120;
-            }
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(11);
-            doc.text(title.toUpperCase(), margin, y);
-            y += 20;
-
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(10);
-            const lines = doc.splitTextToSize(content || "N/A", contentWidth);
-            const bulletedLines = lines.map((line: string) => line.trim().startsWith('-') ? line : `- ${line}`);
-            
-            bulletedLines.forEach((line: string) => {
-                 if (y > pageHeight - 80) { // Check before printing each line
-                    doc.addPage();
-                    drawLetterhead();
-                    y = 120;
-                 }
-                 doc.text(line, margin, y);
-                 y += 15;
-            });
-            y += 15; // Extra space after section
-        };
-
-        addSection("1. TASKS COMPLETED YESTERDAY:", update.yesterday);
-        addSection("2. TASKS PLANNED FOR TODAY:", update.today);
-        addSection("3. BLOCKERS / ISSUES:", "None reported.");
-        addSection("4. NOTES / UPDATES:", "All tasks are on track.");
-
-        // --- Signature ---
-        y = pageHeight - 140; // Position signature block towards the bottom
+        
         doc.setFont('helvetica', 'normal');
-        doc.text(`Reported by: ${author.name}`, margin, y);
-        y += 20;
-        doc.text(`Position: ${author.role}`, margin, y);
-        y += 20;
-        doc.text("Signature: _______________________", margin, y);
+        doc.setTextColor(100);
+        doc.text('Date:', pageWidth - margin - 120, y);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(0);
+        doc.text(format(selectedDate, 'PPP'), pageWidth - margin - 80, y);
+
+        y += 40;
+        
+        // Table using jspdf-autotable
+        const tableData = (update.reels || []).map(reel => [
+            reel.reelName,
+            reel.duration,
+            reel.issues,
+            reel.remarks
+        ]);
+
+        (doc as any).autoTable({
+            startY: y,
+            head: [['Reel Name', 'Duration', 'Issues', 'Remarks']],
+            body: tableData.length > 0 ? tableData : [['No reel data submitted.', '', '', '']],
+            theme: 'grid',
+            headStyles: {
+                fillColor: [54, 8, 120], // --primary color
+                textColor: 255,
+                fontStyle: 'bold',
+            },
+            styles: {
+                cellPadding: 8,
+                fontSize: 10,
+            },
+            alternateRowStyles: {
+                fillColor: [245, 245, 245]
+            },
+            margin: { left: margin, right: margin },
+        });
+
+        // Footer
+        const footerY = doc.internal.pageSize.getHeight() - 30;
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(`Report generated for ${author.name} on ${format(new Date(), 'PPpp')}`, pageWidth / 2, footerY, { align: 'center' });
     });
+
 
     doc.save(`scrum_report_${format(selectedDate, 'yyyy-MM-dd')}.pdf`);
     
@@ -195,14 +173,17 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
                                 <div key={update.id} className="flex gap-4">
                                     <div className='space-y-2'>
                                         <p className="font-bold text-sm">{author.name}</p>
-                                        <div>
-                                            <p className="font-semibold text-xs text-muted-foreground">Yesterday</p>
-                                            <p className="text-sm whitespace-pre-line">{update.yesterday}</p>
-                                        </div>
-                                         <div>
-                                            <p className="font-semibold text-xs text-muted-foreground">Today</p>
-                                            <p className="text-sm whitespace-pre-line">{update.today}</p>
-                                        </div>
+                                        {(update.reels && update.reels.length > 0) ? (
+                                           <ul className="list-disc list-inside space-y-1 pl-2">
+                                            {update.reels.map((reel, index) => (
+                                              <li key={index} className="text-sm">
+                                                <strong>{reel.reelName}</strong> ({reel.duration}): {reel.remarks || 'No remarks.'}
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground">No reel-specific updates submitted.</p>
+                                        )}
                                     </div>
                                 </div>
                             )
