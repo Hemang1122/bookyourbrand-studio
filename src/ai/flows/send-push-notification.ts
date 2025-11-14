@@ -15,8 +15,12 @@ const SendPushNotificationSchema = z.object({
 
 // App Hosting automatically initializes the Admin SDK.
 // Explicit initialization is not needed and can cause crashes.
-if (!admin.apps.length) {
-  admin.initializeApp();
+try {
+    if (!admin.apps.length) {
+        admin.initializeApp();
+    }
+} catch (e) {
+    console.log('Firebase Admin SDK already initialized.');
 }
 
 
