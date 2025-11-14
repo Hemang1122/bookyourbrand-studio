@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -19,7 +19,7 @@ import type { ScrumUpdate, User } from '@/lib/types';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { Label } from '@/components/ui/label';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+
 
 type ScrumExportDialogProps = {
   updates: ScrumUpdate[];
@@ -63,25 +63,16 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
   }, [open, selectedDate, updates]);
 
   const handleDownloadPdf = async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-
-      // dynamic import fix for next.js 15
-      const jsPDFModule = await import('jspdf');
-      const autoTableModule = await import('jspdf-autotable');
-
-      const jsPDF = jsPDFModule.default;
-      const autoTable = autoTableModule.default;
-
-      const doc = new jsPDF('p', 'pt', 'a4');
-
       const updatesToExport = getUpdatesForSelection(selectedDate, selectedUserIds);
       if (updatesToExport.length === 0 || !selectedDate) {
         toast({ title: 'No updates to export for the current selection', variant: 'destructive' });
         setIsLoading(false);
         return;
-      };
-
+      }
+      
+      const doc = new jsPDF('p', 'pt', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
       const margin = 40;
 
@@ -103,7 +94,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
         doc.setFontSize(10);
         doc.text('Daily Scrum Report', pageWidth - margin, 55, { align: 'right' });
 
-        let y = 120;
+        let y = 140;
 
         // Details
         doc.setFontSize(12);
@@ -120,9 +111,9 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(0);
         doc.text(format(selectedDate, 'PPP'), pageWidth - margin, y, { align: 'right' });
-
         y += 40;
 
+        // Summary sections
         if (update.yesterday) {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(11);
@@ -151,38 +142,54 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
             y += todayLines.length * 12 + 20;
         }
         
-        const tableData = (update.reels || []).map(reel => [
-            reel.reelName,
-            reel.duration,
-            reel.issues,
-            reel.remarks
-        ]);
+        // Table for Reels
+        if (update.reels && update.reels.length > 0) {
+            y += 10;
+            // Table Header
+            doc.setFillColor(248, 248, 248);
+            doc.rect(margin, y, pageWidth - margin * 2, 25, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.setTextColor(50);
+            doc.text('Reel Name', margin + 10, y + 18);
+            doc.text('Duration', margin + 200, y + 18);
+            doc.text('Issues', margin + 300, y + 18);
+            doc.text('Remarks', margin + 400, y + 18);
+            y += 35;
 
-        if (tableData.length > 0) {
-            autoTable(doc, {
-                startY: y,
-                head: [['Reel Name', 'Duration', 'Issues', 'Remarks']],
-                body: tableData,
-                theme: 'grid',
-                headStyles: {
-                    fillColor: [54, 8, 120],
-                    textColor: 255,
-                    fontStyle: 'bold',
-                },
-                styles: { cellPadding: 8, fontSize: 10 },
-                alternateRowStyles: { fillColor: [245, 245, 245] },
-                margin: { left: margin, right: margin },
+            // Table Body
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(22, 22, 22);
+
+            update.reels.forEach(reel => {
+                if (y > doc.internal.pageSize.getHeight() - 100) {
+                    doc.addPage();
+                    y = margin;
+                }
+                const nameLines = doc.splitTextToSize(reel.reelName || '-', 180);
+                const issuesLines = doc.splitTextToSize(reel.issues || '-', 90);
+                const remarksLines = doc.splitTextToSize(reel.remarks || '-', 130);
+
+                const maxLines = Math.max(nameLines.length, issuesLines.length, remarksLines.length, 1);
+                
+                doc.text(nameLines, margin + 10, y);
+                doc.text(reel.duration || '-', margin + 200, y);
+                doc.text(issuesLines, margin + 300, y);
+                doc.text(remarksLines, margin + 400, y);
+
+                y += maxLines * 12 + 10;
             });
         }
+        
+        // Footer
         const footerY = doc.internal.pageSize.getHeight() - 30;
         doc.setFontSize(8);
         doc.setTextColor(150);
         doc.text(`Report generated on ${format(new Date(), 'PPp')}`, pageWidth / 2, footerY, { align: 'center' });
       });
       
-      setTimeout(() => {
-          doc.save(`scrum_report_${format(selectedDate!, 'yyyy-MM-dd')}.pdf`);
-      }, 50);
+      doc.save(`scrum_report_${format(selectedDate!, 'yyyy-MM-dd')}.pdf`);
 
     } catch (err) {
       console.error("PDF ERROR:", err);
