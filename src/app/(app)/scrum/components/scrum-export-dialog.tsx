@@ -15,11 +15,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Download } from 'lucide-react';
 import { format, isSameDay } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import type { ScrumUpdate, User } from '@/lib/types';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { Label } from '@/components/ui/label';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 type ScrumExportDialogProps = {
   updates: ScrumUpdate[];
@@ -63,27 +63,35 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
   }, [open, selectedDate, updates]);
 
   const handleDownloadPdf = async () => {
-    const updatesToExport = getUpdatesForSelection(selectedDate, selectedUserIds);
-    if (updatesToExport.length === 0 || !selectedDate) {
-      toast({ title: 'No updates to export for the current selection', variant: 'destructive' });
-      return;
-    }
+    try {
+      setIsLoading(true);
 
-    setIsLoading(true);
+      // dynamic import fix for next.js 15
+      const jsPDFModule = await import('jspdf');
+      const autoTableModule = await import('jspdf-autotable');
 
-    const doc = new jsPDF('p', 'pt', 'a4');
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 40;
-    
-    updatesToExport.forEach((update, index) => {
+      const jsPDF = jsPDFModule.default;
+      const autoTable = autoTableModule.default;
+
+      const doc = new jsPDF('p', 'pt', 'a4');
+
+      const updatesToExport = getUpdatesForSelection(selectedDate, selectedUserIds);
+      if (updatesToExport.length === 0 || !selectedDate) {
+        toast({ title: 'No updates to export for the current selection', variant: 'destructive' });
+        setIsLoading(false);
+        return;
+      };
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 40;
+
+      updatesToExport.forEach((update, index) => {
         const author = users.find(u => u.id === update.userId);
         if (!author) return;
 
-        if (index > 0) {
-            doc.addPage();
-        }
-
+        if (index > 0) doc.addPage();
+        
+        // Header
         doc.setFillColor(54, 8, 120);
         doc.rect(0, 0, pageWidth, 90, 'F');
         doc.setFont('helvetica', 'bold');
@@ -94,9 +102,10 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
         doc.text('Daily Scrum Report', pageWidth - margin, 55, { align: 'right' });
-        
+
         let y = 120;
 
+        // Details
         doc.setFontSize(12);
         doc.setTextColor(100);
         doc.setFont('helvetica', 'bold');
@@ -165,18 +174,25 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
                 margin: { left: margin, right: margin },
             });
         }
-
         const footerY = doc.internal.pageSize.getHeight() - 30;
         doc.setFontSize(8);
         doc.setTextColor(150);
         doc.text(`Report generated on ${format(new Date(), 'PPp')}`, pageWidth / 2, footerY, { align: 'center' });
-    });
+      });
+      
+      setTimeout(() => {
+          doc.save(`scrum_report_${format(selectedDate!, 'yyyy-MM-dd')}.pdf`);
+      }, 50);
 
-    doc.save(`scrum_report_${format(selectedDate, 'yyyy-MM-dd')}.pdf`);
-    
-    setIsLoading(false);
-    setOpen(false);
+    } catch (err) {
+      console.error("PDF ERROR:", err);
+      toast({ title: 'PDF Export Failed', description: 'There was an error creating the PDF.', variant: 'destructive'});
+    } finally {
+      setIsLoading(false);
+      setOpen(false);
+    }
   };
+
 
   const handleClose = () => {
     setOpen(false);
