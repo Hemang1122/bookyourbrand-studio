@@ -13,12 +13,12 @@ const SendPushNotificationSchema = z.object({
   url: z.string().describe('The URL to open when the notification is clicked.'),
 });
 
-// Initialize Firebase Admin SDK if it hasn't been already
+// App Hosting automatically initializes the Admin SDK.
+// Explicit initialization is not needed and can cause crashes.
 if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
-  });
+  admin.initializeApp();
 }
+
 
 export const sendPushNotificationFlow = ai.defineFlow(
   {
