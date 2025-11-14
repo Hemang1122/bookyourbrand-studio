@@ -14,6 +14,8 @@ import { Calendar } from '@/components/ui/calendar';
 import type { ScrumUpdate } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Plus, Trash2 } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 type ReelUpdate = {
   id: string;
@@ -29,6 +31,8 @@ export default function ScrumPage() {
   const { toast } = useToast();
   
   const [reelUpdates, setReelUpdates] = useState<ReelUpdate[]>([{ id: `reel-${Date.now()}`, reelName: '', duration: '', issues: '', remarks: '' }]);
+  const [yesterday, setYesterday] = useState('');
+  const [today, setToday] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
@@ -53,9 +57,11 @@ export default function ScrumPage() {
       toast({ title: 'Error', description: 'You must be logged in.', variant: 'destructive' });
       return;
     }
-    const hasEmptyReelName = reelUpdates.some(update => !update.reelName.trim());
-    if (hasEmptyReelName) {
-      toast({ title: 'Error', description: 'Reel Name is required for all entries.', variant: 'destructive' });
+    const hasEmptyReelName = reelUpdates.some(update => update.reelName.trim());
+    if (reelUpdates.length > 0 && hasEmptyReelName && reelUpdates[0].reelName.trim() === '') {
+        // Allow submission if no reels are entered, but not if a row is added and left blank
+    } else if (reelUpdates.some(u => !u.reelName.trim())) {
+      toast({ title: 'Error', description: 'Reel Name is required for all reel entries.', variant: 'destructive' });
       return;
     }
 
@@ -64,15 +70,18 @@ export default function ScrumPage() {
     const newScrumUpdate: Omit<ScrumUpdate, 'id'> = {
       userId: user.id,
       timestamp: new Date().toISOString(),
-      reels: reelUpdates,
-      // Deprecated fields, kept for compatibility if needed.
-      yesterday: '', 
-      today: '',
+      reels: reelUpdates.filter(u => u.reelName.trim()), // Only submit rows with a reel name
+      yesterday,
+      today,
     };
     
     addScrumUpdate(newScrumUpdate);
     
+    // Reset form
     setReelUpdates([{ id: `reel-${Date.now()}`, reelName: '', duration: '', issues: '', remarks: '' }]);
+    setYesterday('');
+    setToday('');
+    
     toast({
       title: 'Update Submitted',
       description: 'Your daily scrum update has been recorded.',
@@ -88,18 +97,33 @@ export default function ScrumPage() {
         <div className="space-y-2">
             <h2 className="text-3xl font-bold tracking-tight">Daily Scrum Sheet</h2>
             <p className="text-muted-foreground">
-            Log your reel progress. Keep everyone in sync.
+            Log your progress to keep everyone in sync.
             </p>
         </div>
 
         {user?.role !== 'admin' && (
             <Card>
             <CardHeader>
-                <CardTitle>My Daily Update</CardTitle>
-                <CardDescription>Log the details for each reel you've worked on. Your update will be visible to the admin.</CardDescription>
+                <CardTitle>My Daily Update for {format(new Date(), 'PPP')}</CardTitle>
+                <CardDescription>Fill out your progress. Your update will be visible to the admin.</CardDescription>
             </CardHeader>
             <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="yesterday">What did you do yesterday?</Label>
+                      <Textarea id="yesterday" value={yesterday} onChange={e => setYesterday(e.target.value)} placeholder="e.g., Completed editing for Project X, attended client meeting..." rows={4} disabled={isLoading} />
+                    </div>
+                     <div className="space-y-2">
+                      <Label htmlFor="today">What are you planning to do today?</Label>
+                      <Textarea id="today" value={today} onChange={e => setToday(e.target.value)} placeholder="e.g., Start Project Y, follow up on feedback..." rows={4} disabled={isLoading} />
+                    </div>
+                  </div>
+
+                  <div>
+                     <Label className="text-base font-medium">Reel-Specific Updates</Label>
+                     <p className="text-sm text-muted-foreground mb-4">Add a row for each specific reel you worked on.</p>
+                  </div>
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
@@ -108,7 +132,7 @@ export default function ScrumPage() {
                           <TableHead>Reel duration (min:sec)</TableHead>
                           <TableHead>Issues (if any)</TableHead>
                           <TableHead>Remarks</TableHead>
-                          <TableHead></TableHead>
+                          <TableHead className="w-[50px]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -136,11 +160,11 @@ export default function ScrumPage() {
                       </TableBody>
                     </Table>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <Button type="button" variant="outline" onClick={handleAddRow} disabled={isLoading}>
                       <Plus className="mr-2 h-4 w-4" /> Add Row
                     </Button>
-                    <Button type="submit" disabled={isLoading}>
+                    <Button type="submit" disabled={isLoading} size="lg">
                         {isLoading ? 'Submitting...' : 'Submit Update'}
                     </Button>
                   </div>
@@ -189,40 +213,40 @@ export default function ScrumPage() {
                               const author = users.find(u => u.id === update.userId);
                               if (!author) return null;
                               return (
-                                <div key={update.id} className="mb-8">
-                                  <h4 className="font-semibold mb-2">{author.name}'s Update</h4>
-                                  <Table>
-                                      <TableHeader>
-                                          <TableRow>
-                                              <TableHead>Reel Name</TableHead>
-                                              <TableHead>Duration</TableHead>
-                                              <TableHead>Issues</TableHead>
-                                              <TableHead>Remarks</TableHead>
-                                          </TableRow>
-                                      </TableHeader>
-                                      <TableBody>
-                                          {(update.reels && update.reels.length > 0) ? (
-                                            update.reels.map((reel, index) => (
-                                              <TableRow key={index}>
-                                                  <TableCell>{reel.reelName}</TableCell>
-                                                  <TableCell>{reel.duration}</TableCell>
-                                                  <TableCell>{reel.issues}</TableCell>
-                                                  <TableCell>{reel.remarks}</TableCell>
-                                              </TableRow>
-                                            ))
-                                          ) : (
-                                            // Fallback for old format
-                                             <TableRow>
-                                                <TableCell colSpan={4}>
-                                                  <div className='text-sm text-muted-foreground'>
-                                                    <p><b>Yesterday:</b> {update.yesterday}</p>
-                                                    <p><b>Today:</b> {update.today}</p>
-                                                  </div>
-                                                </TableCell>
-                                              </TableRow>
-                                          )}
-                                      </TableBody>
-                                  </Table>
+                                <div key={update.id} className="mb-8 p-4 border rounded-lg">
+                                  <h4 className="font-semibold mb-4">{author.name}'s Update</h4>
+                                  
+                                  {(update.yesterday || update.today) && (
+                                    <div className="grid md:grid-cols-2 gap-4 mb-4 text-sm">
+                                      {update.yesterday && <div><p className="font-medium text-muted-foreground">Yesterday's Work</p><p>{update.yesterday}</p></div>}
+                                      {update.today && <div><p className="font-medium text-muted-foreground">Today's Plan</p><p>{update.today}</p></div>}
+                                    </div>
+                                  )}
+                                  
+                                  {(update.reels && update.reels.length > 0) ? (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Reel Name</TableHead>
+                                                <TableHead>Duration</TableHead>
+                                                <TableHead>Issues</TableHead>
+                                                <TableHead>Remarks</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                              {update.reels.map((reel, index) => (
+                                                <TableRow key={index}>
+                                                    <TableCell>{reel.reelName}</TableCell>
+                                                    <TableCell>{reel.duration}</TableCell>
+                                                    <TableCell>{reel.issues}</TableCell>
+                                                    <TableCell>{reel.remarks}</TableCell>
+                                                </TableRow>
+                                              ))}
+                                        </TableBody>
+                                    </Table>
+                                  ) : (
+                                    <p className="text-sm text-muted-foreground italic">No reel-specific updates were provided.</p>
+                                  )}
                                 </div>
                               )
                             })

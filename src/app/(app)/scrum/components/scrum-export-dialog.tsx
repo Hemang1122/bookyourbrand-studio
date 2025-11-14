@@ -47,6 +47,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
 
     const doc = new jsPDF('p', 'pt', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 40;
 
     updatesForSelectedDate.forEach((update, index) => {
@@ -74,20 +75,51 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
         // Sub-header with author and date
         doc.setFontSize(12);
         doc.setTextColor(100);
+        doc.setFont('helvetica', 'bold');
         doc.text('Team Member:', margin, y);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(0);
-        doc.text(author.name, margin + 80, y);
-        
         doc.setFont('helvetica', 'normal');
-        doc.setTextColor(100);
-        doc.text('Date:', pageWidth - margin - 120, y);
-        doc.setFont('helvetica', 'bold');
         doc.setTextColor(0);
-        doc.text(format(selectedDate, 'PPP'), pageWidth - margin - 80, y);
+        doc.text(author.name, margin + 85, y);
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(100);
+        doc.text('Date:', pageWidth - margin - 150, y);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0);
+        doc.text(format(selectedDate, 'PPP'), pageWidth - margin - 110, y);
 
         y += 40;
-        
+
+        // Yesterday's Work
+        if (update.yesterday) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(50);
+            doc.text("Yesterday's Work", margin, y);
+            y += 15;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(80);
+            const yesterdayLines = doc.splitTextToSize(update.yesterday, pageWidth - margin * 2);
+            doc.text(yesterdayLines, margin, y);
+            y += yesterdayLines.length * 12 + 20;
+        }
+
+        // Today's Plan
+        if (update.today) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(50);
+            doc.text("Today's Plan", margin, y);
+            y += 15;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(80);
+            const todayLines = doc.splitTextToSize(update.today, pageWidth - margin * 2);
+            doc.text(todayLines, margin, y);
+            y += todayLines.length * 12 + 20;
+        }
+
         // Table using jspdf-autotable
         const tableData = (update.reels || []).map(reel => [
             reel.reelName,
@@ -99,7 +131,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
         (doc as any).autoTable({
             startY: y,
             head: [['Reel Name', 'Duration', 'Issues', 'Remarks']],
-            body: tableData.length > 0 ? tableData : [['No reel data submitted.', '', '', '']],
+            body: tableData.length > 0 ? tableData : [['No specific reel data was submitted.', '', '', '']],
             theme: 'grid',
             headStyles: {
                 fillColor: [54, 8, 120], // --primary color
