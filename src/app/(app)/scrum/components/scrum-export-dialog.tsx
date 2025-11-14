@@ -18,8 +18,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ScrumUpdate, User } from '@/lib/types';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { Label } from '@/components/ui/label';
-import jsPDF from 'jspdf';
-
 
 type ScrumExportDialogProps = {
   updates: ScrumUpdate[];
@@ -62,132 +60,136 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
     }
   }, [open, selectedDate, updates]);
 
-  const handleDownloadPdf = async () => {
+ const handleDownloadPdf = async () => {
     setIsLoading(true);
     try {
-      const updatesToExport = getUpdatesForSelection(selectedDate, selectedUserIds);
-      if (updatesToExport.length === 0 || !selectedDate) {
-        toast({ title: 'No updates to export for the current selection', variant: 'destructive' });
-        setIsLoading(false);
-        return;
-      }
+        const { default: jsPDF } = await import('jspdf');
+        // We are NOT using autotable anymore
+        // const { default: autoTable } = await import('jspdf-autotable');
+
+        const updatesToExport = getUpdatesForSelection(selectedDate, selectedUserIds);
+        if (updatesToExport.length === 0 || !selectedDate) {
+            toast({ title: 'No updates to export for the current selection', variant: 'destructive' });
+            setIsLoading(false);
+            return;
+        }
       
-      const doc = new jsPDF('p', 'pt', 'a4');
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 40;
+        const doc = new jsPDF('p', 'pt', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 40;
+        const addressLines = [
+            'Shop No 14, Vishwakarma Nagar building. 03',
+            '60 feet road, Landmark:, opposite old swaminarayan temple,',
+            'Vasai West, Vasai-Virar, Maharashtra 401202',
+        ];
 
-      updatesToExport.forEach((update, index) => {
-        const author = users.find(u => u.id === update.userId);
-        if (!author) return;
+        updatesToExport.forEach((update, index) => {
+            const author = users.find(u => u.id === update.userId);
+            if (!author) return;
 
-        if (index > 0) doc.addPage();
-        
-        // Header
-        doc.setFillColor(54, 8, 120);
-        doc.rect(0, 0, pageWidth, 90, 'F');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(24);
-        doc.setTextColor(255, 255, 255);
-        doc.text('BookYourBrands', margin, 55);
+            if (index > 0) doc.addPage();
+            let y = 0;
 
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.text('Daily Scrum Report', pageWidth - margin, 55, { align: 'right' });
-
-        let y = 140;
-
-        // Details
-        doc.setFontSize(12);
-        doc.setTextColor(100);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Team Member:', margin, y);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(0);
-        doc.text(author.name, margin + 95, y);
-        
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(100);
-        doc.text('Date:', pageWidth - margin - 150, y);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(0);
-        doc.text(format(selectedDate, 'PPP'), pageWidth - margin, y, { align: 'right' });
-        y += 40;
-
-        // Summary sections
-        if (update.yesterday) {
+            // --- Header ---
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(11);
-            doc.setTextColor(50);
-            doc.text("Yesterday's Work", margin, y);
-            y += 15;
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(10);
-            doc.setTextColor(80);
-            const yesterdayLines = doc.splitTextToSize(update.yesterday, pageWidth - margin * 2);
-            doc.text(yesterdayLines, margin, y);
-            y += yesterdayLines.length * 12 + 20;
-        }
+            doc.setFontSize(24);
+            doc.text('BookYourBrands', margin, 60);
 
-        if (update.today) {
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(11);
-            doc.setTextColor(50);
-            doc.text("Today's Plan", margin, y);
-            y += 15;
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(10);
-            doc.setTextColor(80);
-            const todayLines = doc.splitTextToSize(update.today, pageWidth - margin * 2);
-            doc.text(todayLines, margin, y);
-            y += todayLines.length * 12 + 20;
-        }
-        
-        // Table for Reels
-        if (update.reels && update.reels.length > 0) {
-            y += 10;
-            // Table Header
-            doc.setFillColor(248, 248, 248);
-            doc.rect(margin, y, pageWidth - margin * 2, 25, 'F');
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(9);
-            doc.setTextColor(50);
-            doc.text('Reel Name', margin + 10, y + 18);
-            doc.text('Duration', margin + 200, y + 18);
-            doc.text('Issues', margin + 300, y + 18);
-            doc.text('Remarks', margin + 400, y + 18);
-            y += 35;
-
-            // Table Body
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(9);
-            doc.setTextColor(22, 22, 22);
-
-            update.reels.forEach(reel => {
-                if (y > doc.internal.pageSize.getHeight() - 100) {
-                    doc.addPage();
-                    y = margin;
-                }
-                const nameLines = doc.splitTextToSize(reel.reelName || '-', 180);
-                const issuesLines = doc.splitTextToSize(reel.issues || '-', 90);
-                const remarksLines = doc.splitTextToSize(reel.remarks || '-', 130);
-
-                const maxLines = Math.max(nameLines.length, issuesLines.length, remarksLines.length, 1);
-                
-                doc.text(nameLines, margin + 10, y);
-                doc.text(reel.duration || '-', margin + 200, y);
-                doc.text(issuesLines, margin + 300, y);
-                doc.text(remarksLines, margin + 400, y);
-
-                y += maxLines * 12 + 10;
+            doc.setTextColor(100);
+            addressLines.forEach((line, i) => {
+                doc.text(line, margin, 75 + (i * 12));
             });
-        }
-        
-        // Footer
-        const footerY = doc.internal.pageSize.getHeight() - 30;
-        doc.setFontSize(8);
-        doc.setTextColor(150);
-        doc.text(`Report generated on ${format(new Date(), 'PPp')}`, pageWidth / 2, footerY, { align: 'center' });
-      });
+            
+            doc.setFontSize(28);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(22, 22, 22);
+            doc.text('SCRUM REPORT', pageWidth - margin, 60, { align: 'right' });
+            y = 120;
+            doc.setLineWidth(1);
+            doc.setDrawColor(240);
+            doc.line(margin, y, pageWidth - margin, y);
+            y += 30;
+
+            // --- Details ---
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.setTextColor(150);
+            doc.text('TEAM MEMBER', margin, y);
+            
+            doc.setFontSize(10);
+            doc.text('DATE', pageWidth / 2, y);
+            y += 20;
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(12);
+            doc.setTextColor(22, 22, 22);
+            doc.text(author.name, margin, y);
+            doc.text(format(selectedDate, 'PPP'), pageWidth / 2, y);
+            y += 40;
+            
+            const drawSection = (title: string, content: string | undefined) => {
+                if (!content) return;
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.setTextColor(50);
+                doc.text(title, margin, y);
+                y += 18;
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(10);
+                doc.setTextColor(80);
+                const lines = doc.splitTextToSize(content, pageWidth - margin * 2);
+                doc.text(lines, margin, y);
+                y += lines.length * 12 + 25;
+            }
+
+            drawSection("Yesterday's Work", update.yesterday);
+            drawSection("Today's Plan", update.today);
+
+            // --- Table for Reels ---
+            if (update.reels && update.reels.length > 0) {
+                // Table Header
+                doc.setFillColor(248, 248, 248);
+                doc.rect(margin, y, pageWidth - margin * 2, 25, 'F');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(9);
+                doc.setTextColor(50);
+                const headers = ['Reel Name', 'Duration', 'Issues', 'Remarks'];
+                const colWidths = [180, 80, 100, 150];
+                let currentX = margin + 10;
+                headers.forEach((header, i) => {
+                    doc.text(header, currentX, y + 18);
+                    currentX += colWidths[i];
+                });
+                y += 35;
+
+                // Table Body
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+                doc.setTextColor(22, 22, 22);
+
+                update.reels.forEach(reel => {
+                    if (y > doc.internal.pageSize.getHeight() - 100) {
+                        doc.addPage();
+                        y = margin;
+                    }
+                    const reelData = [reel.reelName || '-', reel.duration || '-', reel.issues || '-', reel.remarks || '-'];
+                    const lineHeights = reelData.map((txt, i) => doc.splitTextToSize(txt, colWidths[i] - 10).length);
+                    const maxLines = Math.max(...lineHeights);
+
+                    let cellX = margin + 10;
+                    reelData.forEach((text, i) => {
+                        doc.text(doc.splitTextToSize(text, colWidths[i] - 10), cellX, y);
+                        cellX += colWidths[i];
+                    });
+
+                    y += maxLines * 11 + 10;
+                    doc.setDrawColor(240);
+                    doc.line(margin, y - 5, pageWidth - margin, y - 5);
+                });
+            }
+        });
       
       doc.save(`scrum_report_${format(selectedDate!, 'yyyy-MM-dd')}.pdf`);
 

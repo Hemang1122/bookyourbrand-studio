@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Timer, Play, StopCircle } from 'lucide-react';
@@ -14,7 +14,12 @@ const getLocalStorage = (key: string, userId: string, defaultValue: any) => {
     if (typeof window === 'undefined') return defaultValue;
     const userKey = `${key}_${userId}`;
     const storedValue = window.localStorage.getItem(userKey);
-    return storedValue ? JSON.parse(storedValue) : defaultValue;
+    try {
+        return storedValue ? JSON.parse(storedValue) : defaultValue;
+    } catch (e) {
+        console.error("Error parsing localStorage item", e);
+        return defaultValue;
+    }
 };
 
 // Helper to set a value in localStorage, keyed by user ID
@@ -32,19 +37,19 @@ export function WorkTimer() {
   const [isRunning, setIsRunning] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [currentSessionStart, setCurrentSessionStart] = useState(0);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // State for the session saving dialog
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [sessionToSave, setSessionToSave] = useState<Omit<TimerSession, 'name' | 'date'> | null>(null);
 
-  // Load state from localStorage on initial render
+  // Load state from localStorage on initial client-side render
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || typeof window === 'undefined') return;
 
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const storedDate = getLocalStorage('timerDate', userId, null);
-    
-    // If it's a new day, reset today's timer state
+
     if (storedDate !== todayStr) {
       setLocalStorage('timerRunning', userId, false);
       setLocalStorage('timerCurrentSessionStart', userId, 0);
@@ -53,30 +58,30 @@ export function WorkTimer() {
       setIsRunning(false);
       setElapsedTime(0);
       setCurrentSessionStart(0);
-      return;
-    }
-
-    const running = getLocalStorage('timerRunning', userId, false);
-    const startTime = getLocalStorage('timerCurrentSessionStart', userId, 0);
-    const savedElapsedTime = getLocalStorage('timerElapsedTimeToday', userId, 0);
-
-    setIsRunning(running);
-    setCurrentSessionStart(startTime);
-    
-    if (running && startTime > 0) {
-      setElapsedTime(savedElapsedTime + (Date.now() - startTime));
     } else {
-      setElapsedTime(savedElapsedTime);
+        const running = getLocalStorage('timerRunning', userId, false);
+        const startTime = getLocalStorage('timerCurrentSessionStart', userId, 0);
+        const savedElapsedTime = getLocalStorage('timerElapsedTimeToday', userId, 0);
+
+        setIsRunning(running);
+        setCurrentSessionStart(startTime);
+        
+        if (running && startTime > 0) {
+          setElapsedTime(savedElapsedTime + (Date.now() - startTime));
+        } else {
+          setElapsedTime(savedElapsedTime);
+        }
     }
+    setIsInitialized(true);
   }, [userId]);
   
   // Timer interval effect
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
-    if (isRunning) {
+    if (isRunning && userId) {
       interval = setInterval(() => {
-        const savedElapsedTime = getLocalStorage('timerElapsedTimeToday', userId!, 0);
-        const startTime = getLocalStorage('timerCurrentSessionStart', userId!, Date.now());
+        const savedElapsedTime = getLocalStorage('timerElapsedTimeToday', userId, 0);
+        const startTime = getLocalStorage('timerCurrentSessionStart', userId, Date.now());
         setElapsedTime(savedElapsedTime + (Date.now() - startTime));
       }, 1000);
     }
@@ -137,12 +142,35 @@ export function WorkTimer() {
 
 
   const formatTime = (ms: number) => {
+    if (ms < 0) ms = 0;
     const totalSeconds = Math.floor(ms / 1000);
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
+
+  if (!isInitialized) {
+     return (
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Work Timer</CardTitle>
+                <Timer className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="space-y-3 pt-2">
+                <div className="text-center">
+                    <p className="font-signature text-5xl text-primary">00:00:00</p>
+                    <p className="text-xs text-muted-foreground">Loading timer...</p>
+                </div>
+                 <div className="flex gap-2">
+                    <Button className="w-full" disabled>
+                        <Play className="mr-2 h-4 w-4" /> Start Timer
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+     )
+  }
 
   return (
     <>
