@@ -16,7 +16,7 @@ import { Loader2, Download } from 'lucide-react';
 import { format, isSameDay } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import type { ScrumUpdate, User } from '@/lib/types';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { Label } from '@/components/ui/label';
@@ -150,7 +150,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
         ]);
 
         if (tableData.length > 0) {
-            (doc as any).autoTable({
+            autoTable(doc, {
                 startY: y,
                 head: [['Reel Name', 'Duration', 'Issues', 'Remarks']],
                 body: tableData,
