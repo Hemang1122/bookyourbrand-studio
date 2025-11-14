@@ -11,6 +11,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import type { Project, Task, User, ChatMessage } from '@/lib/types';
 import { isSameDay, parseISO } from 'date-fns';
+import { Timestamp } from 'firebase/firestore';
 
 // Define the detailed input schema for the flow
 const GenerateActivityReportInputSchema = z.object({
@@ -84,8 +85,10 @@ const generateActivityReportFlow = ai.defineFlow(
 
     const relevantMessages = input.messages.filter(msg => {
         const msgTimestamp = (msg as ChatMessage).timestamp;
-        if (!msgTimestamp || !msgTimestamp.toDate) return false;
-        return isSameDay(msgTimestamp.toDate(), reportDate);
+        if (!msgTimestamp) return false;
+        // Handle both Firestore Timestamp objects and serialized date strings
+        const date = msgTimestamp instanceof Timestamp ? msgTimestamp.toDate() : parseISO(msgTimestamp as any);
+        return isSameDay(date, reportDate);
     });
     
     // In a real app, projects would have `createdAt` and `updatedAt`. We'll just pass them all.
