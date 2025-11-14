@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -18,6 +18,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { ScrumUpdate, User } from '@/lib/types';
+import { MultiSelect } from '@/components/ui/multi-select';
+import { Label } from '@/components/ui/label';
 
 type ScrumExportDialogProps = {
   updates: ScrumUpdate[];
@@ -29,17 +31,42 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const { toast } = useToast();
 
-  const getUpdatesForDate = (date: Date | undefined) => {
+  const teamMemberOptions = useMemo(() => {
+    return users
+      .filter(u => u.role === 'team')
+      .map(u => ({ value: u.id, label: u.name }));
+  }, [users]);
+  
+  const getUpdatesForSelection = (date: Date | undefined, userIds: string[]) => {
     if (!date) return [];
-    return updates.filter(u => isSameDay(new Date(u.timestamp), date));
+    
+    let filteredUpdates = updates.filter(u => isSameDay(new Date(u.timestamp), date));
+    
+    if (userIds.length > 0) {
+      filteredUpdates = filteredUpdates.filter(u => userIds.includes(u.userId));
+    }
+    
+    return filteredUpdates;
   };
 
+  useEffect(() => {
+    // When the dialog opens, pre-select all team members who have an update for the selected date
+    if (open && selectedDate) {
+        const usersWithUpdates = updates
+            .filter(u => isSameDay(new Date(u.timestamp), selectedDate))
+            .map(u => u.userId);
+        const uniqueUserIds = [...new Set(usersWithUpdates)];
+        setSelectedUserIds(uniqueUserIds);
+    }
+  }, [open, selectedDate, updates]);
+
   const handleDownloadPdf = async () => {
-    const updatesForSelectedDate = getUpdatesForDate(selectedDate);
-    if (updatesForSelectedDate.length === 0 || !selectedDate) {
-      toast({ title: 'No updates to export', variant: 'destructive' });
+    const updatesToExport = getUpdatesForSelection(selectedDate, selectedUserIds);
+    if (updatesToExport.length === 0 || !selectedDate) {
+      toast({ title: 'No updates to export for the current selection', variant: 'destructive' });
       return;
     }
 
@@ -49,8 +76,13 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 40;
+    const addressLines = [
+      'Shop No 14, Vishwakarma Nagar building. 03',
+      '60 feet road, Landmark:, opposite old swaminarayan temple,',
+      'Vasai West, Vasai-Virar, Maharashtra 401202',
+    ];
 
-    updatesForSelectedDate.forEach((update, index) => {
+    updatesToExport.forEach((update, index) => {
         const author = users.find(u => u.id === update.userId);
         if (!author) return;
 
@@ -79,14 +111,14 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
         doc.text('Team Member:', margin, y);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(0);
-        doc.text(author.name, margin + 85, y);
+        doc.text(author.name, margin + 95, y);
         
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(100);
         doc.text('Date:', pageWidth - margin - 150, y);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(0);
-        doc.text(format(selectedDate, 'PPP'), pageWidth - margin - 110, y);
+        doc.text(format(selectedDate, 'PPP'), pageWidth - margin, y, { align: 'right' });
 
         y += 40;
 
@@ -119,7 +151,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
             doc.text(todayLines, margin, y);
             y += todayLines.length * 12 + 20;
         }
-
+        
         // Table using jspdf-autotable
         const tableData = (update.reels || []).map(reel => [
             reel.reelName,
@@ -128,33 +160,29 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
             reel.remarks
         ]);
 
-        (doc as any).autoTable({
-            startY: y,
-            head: [['Reel Name', 'Duration', 'Issues', 'Remarks']],
-            body: tableData.length > 0 ? tableData : [['No specific reel data was submitted.', '', '', '']],
-            theme: 'grid',
-            headStyles: {
-                fillColor: [54, 8, 120], // --primary color
-                textColor: 255,
-                fontStyle: 'bold',
-            },
-            styles: {
-                cellPadding: 8,
-                fontSize: 10,
-            },
-            alternateRowStyles: {
-                fillColor: [245, 245, 245]
-            },
-            margin: { left: margin, right: margin },
-        });
+        if (tableData.length > 0) {
+            (doc as any).autoTable({
+                startY: y,
+                head: [['Reel Name', 'Duration', 'Issues', 'Remarks']],
+                body: tableData,
+                theme: 'grid',
+                headStyles: {
+                    fillColor: [54, 8, 120], // --primary color
+                    textColor: 255,
+                    fontStyle: 'bold',
+                },
+                styles: { cellPadding: 8, fontSize: 10 },
+                alternateRowStyles: { fillColor: [245, 245, 245] },
+                margin: { left: margin, right: margin },
+            });
+        }
 
         // Footer
         const footerY = doc.internal.pageSize.getHeight() - 30;
         doc.setFontSize(8);
         doc.setTextColor(150);
-        doc.text(`Report generated for ${author.name} on ${format(new Date(), 'PPpp')}`, pageWidth / 2, footerY, { align: 'center' });
+        doc.text(`Report generated on ${format(new Date(), 'PPp')}`, pageWidth / 2, footerY, { align: 'center' });
     });
-
 
     doc.save(`scrum_report_${format(selectedDate, 'yyyy-MM-dd')}.pdf`);
     
@@ -166,38 +194,54 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
     setOpen(false);
     setIsLoading(false);
     setSelectedDate(new Date());
+    setSelectedUserIds([]);
   };
   
-  const updatesForSelectedDate = getUpdatesForDate(selectedDate);
+  const updatesForPreview = getUpdatesForSelection(selectedDate, selectedUserIds);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[725px]">
+      <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Export Scrum Updates</DialogTitle>
           <DialogDescription>
-            Select a date to export the team's scrum updates as a PDF document.
+            Select a date and team members to export scrum updates as a PDF document.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4 md:grid-cols-2">
-          <div className="flex justify-center">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={setSelectedDate}
-              className="rounded-md border"
-            />
-          </div>
+        <div className="grid gap-6 py-4 md:grid-cols-2">
+            <div className='space-y-4'>
+                <div className="space-y-2">
+                    <Label>Date</Label>
+                    <div className="flex justify-center">
+                        <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        className="rounded-md border"
+                        />
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <Label>Team Members</Label>
+                     <MultiSelect
+                        options={teamMemberOptions}
+                        selected={selectedUserIds}
+                        onChange={setSelectedUserIds}
+                        placeholder="Select members (defaults to all)"
+                        className="w-full"
+                    />
+                </div>
+            </div>
           <div className="flex flex-col gap-4">
              <h3 className="font-semibold">
                 Preview for {selectedDate ? format(selectedDate, 'PPP') : '...'}
              </h3>
-            <ScrollArea className="h-72 w-full rounded-md border bg-muted/50">
+            <ScrollArea className="h-96 w-full rounded-md border bg-muted/50">
               <div className="p-4 bg-background">
-                {updatesForSelectedDate.length > 0 ? (
+                {updatesForPreview.length > 0 ? (
                     <div className="space-y-6">
-                        {updatesForSelectedDate.map(update => {
+                        {updatesForPreview.map(update => {
                             const author = users.find(u => u.id === update.userId);
                             if (!author) return null;
 
@@ -222,7 +266,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
                         })}
                     </div>
                 ) : (
-                    <p className="text-center text-sm text-muted-foreground py-12">No updates for this date.</p>
+                    <p className="text-center text-sm text-muted-foreground py-12">No updates for the selected criteria.</p>
                 )}
               </div>
             </ScrollArea>
@@ -232,7 +276,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
           <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>
-          <Button onClick={handleDownloadPdf} disabled={isLoading || updatesForSelectedDate.length === 0}>
+          <Button onClick={handleDownloadPdf} disabled={isLoading || updatesForPreview.length === 0}>
                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                 Download PDF
             </Button>

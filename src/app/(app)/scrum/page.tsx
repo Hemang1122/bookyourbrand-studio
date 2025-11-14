@@ -57,17 +57,22 @@ export default function ScrumPage() {
       toast({ title: 'Error', description: 'You must be logged in.', variant: 'destructive' });
       return;
     }
-    const hasEmptyReelName = reelUpdates.some(update => update.reelName.trim());
-    if (reelUpdates.length > 0 && hasEmptyReelName && reelUpdates[0].reelName.trim() === '') {
-        // Allow submission if no reels are entered, but not if a row is added and left blank
-    } else if (reelUpdates.some(u => !u.reelName.trim())) {
-      toast({ title: 'Error', description: 'Reel Name is required for all reel entries.', variant: 'destructive' });
+    // A summary is required.
+    if (!yesterday.trim() || !today.trim()) {
+        toast({ title: 'Error', description: 'Please fill out what you did yesterday and what you plan to do today.', variant: 'destructive' });
+        return;
+    }
+
+    const hasReelEntry = reelUpdates.some(update => update.reelName.trim());
+    // If there is a reel entry, at least the name must be filled.
+    if (hasReelEntry && reelUpdates.some(u => u.reelName.trim() === '')) {
+      toast({ title: 'Error', description: 'Reel Name is required for all non-empty reel entries.', variant: 'destructive' });
       return;
     }
 
     setIsLoading(true);
 
-    const newScrumUpdate: Omit<ScrumUpdate, 'id'> = {
+    const newScrumUpdate: Omit<ScrumUpdate, 'id' | 'timestamp'> = {
       userId: user.id,
       timestamp: new Date().toISOString(),
       reels: reelUpdates.filter(u => u.reelName.trim()), // Only submit rows with a reel name
@@ -121,7 +126,7 @@ export default function ScrumPage() {
                   </div>
 
                   <div>
-                     <Label className="text-base font-medium">Reel-Specific Updates</Label>
+                     <Label className="text-base font-medium">Reel-Specific Updates (Optional)</Label>
                      <p className="text-sm text-muted-foreground mb-4">Add a row for each specific reel you worked on.</p>
                   </div>
                   <div className="overflow-x-auto">
