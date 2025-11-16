@@ -481,7 +481,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       addMessage(messagePayload);
   
     } catch (error) {
-      console.error("Upload and add message failed:", error);
+      console.error("uploadAndAddMessage failed:", error);
       throw error;
     }
   };

@@ -178,7 +178,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     if (!audioBlob || !currentUser) return;
 
     setIsSendingVoice(true);
-    const tempId = uuidv4();
+    const tempId = `voice-${uuidv4()}`;
     const tempMessage: ChatMessage = {
       id: tempId,
       projectId,

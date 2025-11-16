@@ -7,7 +7,7 @@ export const uploadFile = (
   file: File | Blob,
   path: string,
   onProgress?: (progress: number) => void,
-  contentType?: string,
+  contentType?: string
 ): Promise<string> => {
   return new Promise((resolve, reject) => {
     const app = getApp();
@@ -15,8 +15,8 @@ export const uploadFile = (
 
     storage.maxUploadRetryTime = 10 * 60 * 1000;
 
-    const fileName = file instanceof File ? file.name : 'voice-message.webm';
-    const storageRef = ref(storage, `${path}/${uuidv4()}-${fileName}`);
+    const fileName = file instanceof File ? file.name : `${uuidv4()}.webm`;
+    const storageRef = ref(storage, `${path}/${fileName}`);
     
     const metadata: UploadMetadata = {};
     if (contentType) {
@@ -39,10 +39,14 @@ export const uploadFile = (
         console.error('Upload failed:', error);
         reject(error);
       },
-      () => {
-        getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+      async () => {
+        try {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           resolve(downloadURL);
-        });
+        } catch (error) {
+          console.error('Failed to get download URL:', error);
+          reject(error);
+        }
       }
     );
   });
