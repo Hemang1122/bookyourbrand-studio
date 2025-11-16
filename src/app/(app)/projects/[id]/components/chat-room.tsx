@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
@@ -12,6 +13,8 @@ import { useData } from '../../../data-provider';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { uploadChatFile } from '@/lib/chat-upload';
+import { useCollection, useFirebaseServices, useMemoFirebase } from '@/firebase';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 
 type ChatRoomProps = {
   projectId: string;
@@ -20,7 +23,8 @@ type ChatRoomProps = {
 export function ChatRoom({ projectId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
-  const { messages: projectMessages, addMessage } = useData();
+  const { addMessage } = useData();
+  const { firestore } = useFirebaseServices();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -32,6 +36,16 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [isSendingVoice, setIsSendingVoice] = useState(false);
+
+  const messagesQuery = useMemoFirebase(
+    () =>
+      firestore
+        ? query(collection(firestore, 'messages'), where('projectId', '==', projectId), orderBy('timestamp', 'asc'))
+        : null,
+    [firestore, projectId]
+  );
+  const { data: projectMessages = [], isLoading: messagesLoading } = useCollection<ChatMessage>(messagesQuery);
+
 
   const getScrollableViewport = useCallback(() => {
     if (scrollAreaRef.current) {

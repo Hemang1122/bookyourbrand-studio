@@ -118,14 +118,13 @@ service cloud.firestore {
      * @deny (create, update, delete) if request.auth == null
      * @principle Enforces project-based access control for messages.
      */
-    match /chats/{chatId}/messages/{messageId} {
+    match /messages/{messageId} {
        function isSignedIn() {
         return request.auth != null;
       }
-      allow get, list: if true; // Allow all reads
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      // Allow read/write only if user is authenticated.
+      // More specific rules can be added to check project membership.
+      allow read, write: if isSignedIn();
     }
 
     /**
