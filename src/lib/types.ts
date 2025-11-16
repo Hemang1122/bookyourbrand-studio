@@ -81,9 +81,9 @@ export type ChatMessage = {
   senderName: string;
   senderAvatar: string;
   message: string;
-  timestamp: Timestamp;
   fileUrl: string | null;
   messageType: MessageType;
+  timestamp: Timestamp | null;
   replyTo?: {
     messageId: string;
     message: string;

@@ -36,8 +36,23 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
 
   const projectMessages = useMemo(() => {
     const combined = [...serverMessages.filter(m => m.projectId === projectId), ...optimisticMessages];
-    const uniqueMessages = Array.from(new Map(combined.map(m => [m.id, m])).values());
-    return uniqueMessages.sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
+  
+    // De-duplicate messages based on a stable key, ignoring the timestamp
+    const key = (m: ChatMessage) => `${m.senderId}_${m.message}_${m.fileUrl || ''}_${m.messageType}`;
+    const seen = new Set<string>();
+    const unique = combined.filter(m => {
+      const k = key(m);
+      if (seen.has(k) && !m.temp) return false;
+      seen.add(k);
+      return true;
+    });
+  
+    // Sort by timestamp, treating nulls as very early
+    return unique.sort((a, b) => {
+      const ta = a.timestamp?.toMillis() || 0;
+      const tb = b.timestamp?.toMillis() || 0;
+      return ta - tb;
+    });
   }, [serverMessages, projectId, optimisticMessages]);
 
   const getScrollableViewport = useCallback(() => {
@@ -124,7 +139,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
       message: `Uploading: ${file.name}...`,
       fileUrl: null,
       messageType: 'file',
-      timestamp: Timestamp.now(),
+      timestamp: null,
       temp: true,
     };
     setOptimisticMessages(prev => [...prev, tempMessage]);
@@ -187,7 +202,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
       message: 'Uploading voice message...',
       fileUrl: null,
       messageType: 'voice',
-      timestamp: Timestamp.now(),
+      timestamp: null,
       temp: true,
     };
 
@@ -200,9 +215,9 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
       console.error('Error sending voice message:', error);
       toast({ title: 'Upload Failed', description: 'Could not send voice message.', variant: 'destructive' });
     } finally {
-      setOptimisticMessages(prev => prev.filter(m => !m.temp));
-      setIsSendingVoice(false);
-      setAudioBlob(null);
+        setIsSendingVoice(false);
+        setOptimisticMessages(prev => prev.filter(m => !m.temp));
+        setAudioBlob(null);
     }
   };
 
@@ -266,7 +281,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                          )}
                     </div>
                     <p className={`text-xs mt-1 ${isCurrentUser ? 'text-right' : 'text-left'} text-muted-foreground/80`}>
-                        {messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {msg.timestamp ? msg.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Sending...'}
                     </p>
                 </div>
                 {isCurrentUser && (
