@@ -1,148 +1,29 @@
-/**
- * @file Firestore Security Rules for BookYourBrands CRM
- *
- * Core Philosophy: This ruleset prioritizes a secure, scalable CRM by focusing on clear ownership and controlled collaboration.
- *   It leverages a combination of ownership-based access for user-specific data and role-based access for project and team resources.
- *
- * Data Structure:
- *   - /users/{userId}: Stores private user profiles, accessible only to the authenticated user.
- *   - /projects/{projectId}: Stores project data, accessible based on the user's role and project membership.
- *   - /tasks/{taskId}: Stores tasks associated with projects. Access is controlled by project membership.
- *   - /chats/{chatId}: Stores chat room data for projects, accessible to project members.
- *   - /chats/{chatId}/messages/{messageId}: Stores messages within chat rooms, accessible to project members.
- *   - /files/{fileId}: Stores file metadata, accessible to admins and assigned team members. Clients can only read their own files.
- *
- * Key Security Decisions:
- *   - User listing is disallowed to protect user privacy.
- *   - Public read access is granted to the projects collection to make them broadly accessible.
- *   - Strict ownership is enforced for user profiles, ensuring only the authenticated user can modify their own data.
- *   - Project access is governed by the 'clientId' field, ensuring that only authorized users can create, update, or delete projects.
- *   - The rules explicitly deny any ambiguous or undefined access patterns to maintain a secure default posture.
- *
- * Denormalization for Authorization:
- *   - The `Project` entity contains a `clientId` field. This denormalization is critical.  It enables efficient security rules that can validate project ownership without additional `get()` operations.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description Allows a user to read and write their own user profile.
-     * @path /users/{userId}
-     * @allow (get, update, delete) if request.auth.uid == userId
-     * @allow (create) if request.auth.uid == request.resource.data.id
-     * @deny (get, update, delete) if request.auth.uid != userId
-     * @principle Enforces document ownership for user profiles.
-     */
-    match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      allow get: if isOwner(userId);
-      allow list: if false; // User listing is disallowed
-
-      allow create: if isSignedIn() && request.auth.uid == request.resource.data.id;
-      allow update: if isOwner(userId);
-      allow delete: if isOwner(userId);
-    }
-
-    /**
-     * @description Allows anyone to read projects, but restricts creation, updates, and deletes to authorized users.
-     * @path /projects/{projectId}
-     * @allow (get, list) if true
-     * @allow (create) if isSignedIn()
-     * @deny (create) if request.auth == null
-     * @deny (update, delete) if resource.data.clientId != request.auth.uid
-     * @principle Allows public read access to projects, but restricts writes to project owners.
-     */
-    match /projects/{projectId} {
-       function isSignedIn() {
-        return request.auth != null;
-      }
-
-      allow get, list: if true;
-
-      allow create: if isSignedIn();
-      allow update: if isSignedIn(); // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow delete: if isSignedIn(); // TODO: Add owner validation once the schema is updated with an ownership field.
-    }
-
-    /**
-     * @description Allows project members to read and write tasks within a project.
-     * @path /tasks/{taskId}
-     * @allow (get, list) if isSignedIn()
-     * @allow (create, update, delete) if isSignedIn()
-     * @deny (create, update, delete) if request.auth == null
-     * @principle Enforces project-based access control for tasks.
-     */
+    // ------------- TASKS -------------
     match /tasks/{taskId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      allow get, list: if isSignedIn();
-
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
     }
 
-    /**
-     * @description Allows project members to read and write chat messages within a chat room.
-     * @path /chats/{chatId}
-     * @allow (get, list) if true
-     * @allow (create, update, delete) if isSignedIn()
-     * @deny (create, update, delete) if request.auth == null
-     * @principle Enforces project-based access control for chats.
-     */
-    match /chats/{chatId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      allow get, list: if true; // Allow all reads
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+    // ------------- MESSAGES -------------
+    match /messages/{msgId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.senderId == request.auth.uid;
     }
 
-    /**
-     * @description Allows project members to read and write chat messages within a chat room.
-     * @path /chats/{chatId}/messages/{messageId}
-     * @allow (get, list) if true
-     * @allow (create, update, delete) if isSignedIn()
-     * @deny (create, update, delete) if request.auth == null
-     * @principle Enforces project-based access control for messages.
-     */
-    match /messages/{messageId} {
-       function isSignedIn() {
-        return request.auth != null;
-      }
-      // Allow read/write only if user is authenticated.
-      // More specific rules can be added to check project membership.
-      allow read, write: if isSignedIn();
+    // ------------- USERS -------------
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && userId == request.auth.uid;
     }
 
-    /**
-     * @description Allows admins and assigned team members to read files. Clients can only read their own files.
-     * @path /files/{fileId}
-     * @allow (get, list) if true
-     * @allow (create, update, delete) if isSignedIn()
-     * @deny (create, update, delete) if request.auth == null
-     * @principle Enforces role-based access control for files.
-     */
-    match /files/{fileId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      allow get, list: if true; // Allow all reads
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+    // ------------- PROJECTS / CLIENTS / FILES / etc -------------
+    match /{path=**}/documents/{document=**} {
+        allow read, write: if request.auth != null;
     }
   }
 }
