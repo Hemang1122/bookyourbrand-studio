@@ -7,7 +7,7 @@
  * Data Structure:
  *   - /users/{userId}: Stores private user profiles, accessible only to the authenticated user.
  *   - /projects/{projectId}: Stores project data, accessible based on the user's role and project membership.
- *   - /projects/{projectId}/tasks/{taskId}: Stores tasks associated with projects. Access is controlled by project membership.
+ *   - /tasks/{taskId}: Stores tasks associated with projects. Access is controlled by project membership.
  *   - /chats/{chatId}: Stores chat room data for projects, accessible to project members.
  *   - /chats/{chatId}/messages/{messageId}: Stores messages within chat rooms, accessible to project members.
  *   - /files/{fileId}: Stores file metadata, accessible to admins and assigned team members. Clients can only read their own files.
@@ -74,18 +74,18 @@ service cloud.firestore {
 
     /**
      * @description Allows project members to read and write tasks within a project.
-     * @path /projects/{projectId}/tasks/{taskId}
-     * @allow (get, list) if true
+     * @path /tasks/{taskId}
+     * @allow (get, list) if isSignedIn()
      * @allow (create, update, delete) if isSignedIn()
      * @deny (create, update, delete) if request.auth == null
      * @principle Enforces project-based access control for tasks.
      */
-    match /projects/{projectId}/tasks/{taskId} {
+    match /tasks/{taskId} {
       function isSignedIn() {
         return request.auth != null;
       }
 
-      allow get, list: if true; // Allow all reads
+      allow get, list: if isSignedIn();
 
       allow create: if isSignedIn();
       allow update: if isSignedIn();
