@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
@@ -8,9 +9,9 @@ import { Send, Paperclip, FileText, Reply, X, Loader2, Mic, StopCircle } from 'l
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
 import { useData } from '../../../data-provider';
-import { Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
+import { uploadChatFile } from '@/lib/chat-upload';
 
 type ChatRoomProps = {
   projectId: string;
@@ -19,8 +20,7 @@ type ChatRoomProps = {
 export function ChatRoom({ projectId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
-  const { messages: serverMessages, addMessage, isLoading: isDataLoading, uploadAndAddMessage } = useData();
-  const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
+  const { messages: projectMessages, addMessage } = useData();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -32,28 +32,6 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [isSendingVoice, setIsSendingVoice] = useState(false);
-
-
-  const projectMessages = useMemo(() => {
-    const combined = [...serverMessages.filter(m => m.projectId === projectId), ...optimisticMessages];
-  
-    // De-duplicate messages based on a stable key, ignoring the timestamp
-    const key = (m: ChatMessage) => `${m.senderId}_${m.message}_${m.fileUrl || ''}_${m.messageType}`;
-    const seen = new Set<string>();
-    const unique = combined.filter(m => {
-      const k = key(m);
-      if (seen.has(k) && !m.temp) return false;
-      seen.add(k);
-      return true;
-    });
-  
-    // Sort by timestamp, treating nulls as very early
-    return unique.sort((a, b) => {
-      const ta = a.timestamp?.toMillis() || 0;
-      const tb = b.timestamp?.toMillis() || 0;
-      return ta - tb;
-    });
-  }, [serverMessages, projectId, optimisticMessages]);
 
   const getScrollableViewport = useCallback(() => {
     if (scrollAreaRef.current) {
@@ -130,32 +108,25 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     if (!file || !currentUser) return;
 
     setIsUploading(true);
-    const tempMessage: ChatMessage = {
-      id: uuidv4(),
-      projectId,
-      senderId: currentUser.id,
-      senderName: currentUser.name,
-      senderAvatar: currentUser.avatar,
-      message: `Uploading: ${file.name}...`,
-      fileUrl: null,
-      messageType: 'file',
-      timestamp: null,
-      temp: true,
-    };
-    setOptimisticMessages(prev => [...prev, tempMessage]);
 
     try {
-        await uploadAndAddMessage(projectId, file, file.type);
-        toast({ title: 'File Uploaded', description: `${file.name} has been attached to the chat.` });
+      await uploadChatFile({
+        projectId,
+        file,
+        contentType: file.type,
+        senderId: currentUser.id,
+        senderName: currentUser.name,
+        senderAvatar: currentUser.avatar || '',
+        isVoice: false,
+      });
+
+      toast({ title: 'File sent' });
     } catch (error) {
-        console.error("File upload error:", error);
-        toast({ title: 'Upload Failed', description: 'Could not upload the file.', variant: 'destructive' });
+      console.error(error);
+      toast({ title: 'Upload failed', variant: 'destructive' });
     } finally {
-        setIsUploading(false);
-        setOptimisticMessages(prev => prev.filter(m => !m.temp));
-        if(fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -193,31 +164,24 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     if (!audioBlob || !currentUser) return;
 
     setIsSendingVoice(true);
-    const tempMessage: ChatMessage = {
-      id: uuidv4(),
-      projectId,
-      senderId: currentUser.id,
-      senderName: currentUser.name,
-      senderAvatar: currentUser.avatar || '',
-      message: 'Uploading voice message...',
-      fileUrl: null,
-      messageType: 'voice',
-      timestamp: null,
-      temp: true,
-    };
-
-    setOptimisticMessages(prev => [...prev, tempMessage]);
 
     try {
-      await uploadAndAddMessage(projectId, audioBlob, 'audio/webm');
+      await uploadChatFile({
+        projectId,
+        file: audioBlob,
+        contentType: 'audio/webm',
+        senderId: currentUser.id,
+        senderName: currentUser.name,
+        senderAvatar: currentUser.avatar || '',
+        isVoice: true,
+      });
       toast({ title: 'Voice message sent' });
     } catch (error) {
-      console.error('Error sending voice message:', error);
-      toast({ title: 'Upload Failed', description: 'Could not send voice message.', variant: 'destructive' });
+      console.error(error);
+      toast({ title: 'Upload failed', variant: 'destructive' });
     } finally {
-        setIsSendingVoice(false);
-        setOptimisticMessages(prev => prev.filter(m => !m.temp));
-        setAudioBlob(null);
+      setIsSendingVoice(false);
+      setAudioBlob(null);
     }
   };
 
@@ -230,8 +194,6 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
           {projectMessages.map((msg) => {
             const isCurrentUser = msg.senderId === currentUser.id;
             const messageDate = msg.timestamp?.toDate ? msg.timestamp.toDate() : new Date();
-
-            const isOptimistic = msg.temp;
 
             return (
               <div
@@ -257,12 +219,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                          </div>
                        )}
 
-                       {isOptimistic ? (
-                         <div className="flex items-center gap-2">
-                           <Loader2 className="h-4 w-4 animate-spin" />
-                           <p className="text-sm">{msg.message}</p>
-                         </div>
-                       ) : msg.messageType === 'file' ? (
+                       {msg.messageType === 'file' ? (
                            <a href={msg.fileUrl || '#'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-lg border bg-background/50 p-3 hover:bg-accent">
                               <FileText className="h-6 w-6 text-muted-foreground" />
                               <div className="flex-1">

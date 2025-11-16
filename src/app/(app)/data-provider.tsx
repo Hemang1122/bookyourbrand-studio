@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
@@ -51,7 +52,6 @@ type DataContextType = {
   deleteFile: (fileId: string) => void;
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   markNotificationsAsRead: () => void;
-  uploadAndAddMessage: (projectId: string, file: File | Blob, contentType?: string) => Promise<void>;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -79,7 +79,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: projectsData, isLoading: projectsLoading } = useCollection<Project>(useMemoFirebase(() => firestore ? collection(firestore, 'projects') : null, [firestore]));
   const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
   const { data: files, isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? collection(firestore, 'files') : null, [firestore]));
-  const { data: messagesData, isLoading: messagesLoading } = useCollection<ChatMessage>(useMemoFirebase(() => firestore ? collection(firestore, 'messages') : null, [firestore]));
+  const { data: messagesData, isLoading: messagesLoading } = useCollection<ChatMessage>(useMemoFirebase(() => firestore ? query(collection(firestore, 'messages'), where('projectId', 'in', projectsData?.map(p => p.id) || ['dummy'])) : null, [firestore, projectsData]));
   const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
   const { data: scrumUpdatesData, isLoading: scrumUpdatesLoading } = useCollection<ScrumUpdate>(useMemoFirebase(() => firestore ? collection(firestore, 'scrum-updates') : null, [firestore]));
   
@@ -451,40 +451,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       addNotification(`New message in project '${project.name}': ${messageSnippet}`, project.id, finalRecipients);
     }
   }, [firestore, currentUser, usersData, projectsData, addNotification]);
-
-  const uploadAndAddMessage = async (projectId: string, file: File | Blob, contentType?: string) => {
-    if (!currentUser || !firebaseApp) {
-        throw new Error("User or Firebase App not available for upload.");
-    }
-  
-    const isVoice = contentType === 'audio/webm';
-    const fileName = file instanceof File ? file.name : 'voice-message.webm';
-
-    try {
-      const url = await uploadFile(
-        file,
-        isVoice ? `voice-messages/${projectId}` : `chat/${projectId}`,
-        undefined,
-        contentType
-      );
-  
-      const messagePayload: Omit<ChatMessage, 'id' | 'timestamp'> = {
-        projectId,
-        senderId: currentUser.id,
-        senderName: currentUser.name,
-        senderAvatar: currentUser.avatar || '',
-        message: isVoice ? '🎤 Voice message' : fileName,
-        fileUrl: url,
-        messageType: isVoice ? 'voice' : 'file',
-      };
-
-      addMessage(messagePayload);
-  
-    } catch (error) {
-      console.error("uploadAndAddMessage failed:", error);
-      throw error;
-    }
-  };
   
   const markNotificationsAsRead = useCallback(() => {
     if (!firestore || !notifications || notifications.length === 0 || !currentUser) return;
@@ -533,7 +499,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         deleteFile,
         addMessage,
         markNotificationsAsRead,
-        uploadAndAddMessage,
     }}>
       {children}
     </DataContext.Provider>
