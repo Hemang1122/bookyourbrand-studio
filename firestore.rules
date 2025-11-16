@@ -2,28 +2,52 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ------------- TASKS -------------
-    match /tasks/{taskId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // ------------- MESSAGES -------------
-    match /messages/{msgId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-                    && request.resource.data.senderId == request.auth.uid;
-    }
-
-    // ------------- USERS -------------
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && userId == request.auth.uid;
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // ------------- PROJECTS / CLIENTS / FILES / etc -------------
-    match /{path=**}/documents/{document=**} {
-        allow read, write: if request.auth != null;
+    match /clients/{clientId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /projects/{projectId} {
+      allow read: if isSignedIn() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        || request.auth.uid == resource.data.client.id
+        || request.auth.uid in resource.data.team_ids
+      );
+      allow write: if isSignedIn() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        || request.auth.uid in resource.data.team_ids
+      );
+    }
+
+    match /tasks/{taskId} {
+       allow read: if isSignedIn();
+       allow write: if isSignedIn();
+    }
+
+    match /messages/{messageId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
+    }
+
+    match /files/{fileId} {
+        allow read, write: if isSignedIn();
+    }
+
+    match /scrum-updates/{updateId} {
+        allow read, write: if isSignedIn();
+    }
+
+    match /notifications/{notificationId} {
+        allow read, write: if isSignedIn() && request.auth.uid in resource.data.recipients;
     }
   }
 }
