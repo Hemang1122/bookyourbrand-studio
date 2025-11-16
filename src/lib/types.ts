@@ -89,6 +89,7 @@ export type ChatMessage = {
     message: string;
     senderName: string;
   }
+  temp?: boolean;
 };
 
 export type ProjectFile = {

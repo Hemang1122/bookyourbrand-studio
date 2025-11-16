@@ -115,9 +115,8 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     if (!file || !currentUser) return;
 
     setIsUploading(true);
-    const tempId = `file-${uuidv4()}`;
     const tempMessage: ChatMessage = {
-      id: tempId,
+      id: uuidv4(),
       projectId,
       senderId: currentUser.id,
       senderName: currentUser.name,
@@ -126,6 +125,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
       fileUrl: null,
       messageType: 'file',
       timestamp: Timestamp.now(),
+      temp: true,
     };
     setOptimisticMessages(prev => [...prev, tempMessage]);
 
@@ -137,7 +137,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
         toast({ title: 'Upload Failed', description: 'Could not upload the file.', variant: 'destructive' });
     } finally {
         setIsUploading(false);
-        setOptimisticMessages(prev => prev.filter(m => m.id !== tempId));
+        setOptimisticMessages(prev => prev.filter(m => !m.temp));
         if(fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -178,9 +178,8 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     if (!audioBlob || !currentUser) return;
 
     setIsSendingVoice(true);
-    const tempId = `voice-${uuidv4()}`;
     const tempMessage: ChatMessage = {
-      id: tempId,
+      id: uuidv4(),
       projectId,
       senderId: currentUser.id,
       senderName: currentUser.name,
@@ -189,6 +188,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
       fileUrl: null,
       messageType: 'voice',
       timestamp: Timestamp.now(),
+      temp: true,
     };
 
     setOptimisticMessages(prev => [...prev, tempMessage]);
@@ -200,7 +200,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
       console.error('Error sending voice message:', error);
       toast({ title: 'Upload Failed', description: 'Could not send voice message.', variant: 'destructive' });
     } finally {
-      setOptimisticMessages(prev => prev.filter(m => m.id !== tempId));
+      setOptimisticMessages(prev => prev.filter(m => !m.temp));
       setIsSendingVoice(false);
       setAudioBlob(null);
     }
@@ -216,7 +216,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
             const isCurrentUser = msg.senderId === currentUser.id;
             const messageDate = msg.timestamp?.toDate ? msg.timestamp.toDate() : new Date();
 
-            const isOptimistic = 'message' in msg && msg.message.startsWith('Uploading');
+            const isOptimistic = msg.temp;
 
             return (
               <div
