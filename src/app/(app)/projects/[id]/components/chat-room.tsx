@@ -205,7 +205,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     <div className="flex h-[60vh] flex-col">
       <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
         <div className="space-y-4">
-          {projectMessages.map((msg) => {
+          {projectMessages && projectMessages.map((msg) => {
             const isCurrentUser = msg.senderId === currentUser.id;
             const messageDate = msg.timestamp?.toDate ? msg.timestamp.toDate() : new Date();
 
