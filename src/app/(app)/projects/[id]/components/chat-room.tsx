@@ -130,7 +130,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     setOptimisticMessages(prev => [...prev, tempMessage]);
 
     try {
-        await uploadAndAddMessage(projectId, file);
+        await uploadAndAddMessage(projectId, file, file.type);
         toast({ title: 'File Uploaded', description: `${file.name} has been attached to the chat.` });
     } catch (error) {
         console.error("File upload error:", error);
@@ -194,7 +194,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     setOptimisticMessages(prev => [...prev, tempMessage]);
 
     try {
-      await uploadAndAddMessage(projectId, audioBlob);
+      await uploadAndAddMessage(projectId, audioBlob, 'audio/webm');
       toast({ title: 'Voice message sent' });
     } catch (error) {
       console.error('Error sending voice message:', error);

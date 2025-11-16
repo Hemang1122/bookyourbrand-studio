@@ -51,7 +51,7 @@ type DataContextType = {
   deleteFile: (fileId: string) => void;
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   markNotificationsAsRead: () => void;
-  uploadAndAddMessage: (projectId: string, file: File | Blob) => Promise<void>;
+  uploadAndAddMessage: (projectId: string, file: File | Blob, contentType?: string) => Promise<void>;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -452,21 +452,22 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     }
   }, [firestore, currentUser, usersData, projectsData, addNotification]);
 
-  const uploadAndAddMessage = async (projectId: string, file: File | Blob) => {
+  const uploadAndAddMessage = async (projectId: string, file: File | Blob, contentType?: string) => {
     if (!currentUser || !firebaseApp) {
         throw new Error("User or Firebase App not available for upload.");
     }
   
-    const isVoice = file.type.startsWith('audio/');
+    const isVoice = contentType === 'audio/webm';
     const fileName = file instanceof File ? file.name : 'voice-message.webm';
 
     try {
       const url = await uploadFile(
         file,
-        isVoice ? `voice-messages/${projectId}` : `chat/${projectId}`
+        isVoice ? `voice-messages/${projectId}` : `chat/${projectId}`,
+        undefined,
+        contentType
       );
   
-      // This is the message that will be saved to Firestore
       const messagePayload: Omit<ChatMessage, 'id' | 'timestamp'> = {
         projectId,
         senderId: currentUser.id,
@@ -481,7 +482,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   
     } catch (error) {
       console.error("Upload and add message failed:", error);
-      // Let the caller handle UI updates for the error
       throw error;
     }
   };
