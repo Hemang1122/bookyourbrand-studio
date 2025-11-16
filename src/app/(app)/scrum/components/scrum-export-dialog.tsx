@@ -73,6 +73,8 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
     }
   
     try {
+      const { default: jsPDF } = await import('jspdf');
+      
       const doc = new jsPDF('p', 'pt', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
       const margin = 40;
@@ -204,9 +206,6 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
 
   const handleClose = () => {
     setOpen(false);
-    setIsLoading(false);
-    setSelectedDate(new Date());
-    setSelectedUserIds([]);
   };
   
   const updatesForPreview = getUpdatesForSelection(selectedDate, selectedUserIds);
