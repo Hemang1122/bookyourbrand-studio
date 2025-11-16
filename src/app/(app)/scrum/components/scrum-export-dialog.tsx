@@ -18,8 +18,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ScrumUpdate, User } from '@/lib/types';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { Label } from '@/components/ui/label';
-import jsPDF from 'jspdf';
-
 
 type ScrumExportDialogProps = {
   updates: ScrumUpdate[];
@@ -63,6 +61,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
   }, [open, selectedDate, updates]);
 
  const handleDownloadPdf = async () => {
+    console.log('download clicked'); 
     setIsLoading(true);
     const updatesToExport = getUpdatesForSelection(selectedDate, selectedUserIds);
 
@@ -211,7 +210,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
   const updatesForPreview = getUpdatesForSelection(selectedDate, selectedUserIds);
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-4xl">
         <DialogHeader>

@@ -40,6 +40,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  experimental: {
+    optimizePackageImports: ['jspdf'],
+  },
 };
 
 export default pwaConfig(nextConfig);
