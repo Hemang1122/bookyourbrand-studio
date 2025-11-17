@@ -34,13 +34,9 @@ service cloud.firestore {
     }
 
     match /notifications/{notificationId} {
-        // A user can read a notification if their UID is in the recipients list.
-        // This works for 'array-contains' queries on the 'recipients' field.
         allow read: if isSignedIn() && request.auth.uid in resource.data.recipients;
-
-        // Notifications are created by the system (via DataProvider), not directly by clients.
-        // Writes should be handled by more specific rules if client-side updates are ever needed.
-        allow write: if false;
+        allow create: if isSignedIn();
+        allow update, delete: if false;
     }
   }
 }
