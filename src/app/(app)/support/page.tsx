@@ -1,90 +1,60 @@
 
 'use client';
 
-import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { SupportChatRoom } from './components/support-chat-room';
-import { useAuth } from '@/lib/auth-client';
-import { useData } from '../data-provider';
-import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Mail, Phone, Building } from 'lucide-react';
 
 export default function SupportPage() {
-    const { user } = useAuth();
-    const { clients, users } = useData();
-    const admin = users.find(u => u.role === 'admin');
-
-    // For admin, the state holds the ID of the client they are currently chatting with
-    const [selectedClientId, setSelectedClientId] = useState<string | null>(clients[0]?.id || null);
-
-    if (!user) return null;
-
-    // Admin View: A list of clients on the left, chat on the right
-    if (user.role === 'admin') {
-        return (
-            <div className="space-y-6">
-                <div className="space-y-2">
-                    <h2 className="text-3xl font-bold tracking-tight">Client Support Center</h2>
-                    <p className="text-muted-foreground">
-                        Select a client to view and respond to direct messages.
-                    </p>
-                </div>
-                <Card className="h-[75vh]">
-                    <div className="grid h-full grid-cols-1 md:grid-cols-[300px_1fr]">
-                        <div className="border-r">
-                            <CardHeader>
-                                <CardTitle>Clients</CardTitle>
-                            </CardHeader>
-                             <ScrollArea className="h-[calc(75vh-80px)]">
-                                <div className="space-y-1 p-2">
-                                    {clients.map(client => {
-                                        return (
-                                            <button
-                                                key={client.id}
-                                                onClick={() => setSelectedClientId(client.id)}
-                                                className={cn(
-                                                    "w-full flex items-center gap-3 text-left p-2 rounded-md transition-colors",
-                                                    selectedClientId === client.id ? "bg-accent text-accent-foreground" : "hover:bg-muted"
-                                                )}
-                                            >
-                                                <div className="flex-1">
-                                                    <p className="font-semibold text-sm">{client.name}</p>
-                                                    <p className="text-xs text-muted-foreground">{client.company}</p>
-                                                </div>
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                             </ScrollArea>
-                        </div>
-                        <div className="flex flex-col">
-                            {selectedClientId ? (
-                                <SupportChatRoom key={selectedClientId} chatPartnerId={selectedClientId} />
-                            ) : (
-                                <div className="flex flex-1 items-center justify-center text-muted-foreground">
-                                    <p>Select a client to start chatting.</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </Card>
-            </div>
-        );
-    }
-
-    // Client View: Direct chat with the admin
-    if (!admin) return <div>Admin user not found. Please contact support.</div>;
-
     return (
         <div className="space-y-6">
             <div className="space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight">Support Chat</h2>
+                <h2 className="text-3xl font-bold tracking-tight">Contact Support</h2>
                 <p className="text-muted-foreground">
-                    Have a question or need assistance? Send a message directly to the admin.
+                    Get in touch with us for any questions or issues.
                 </p>
             </div>
-            <Card className="h-[75vh]">
-                 <SupportChatRoom chatPartnerId={admin.id} />
+            <Card>
+                <CardHeader>
+                    <CardTitle>Contact Information</CardTitle>
+                    <CardDescription>
+                        You can reach us via the following channels. We're available during business hours.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-6 md:grid-cols-2">
+                    <div className="flex items-start gap-4">
+                        <Mail className="h-8 w-8 text-primary mt-1" />
+                        <div>
+                            <h3 className="font-semibold">Email</h3>
+                            <p className="text-muted-foreground">For general inquiries and support.</p>
+                            <a href="mailto:support@bookyourbrands.com" className="text-primary font-medium">
+                                support@bookyourbrands.com
+                            </a>
+                        </div>
+                    </div>
+                     <div className="flex items-start gap-4">
+                        <Phone className="h-8 w-8 text-primary mt-1" />
+                        <div>
+                            <h3 className="font-semibold">Phone</h3>
+                            <p className="text-muted-foreground">For urgent matters.</p>
+                            <a href="tel:+918433943520" className="text-primary font-medium">
+                                +91 84339 43520
+                            </a>
+                        </div>
+                    </div>
+                     <div className="flex items-start gap-4 md:col-span-2">
+                        <Building className="h-8 w-8 text-primary mt-1" />
+                        <div>
+                            <h3 className="font-semibold">Office Address</h3>
+                            <p className="text-muted-foreground">
+                                Shop No 14, Vishwakarma Nagar building. 03, 60 feet road,
+                                <br />
+                                Landmark: opposite old swaminarayan temple,
+                                <br />
+                                Vasai West, Vasai-Virar, Maharashtra 401202
+                            </p>
+                        </div>
+                    </div>
+                </CardContent>
             </Card>
         </div>
     );
