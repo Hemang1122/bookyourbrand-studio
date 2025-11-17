@@ -12,6 +12,7 @@ import {
   GitCommit,
   CalendarDays,
   LifeBuoy,
+  BarChart,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -28,6 +29,7 @@ const navItems = [
   { href: '/team', icon: Users, label: 'Team', roles: ['admin'] },
   { href: '/scrum', icon: GitCommit, label: 'Scrum', roles: ['admin', 'team'] },
   { href: '/schedule', icon: CalendarDays, label: 'Schedule', roles: ['admin'] },
+  { href: '/reports', icon: BarChart, label: 'Reports', roles: ['admin'] },
   { href: '/support', icon: LifeBuoy, label: 'Support', roles: ['admin', 'client'] },
   { href: '/settings', icon: Settings, label: 'Settings', roles: ['admin', 'team', 'client'] },
 ];
