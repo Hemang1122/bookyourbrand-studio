@@ -117,7 +117,7 @@ export function NotificationBell() {
                   const timestampDate = notif.timestamp?.toDate ? notif.timestamp.toDate() : new Date(notif.timestamp || 0);
                   const isUnread = !(notif.readBy || []).includes(user.id);
                   return (
-                    <Link href={notif.url} key={notif.id} className="block">
+                    <Link href={notif.url || '#'} key={notif.id} className="block">
                       <div className={`p-4 ${isUnread ? 'bg-accent/50' : ''} hover:bg-muted/50`}>
                         <p className="text-sm">{notif.message}</p>
                         <p className="text-xs text-muted-foreground mt-1">
