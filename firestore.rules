@@ -3,54 +3,93 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    /* -------------------- Helper Functions -------------------- */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isProjectMember(projectId) {
-      let project = get(/databases/$(database)/documents/projects/$(projectId)).data;
-      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-      // Allow admin, the client of the project, or a team member.
-      return userRole == 'admin' || request.auth.uid == project.client.id || (project.team_ids != null && request.auth.uid in project.team_ids);
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
+    function isAdmin() {
+      return isSignedIn() && getUserRole() == 'admin';
+    }
+
+    function isProjectMember(projectId) {
+      let project = get(/databases/$(database)/documents/projects/$(projectId)).data;
+      let userId = request.auth.uid;
+
+      return isAdmin()
+        || project.client.id == userId
+        || (project.team_ids != null && userId in project.team_ids);
+    }
+
+    /* -------------------- USERS -------------------- */
     match /users/{userId} {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && request.auth.uid == userId;
     }
 
+    /* -------------------- CLIENTS -------------------- */
     match /clients/{clientId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow write: if isAdmin();
     }
 
+    /* -------------------- PROJECTS -------------------- */
     match /projects/{projectId} {
-      allow read, write: if isSignedIn();
+      // Allow listing all projects (fixes your error)
+      allow list: if isSignedIn();
+
+      // Allow reading single document
+      allow get: if isSignedIn();
+
+      // Creating new projects
+      allow create: if isSignedIn();
+
+      // Updating / deleting projects
+      allow update, delete: if isSignedIn();
     }
 
+    /* -------------------- TASKS -------------------- */
     match /tasks/{taskId} {
-       allow read, write: if isSignedIn();
+      allow read, write, list: if isSignedIn();
     }
 
+    /* -------------------- FILES -------------------- */
     match /files/{fileId} {
-        allow read, write: if isSignedIn();
-    }
-    
-    match /scrum-updates/{updateId} {
-        allow read, write: if isSignedIn();
+      allow read, write, list: if isSignedIn();
     }
 
-    match /notifications/{notificationId} {
-        allow create: if isSignedIn();
-        allow read: if isSignedIn() && request.auth.uid in resource.data.recipients;
-        allow update, delete: if false;
+    /* -------------------- SCRUM UPDATES -------------------- */
+    match /scrum-updates/{updateId} {
+      allow read, write, list: if isSignedIn();
     }
-    
+
+    /* -------------------- NOTIFICATIONS -------------------- */
+    match /notifications/{notificationId} {
+      allow create: if isSignedIn();
+      allow read: if isSignedIn() 
+        && request.auth.uid in resource.data.recipients;
+      allow update, delete: if false;
+    }
+
+    /* -------------------- MESSAGES -------------------- */
     match /messages/{messageId} {
-      // For list (queries)
-      allow list: if isSignedIn() && request.query.projectId == resource.data.projectId && isProjectMember(request.query.projectId);
-      // For single document reads, create, update, delete
-      allow read, write: if isSignedIn() && isProjectMember(resource.data.projectId);
+
+      // Allow querying messages by projectId (fixes message list errors)
+      allow list: if isSignedIn()
+        && request.query.projectId != null
+        && isProjectMember(request.query.projectId);
+
+      // Reading single message
+      allow get: if isSignedIn()
+        && isProjectMember(resource.data.projectId);
+
+      // Creating/Editing messages
+      allow create, update, delete: if isSignedIn()
+        && isProjectMember(request.resource.data.projectId);
     }
   }
 }
