@@ -14,6 +14,23 @@ import { uploadChatFile } from '@/lib/chat-upload';
 import { useCollection, useFirebaseServices, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
 
+
+function useProjectMessages(projectId: string) {
+  const { firestore } = useFirebaseServices();
+  const { user } = useAuth();
+
+  const q = useMemoFirebase(() => {
+    if (!firestore || !user || !projectId) return null;
+    return query(
+      collection(firestore, 'messages'),
+      where('projectId', '==', projectId),
+      orderBy('timestamp', 'asc')
+    );
+  }, [firestore, user, projectId]);
+
+  return useCollection<ChatMessage>(q);
+}
+
 type ChatRoomProps = {
   projectId: string;
 };
@@ -22,7 +39,6 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
   const { addMessage, users } = useData();
-  const { firestore } = useFirebaseServices();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -37,14 +53,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
 
 
-  const messagesQuery = useMemoFirebase(
-    () =>
-      firestore
-        ? query(collection(firestore, 'messages'), where('projectId', '==', projectId), orderBy('timestamp', 'asc'))
-        : null,
-    [firestore, projectId]
-  );
-  const { data: serverMessages, isLoading: messagesLoading } = useCollection<ChatMessage>(messagesQuery);
+  const { data: serverMessages, isLoading: messagesLoading } = useProjectMessages(projectId);
   
   const projectMessages = useMemo(() => {
     const combined = [...(serverMessages || []), ...optimisticMessages];
@@ -198,19 +207,6 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     if (!audioBlob || !currentUser) return;
 
     setIsSendingVoice(true);
-    const tempMessage: ChatMessage = {
-        id: uuidv4(),
-        projectId,
-        senderId: currentUser.id,
-        senderName: currentUser.name,
-        senderAvatar: currentUser.avatar || '',
-        message: 'Uploading voice message…',
-        fileUrl: null,
-        messageType: 'voice',
-        timestamp: null,
-        temp: true,
-    };
-    setOptimisticMessages(prev => [...prev, tempMessage]);
 
     try {
         await uploadChatFile({
@@ -228,7 +224,6 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
         toast({ title: 'Upload Failed', description: 'Could not send voice message.', variant: 'destructive' });
     } finally {
         setIsSendingVoice(false);
-        setOptimisticMessages(prev => prev.filter(m => !m.temp));
         setAudioBlob(null);
     }
   };
