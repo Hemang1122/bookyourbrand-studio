@@ -7,6 +7,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isProjectMember(projectId) {
+      let project = get(/databases/$(database)/documents/projects/$(projectId)).data;
+      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return userRole == 'admin' || request.auth.uid == project.client.id || request.auth.uid in project.team_ids;
+    }
+
     match /users/{userId} {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && request.auth.uid == userId;
@@ -37,6 +43,13 @@ service cloud.firestore {
         allow create: if isSignedIn();
         allow read: if isSignedIn() && request.auth.uid in resource.data.recipients;
         allow update, delete: if false;
+    }
+
+    match /messages/{messageId} {
+      // For list (queries)
+      allow list: if isSignedIn() && isProjectMember(request.query.projectId);
+      // For single document reads, create, update, delete
+      allow read, write: if isSignedIn() && isProjectMember(resource.data.projectId);
     }
   }
 }

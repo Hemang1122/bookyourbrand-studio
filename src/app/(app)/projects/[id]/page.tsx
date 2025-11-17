@@ -8,7 +8,7 @@ import { TaskList } from './components/task-list';
 import { FileManager } from './components/file-manager';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ListTodo, Files, Info, Users, Edit, Trash2 } from 'lucide-react';
+import { ListTodo, Files, Info, Users, Edit, Trash2, MessageCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
 import type { Project, Client, User, ProjectStatus } from '@/lib/types';
@@ -19,6 +19,7 @@ import { EditProjectDialog } from './components/edit-project-dialog';
 import { DeleteProjectDialog } from './components/delete-project-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { ChatRoom } from './components/chat-room';
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -186,9 +187,10 @@ export default function ProjectDetailPage() {
       </div>
 
       <Tabs defaultValue="tasks" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="tasks"><ListTodo className="mr-2 h-4 w-4" />Tasks</TabsTrigger>
           <TabsTrigger value="files"><Files className="mr-2 h-4 w-4" />Files</TabsTrigger>
+          <TabsTrigger value="chat"><MessageCircle className="mr-2 h-4 w-4" />Chat</TabsTrigger>
         </TabsList>
         <TabsContent value="tasks">
           <Card>
@@ -209,6 +211,17 @@ export default function ProjectDetailPage() {
             </CardHeader>
             <CardContent>
               <FileManager projectId={project.id} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+         <TabsContent value="chat">
+           <Card>
+            <CardHeader>
+              <CardTitle>Project Chat</CardTitle>
+              <CardDescription>Discuss project details with the client and team.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <ChatRoom projectId={project.id} />
             </CardContent>
           </Card>
         </TabsContent>

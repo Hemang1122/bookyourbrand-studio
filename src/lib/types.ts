@@ -144,10 +144,4 @@ export type ChatMessage = {
   senderName: string;
   message: string;
   timestamp: Timestamp;
-  fileUrl?: string;
-  fileName?: string;
-  fileType?: string;
-  messageType?: 'text' | 'file' | 'voice';
-  audioUrl?: string;
-  audioDuration?: number;
 };
