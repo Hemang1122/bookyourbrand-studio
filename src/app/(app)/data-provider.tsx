@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
@@ -24,7 +22,6 @@ type DataContextType = {
   users: User[];
   scrumUpdates: ScrumUpdate[];
   files: ProjectFile[];
-  messages: ChatMessage[];
   notifications: Notification[];
   addProject: (project: Omit<Project, 'id' | 'coverImage' >) => void;
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks' | 'dueDate'>) => void;
@@ -79,7 +76,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: projectsData, isLoading: projectsLoading } = useCollection<Project>(useMemoFirebase(() => firestore ? collection(firestore, 'projects') : null, [firestore]));
   const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
   const { data: files, isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? collection(firestore, 'files') : null, [firestore]));
-  const { data: messagesData, isLoading: messagesLoading } = useCollection<ChatMessage>(useMemoFirebase(() => firestore ? collection(firestore, 'messages') : null, [firestore]));
   const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
   const { data: scrumUpdatesData, isLoading: scrumUpdatesLoading } = useCollection<ScrumUpdate>(useMemoFirebase(() => firestore ? collection(firestore, 'scrum-updates') : null, [firestore]));
   
@@ -88,7 +84,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     return query(collection(firestore, 'notifications'), where('recipients', 'array-contains', currentUser.id));
   }, [firestore, currentUser]));
   
-  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || messagesLoading || notificationsLoading || scrumUpdatesLoading;
+  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading;
   
   const teamEditorMapping = useMemo(() => {
     if (!usersData) return new Map<string, string>();
@@ -159,40 +155,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       return anonymizedTask;
     });
   }, [tasksData, projects, currentUser, anonymizeUser, teamEditorMapping]);
-  
-  const messages = useMemo(() => {
-    if (!messagesData) return [];
-    const uniqueMessages = Array.from(new Map(messagesData.map(m => [m.id, m])).values());
-    const sorted = uniqueMessages.sort((a,b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
-    if (currentUser?.role !== 'client') return sorted;
-    
-    return sorted.map(m => {
-        const sender = usersData?.find(u => u.id === m.senderId);
-        // Anonymize team members and admins
-        if (sender && (sender.role === 'team' || sender.role === 'admin')) {
-            return {
-                ...m,
-                senderName: teamEditorMapping.get(m.senderId) || 'Editor',
-                senderAvatar: 'avatar-generic'
-            }
-        }
-        // Handle reply-to anonymization
-        if (m.replyTo) {
-            const replySender = usersData?.find(u => u.name === m.replyTo?.senderName);
-            if (replySender && (replySender.role === 'team' || replySender.role === 'admin')) {
-                return {
-                    ...m,
-                    replyTo: {
-                        ...m.replyTo,
-                        senderName: teamEditorMapping.get(replySender.id) || 'Editor',
-                    }
-                }
-            }
-        }
-        return m;
-    })
-
-  }, [messagesData, currentUser?.role, usersData, teamEditorMapping]);
     
   const clients = useMemo(() => {
     if (!clientsData) return initialClients;
@@ -481,7 +443,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         users,
         scrumUpdates,
         files,
-        messages,
         notifications,
         addProject, 
         addTask, 

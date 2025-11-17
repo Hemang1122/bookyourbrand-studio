@@ -29,13 +29,17 @@ service cloud.firestore {
     }
 
     match /tasks/{taskId} {
-       allow read: if isSignedIn();
-       allow write: if isSignedIn();
+       allow read, write: if isSignedIn();
     }
 
     match /messages/{messageId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
+      function isProjectMember(projectId) {
+        let project = get(/databases/$(database)/documents/projects/$(projectId)).data;
+        return request.auth.uid == project.client.id || request.auth.uid in project.team_ids;
+      }
+
+      allow read: if isSignedIn() && isProjectMember(resource.data.projectId);
+      allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid && isProjectMember(request.resource.data.projectId);
     }
 
     match /files/{fileId} {

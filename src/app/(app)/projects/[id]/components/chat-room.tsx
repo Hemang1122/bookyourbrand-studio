@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { uploadChatFile } from '@/lib/chat-upload';
 import { useCollection, useFirebaseServices, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
 
 type ChatRoomProps = {
   projectId: string;
@@ -23,7 +23,7 @@ type ChatRoomProps = {
 export function ChatRoom({ projectId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
-  const { addMessage } = useData();
+  const { addMessage, users } = useData();
   const { firestore } = useFirebaseServices();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
@@ -36,6 +36,8 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [isSendingVoice, setIsSendingVoice] = useState(false);
+  const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
+
 
   const messagesQuery = useMemoFirebase(
     () =>
@@ -44,7 +46,27 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
         : null,
     [firestore, projectId]
   );
-  const { data: projectMessages = [], isLoading: messagesLoading } = useCollection<ChatMessage>(messagesQuery);
+  const { data: serverMessages = [], isLoading: messagesLoading } = useCollection<ChatMessage>(messagesQuery);
+  
+  const projectMessages = useMemo(() => {
+    const combined = [...serverMessages, ...optimisticMessages];
+
+    const key = (m: ChatMessage) => `${m.senderId}_${m.message}_${m.fileUrl || ''}_${m.messageType}`;
+
+    const seen = new Set<string>();
+    const unique = combined.filter(m => {
+        const k = key(m);
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+    });
+
+    return unique.sort((a, b) => {
+        const ta = a.timestamp?.toMillis?.() || 0;
+        const tb = b.timestamp?.toMillis?.() || 0;
+        return ta - tb;
+    });
+  }, [serverMessages, optimisticMessages]);
 
 
   const getScrollableViewport = useCallback(() => {
@@ -178,24 +200,38 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     if (!audioBlob || !currentUser) return;
 
     setIsSendingVoice(true);
-
-    try {
-      await uploadChatFile({
+    const tempMessage: ChatMessage = {
+        id: uuidv4(),
         projectId,
-        file: audioBlob,
-        contentType: 'audio/webm',
         senderId: currentUser.id,
         senderName: currentUser.name,
         senderAvatar: currentUser.avatar || '',
-        isVoice: true,
-      });
-      toast({ title: 'Voice message sent' });
+        message: 'Uploading voice message…',
+        fileUrl: null,
+        messageType: 'voice',
+        timestamp: null,
+        temp: true,
+    };
+    setOptimisticMessages(prev => [...prev, tempMessage]);
+
+    try {
+        await uploadChatFile({
+            projectId,
+            file: audioBlob,
+            contentType: 'audio/webm',
+            senderId: currentUser.id,
+            senderName: currentUser.name,
+            senderAvatar: currentUser.avatar || '',
+            isVoice: true,
+        });
+        toast({ title: 'Voice message sent' });
     } catch (error) {
-      console.error(error);
-      toast({ title: 'Upload failed', variant: 'destructive' });
+        console.error('Failed to send voice message', error);
+        toast({ title: 'Upload Failed', description: 'Could not send voice message.', variant: 'destructive' });
     } finally {
-      setIsSendingVoice(false);
-      setAudioBlob(null);
+        setIsSendingVoice(false);
+        setOptimisticMessages(prev => prev.filter(m => !m.temp));
+        setAudioBlob(null);
     }
   };
 
@@ -205,7 +241,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     <div className="flex h-[60vh] flex-col">
       <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
         <div className="space-y-4">
-          {projectMessages && projectMessages.map((msg) => {
+          {projectMessages.map((msg) => {
             const isCurrentUser = msg.senderId === currentUser.id;
             const messageDate = msg.timestamp?.toDate ? msg.timestamp.toDate() : new Date();
 
