@@ -1,3 +1,4 @@
+
 import { FieldValue, Timestamp } from 'firebase/firestore';
 
 export type UserRole = 'admin' | 'team' | 'client';
@@ -68,25 +69,6 @@ export type Task = {
   status: TaskStatus;
   dueDate: string;
   remarks: TaskRemark[];
-};
-
-export type MessageType = 'text' | 'file' | 'voice';
-
-export type ChatMessage = {
-  id: string;
-  projectId: string;
-  senderId: string;
-  senderName: string;
-  senderAvatar: string;
-  message: string;
-  fileUrl?: string | null;
-  messageType: MessageType;
-  timestamp: Timestamp;
-  replyTo?: {
-    messageId: string;
-    message: string;
-    senderName: string;
-  }
 };
 
 export type ProjectFile = {

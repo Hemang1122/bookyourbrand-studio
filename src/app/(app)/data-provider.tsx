@@ -1,7 +1,8 @@
+
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, ChatMessage, Notification, TaskRemark, MessageType, PackageName, ProjectStatus } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -47,7 +48,6 @@ type DataContextType = {
   updateProject: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => void;
   addFile: (file: Omit<ProjectFile, 'id'>) => void;
   deleteFile: (fileId: string) => void;
-  addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   markNotificationsAsRead: () => void;
 };
 
@@ -384,35 +384,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const fileRef = doc(firestore, 'files', fileId);
     deleteDocumentNonBlocking(fileRef);
   };
-
-  const addMessage = useCallback((messageData: Omit<ChatMessage, 'id' | 'timestamp'>) => {
-    if (!firestore || !currentUser || !usersData || !projectsData) return;
-    
-    const finalMessageData = {
-        ...messageData,
-        timestamp: serverTimestamp()
-    };
-
-    const newMessageId = doc(collection(firestore, 'messages')).id;
-    setDocumentNonBlocking(doc(firestore, 'messages', newMessageId), finalMessageData, {});
-
-    const project = projectsData.find(p => p.id === messageData.projectId);
-    if (project) {
-      const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
-      const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...adminIds]));
-      const finalRecipients = recipients.filter(id => id !== currentUser.id);
-      let messageSnippet = '';
-      if (messageData.messageType === 'file') {
-        messageSnippet = `Sent a file: ${messageData.message}`;
-      } else if (messageData.messageType === 'voice') {
-        messageSnippet = 'Sent a voice message';
-      }
-      else {
-        messageSnippet = `"${messageData.message.substring(0, 30)}..."`;
-      }
-      addNotification(`New message in project '${project.name}': ${messageSnippet}`, project.id, finalRecipients);
-    }
-  }, [firestore, currentUser, usersData, projectsData, addNotification]);
   
   const markNotificationsAsRead = useCallback(() => {
     if (!firestore || !notifications || notifications.length === 0 || !currentUser) return;
@@ -458,7 +429,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         updateProject,
         addFile,
         deleteFile,
-        addMessage,
         markNotificationsAsRead,
     }}>
       {children}

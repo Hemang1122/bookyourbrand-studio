@@ -5,11 +5,10 @@ import { useEffect, useState, useMemo } from 'react';
 import { notFound, useParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TaskList } from './components/task-list';
-import { ChatRoom } from './components/chat-room';
 import { FileManager } from './components/file-manager';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ListTodo, MessageSquare, Files, Info, Users, Edit, Trash2 } from 'lucide-react';
+import { ListTodo, Files, Info, Users, Edit, Trash2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
 import type { Project, Client, User, ProjectStatus } from '@/lib/types';
@@ -187,9 +186,8 @@ export default function ProjectDetailPage() {
       </div>
 
       <Tabs defaultValue="tasks" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="tasks"><ListTodo className="mr-2 h-4 w-4" />Tasks</TabsTrigger>
-          <TabsTrigger value="chat"><MessageSquare className="mr-2 h-4 w-4" />Chat</TabsTrigger>
           <TabsTrigger value="files"><Files className="mr-2 h-4 w-4" />Files</TabsTrigger>
         </TabsList>
         <TabsContent value="tasks">
@@ -200,17 +198,6 @@ export default function ProjectDetailPage() {
             </CardHeader>
             <CardContent>
               <TaskList projectId={project.id} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="chat">
-           <Card>
-            <CardHeader>
-              <CardTitle>Chat Room</CardTitle>
-              <CardDescription>Communicate with the client and team in real-time.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChatRoom projectId={project.id} />
             </CardContent>
           </Card>
         </TabsContent>

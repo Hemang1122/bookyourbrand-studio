@@ -161,73 +161,6 @@
         "status"
       ]
     },
-    "Chat": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Chat",
-      "type": "object",
-      "description": "Represents a chat room associated with a project in the BookYourBrands CRM.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the chat entity."
-        },
-        "projectId": {
-          "type": "string",
-          "description": "Reference to the Project this chat belongs to. (Relationship: Project 1:1 Chat)"
-        },
-        "messages": {
-          "type": "array",
-          "description": "Array of message IDs within this chat.",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "required": [
-        "id",
-        "projectId"
-      ]
-    },
-    "Message": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Message",
-      "type": "object",
-      "description": "Represents a single message within a chat room.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the message entity."
-        },
-        "chatId": {
-          "type": "string",
-          "description": "Reference to the Chat this message belongs to. (Relationship: Chat 1:N Message)"
-        },
-        "senderId": {
-          "type": "string",
-          "description": "Reference to the User who sent the message. (Relationship: User 1:N Message)"
-        },
-        "text": {
-          "type": "string",
-          "description": "The text content of the message."
-        },
-        "timestamp": {
-          "type": "string",
-          "description": "Timestamp indicating when the message was sent.",
-          "format": "date-time"
-        },
-        "fileURL": {
-          "type": "string",
-          "description": "URL of any file attached to the message (optional)."
-        }
-      },
-      "required": [
-        "id",
-        "chatId",
-        "senderId",
-        "text",
-        "timestamp"
-      ]
-    },
     "File": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "File",
@@ -367,42 +300,6 @@
             {
               "name": "taskId",
               "description": "The unique identifier of the task."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/chats/{chatId}",
-        "definition": {
-          "entityName": "Chat",
-          "schema": {
-            "$ref": "#/backend/entities/Chat"
-          },
-          "description": "Stores chat room information for a project.",
-          "params": [
-            {
-              "name": "chatId",
-              "description": "The unique identifier of the chat."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/chats/{chatId}/messages/{messageId}",
-        "definition": {
-          "entityName": "Message",
-          "schema": {
-            "$ref": "#/backend/entities/Message"
-          },
-          "description": "Stores messages within a chat room.",
-          "params": [
-            {
-              "name": "chatId",
-              "description": "The unique identifier of the chat."
-            },
-            {
-              "name": "messageId",
-              "description": "The unique identifier of the message."
             }
           ]
         }
