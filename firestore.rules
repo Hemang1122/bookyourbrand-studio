@@ -39,17 +39,17 @@ service cloud.firestore {
 
     /* -------------------- PROJECTS -------------------- */
     match /projects/{projectId} {
-      // Allow listing all projects (fixes your error)
+      // Allow listing all projects
       allow list: if isSignedIn();
 
       // Allow reading single document
-      allow get: if isSignedIn();
+      allow get: if isProjectMember(projectId);
 
       // Creating new projects
       allow create: if isSignedIn();
 
       // Updating / deleting projects
-      allow update, delete: if isSignedIn();
+      allow update, delete: if isProjectMember(projectId);
     }
 
     /* -------------------- TASKS -------------------- */
@@ -70,7 +70,7 @@ service cloud.firestore {
     /* -------------------- NOTIFICATIONS -------------------- */
     match /notifications/{notificationId} {
       allow create: if isSignedIn();
-      allow read: if isSignedIn() 
+      allow read: if isSignedIn()
         && request.auth.uid in resource.data.recipients;
       allow update, delete: if false;
     }
@@ -78,7 +78,7 @@ service cloud.firestore {
     /* -------------------- MESSAGES -------------------- */
     match /messages/{messageId} {
 
-      // Allow querying messages by projectId (fixes message list errors)
+      // Allow querying messages by projectId
       allow list: if isSignedIn()
         && request.query.projectId != null
         && isProjectMember(request.query.projectId);
