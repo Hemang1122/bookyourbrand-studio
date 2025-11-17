@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow for generating a daily activity report.
@@ -44,14 +45,13 @@ const generateActivityReportPrompt = ai.definePrompt({
   prompt: `You are an expert project management assistant. Your task is to generate a daily activity summary for a creative agency.
   The date for this report is {{date}}.
 
-  You will be provided with JSON data for all projects, tasks, users, and chat messages.
+  You will be provided with JSON data for all projects, tasks, and users.
   Analyze the provided data and generate a concise, well-structured report in Markdown format.
 
   The report should include the following sections if there is relevant activity:
   1.  **Project Updates**: List any new projects created on the report date or projects whose status changed.
   2.  **Task Updates**: List new tasks created and tasks that were updated (e.g., moved to 'In Progress', 'Completed'). Mention who made the update.
-  3.  **Chat Activity**: Summarize key conversations. List each message with its sender and timestamp.
-  4.  **Team Activity**: Summarize which team members were active based on task updates and messages sent.
+  3.  **Team Activity**: Summarize which team members were active based on task updates.
 
   If no significant activity occurred on the given day, state that "No significant activity was recorded for this day."
 
@@ -59,7 +59,6 @@ const generateActivityReportPrompt = ai.definePrompt({
   - Projects: {{{json projects}}}
   - Tasks: {{{json tasks}}}
   - Users: {{{json users}}}
-  - Messages: {{{json messages}}}
 
   Please generate the report now.
   `,
@@ -83,25 +82,17 @@ const generateActivityReportFlow = ai.defineFlow(
         return anyRemarkOnDate || createdOnDate;
     });
 
-    const relevantMessages = input.messages.filter(msg => {
-        const msgTimestamp = (msg as ChatMessage).timestamp;
-        if (!msgTimestamp) return false;
-        // Handle both Firestore Timestamp objects and serialized date strings
-        const date = msgTimestamp instanceof Timestamp ? msgTimestamp.toDate() : parseISO(msgTimestamp as any);
-        return isSameDay(date, reportDate);
-    });
-    
     // In a real app, projects would have `createdAt` and `updatedAt`. We'll just pass them all.
     const relevantProjects = input.projects;
 
-    if (relevantTasks.length === 0 && relevantMessages.length === 0) {
+    if (relevantTasks.length === 0) {
         return { report: "No significant activity was recorded for this day." };
     }
 
     const { output } = await generateActivityReportPrompt({ 
         ...input, 
         tasks: relevantTasks,
-        messages: relevantMessages,
+        messages: [],
         projects: relevantProjects,
     });
     return output!;
