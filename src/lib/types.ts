@@ -122,11 +122,11 @@ export type ClientDocument = {
 
 export type Notification = {
   id: string;
-  projectId: string; // "general" for non-project specific
   message: string;
   timestamp: Timestamp;
   readBy: string[]; // Array of user IDs who have read it
   recipients: string[]; // Array of user IDs who should receive the notification
+  url: string; // The URL to navigate to when clicked
 }
 
 export interface TimerSession {

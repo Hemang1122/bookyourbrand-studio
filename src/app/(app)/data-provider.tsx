@@ -60,11 +60,11 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   
   const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
 
-  const addNotification = useCallback((message: string, projectId: string, recipients: string[]) => {
+  const addNotification = useCallback((message: string, url: string, recipients: string[]) => {
     if (!firestore || recipients.length === 0) return;
     const newNotif: Omit<Notification, 'id'> = {
       message,
-      projectId,
+      url,
       recipients,
       readBy: [],
       timestamp: Timestamp.now(),
@@ -201,11 +201,11 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     ];
     
     if (notificationRecipients.length > 0) {
-        addNotification(`New project '${newProject.name}' was created by ${currentUser.name}.`, newProject.id, notificationRecipients);
+        addNotification(`New project '${newProject.name}' was created by ${currentUser.name}.`, `/projects/${newProject.id}`, notificationRecipients);
     }
     
     if (projectData.team_ids.length > 0) {
-        addNotification(`You have been assigned to the new project: '${newProject.name}'.`, newProject.id, projectData.team_ids);
+        addNotification(`You have been assigned to the new project: '${newProject.name}'.`, `/projects/${newProject.id}`, projectData.team_ids);
     }
 
     router.push(`/projects/${newProject.id}`);
@@ -237,7 +237,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
     const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...adminIds]));
     const finalRecipients = recipients.filter(id => id !== currentUser.id);
-    addNotification(`New task '${newTask.title}' added to project '${project.name}'.`, project.id, finalRecipients);
+    addNotification(`New task '${newTask.title}' added to project '${project.name}'.`, `/projects/${project.id}`, finalRecipients);
   }
 
   const updateProjectTeam = (projectId: string, teamMemberIds: string[]) => {
@@ -252,7 +252,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
     const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
     const recipients = Array.from(new Set([...teamMemberIds, project.client.id, ...adminIds]));
-    addNotification(`The team for project '${project.name}' has been updated.`, projectId, recipients.filter(id => id !== currentUser.id));
+    addNotification(`The team for project '${project.name}' has been updated.`, `/projects/${projectId}`, recipients.filter(id => id !== currentUser.id));
   };
 
   const updateTaskStatus = (taskId: string, status: TaskStatus, remark: string) => {
@@ -282,7 +282,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
     const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
     const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...adminIds]));
-    addNotification(`Task '${task.title}' in project '${project.name}' was updated to '${status}'.`, project.id, recipients.filter(id => id !== currentUser.id));
+    addNotification(`Task '${task.title}' in project '${project.name}' was updated to '${status}'.`, `/projects/${project.id}`, recipients.filter(id => id !== currentUser.id));
   }
 
   const addClient = (clientData: {name: string, company: string, email: string, founderDetails: string, agreementUrl?: string, idCardUrl?: string}) => {
@@ -308,7 +308,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         if (client && admins.length > 0) {
             addNotification(
                 `${client.name} has upgraded their plan to ${clientData.packageName}.`,
-                'general',
+                `/settings/billing`,
                 admins.map(a => a.id)
             );
         }
@@ -334,7 +334,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const admins = usersData.filter(u => u.role === 'admin');
     if (admins.length > 0) {
       const adminIds = admins.map(a => a.id).filter(id => id !== currentUser.id);
-      addNotification(`${currentUser.name} has submitted their daily scrum update.`, 'general', adminIds);
+      addNotification(`${currentUser.name} has submitted their daily scrum update.`, `/scrum`, adminIds);
     }
   };
 
@@ -360,7 +360,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
         addNotification(
             `Project '${project.name}' status has been updated to '${projectData.status}' by ${currentUser.name}.`,
-            projectId,
+            `/projects/${projectId}`,
             [...clientRecipients, ...teamRecipients]
         );
     }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Bell, Check } from 'lucide-react';
@@ -15,6 +16,7 @@ import { formatDistanceToNow, compareDesc } from 'date-fns';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { NotificationSound } from '@/components/ui/notification-sound';
+import Link from 'next/link';
 
 // Custom hook to track the previous value of a prop or state
 function usePrevious<T>(value: T): T | undefined {
@@ -115,12 +117,14 @@ export function NotificationBell() {
                   const timestampDate = notif.timestamp?.toDate ? notif.timestamp.toDate() : new Date(notif.timestamp || 0);
                   const isUnread = !(notif.readBy || []).includes(user.id);
                   return (
-                      <div key={notif.id} className={`p-4 ${isUnread ? 'bg-accent/50' : ''} hover:bg-muted/50`}>
-                      <p className="text-sm">{notif.message}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                          {formatDistanceToNow(timestampDate, { addSuffix: true })}
-                      </p>
+                    <Link href={notif.url} key={notif.id} className="block">
+                      <div className={`p-4 ${isUnread ? 'bg-accent/50' : ''} hover:bg-muted/50`}>
+                        <p className="text-sm">{notif.message}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            {formatDistanceToNow(timestampDate, { addSuffix: true })}
+                        </p>
                       </div>
+                    </Link>
                   )
                 })}
               </div>
