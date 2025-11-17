@@ -31,6 +31,7 @@ export function NotificationBell() {
   const { user } = useAuth();
   const { notifications, markNotificationsAsRead, isLoading } = useData();
   const [playSound, setPlaySound] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   // Memoize notifications to prevent re-renders, handle null safety
   const safeNotifications = useMemo(() => Array.isArray(notifications) ? notifications : [], [notifications]);
@@ -61,9 +62,14 @@ export function NotificationBell() {
 
 
   const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
     if (!open && unreadCount > 0) {
       markNotificationsAsRead();
     }
+  };
+
+  const handleNotificationClick = () => {
+    setIsOpen(false);
   };
 
   if (!user) return null;
@@ -71,7 +77,7 @@ export function NotificationBell() {
   return (
     <>
       <NotificationSound play={playSound} onPlayed={() => setPlaySound(false)} />
-      <Popover onOpenChange={handleOpenChange}>
+      <Popover open={isOpen} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-5 w-5" />
@@ -117,13 +123,15 @@ export function NotificationBell() {
                   const timestampDate = notif.timestamp?.toDate ? notif.timestamp.toDate() : new Date(notif.timestamp || 0);
                   const isUnread = !(notif.readBy || []).includes(user.id);
                   return (
-                    <Link href={notif.url || '#'} key={notif.id} className="block">
-                      <div className={`p-4 ${isUnread ? 'bg-accent/50' : ''} hover:bg-muted/50`}>
-                        <p className="text-sm">{notif.message}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            {formatDistanceToNow(timestampDate, { addSuffix: true })}
-                        </p>
-                      </div>
+                    <Link href={notif.url || '#'} key={notif.id} passHref legacyBehavior>
+                      <a onClick={handleNotificationClick} className="block">
+                        <div className={`p-4 ${isUnread ? 'bg-accent/50' : ''} hover:bg-muted/50`}>
+                          <p className="text-sm">{notif.message}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                              {formatDistanceToNow(timestampDate, { addSuffix: true })}
+                          </p>
+                        </div>
+                      </a>
                     </Link>
                   )
                 })}
