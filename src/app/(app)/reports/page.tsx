@@ -70,7 +70,7 @@ export default function ReportsPage() {
         doc.setFontSize(28);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(22, 22, 22);
-        doc.text(title.toUpperCase(), doc.internal.pageSize.getWidth() - 40, 60, { align: 'right' });
+        doc.text(title.toUpperCase(), doc.internal.pageSize.getWidth() - 40, 105, { align: 'right' });
     };
 
     const handleDownload = () => {
