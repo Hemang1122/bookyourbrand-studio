@@ -17,15 +17,7 @@ service cloud.firestore {
     }
 
     match /projects/{projectId} {
-      allow read: if isSignedIn() && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-        || request.auth.uid == resource.data.client.id
-        || request.auth.uid in resource.data.team_ids
-      );
-      allow write: if isSignedIn() && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-        || request.auth.uid in resource.data.team_ids
-      );
+      allow read, write: if isSignedIn();
     }
 
     match /tasks/{taskId} {
@@ -33,7 +25,20 @@ service cloud.firestore {
     }
 
     match /messages/{messageId} {
-      allow read, write: if isSignedIn();
+      function isProjectMember(projectId) {
+        let project = get(/databases/$(database)/documents/projects/$(projectId)).data;
+        return request.auth.uid == project.client.id || request.auth.uid in project.team_ids;
+      }
+
+      allow list: if isSignedIn()
+                  && isProjectMember(request.query.projectId);
+
+      allow get:  if isSignedIn()
+                  && isProjectMember(resource.data.projectId);
+
+      allow create: if isSignedIn()
+                    && request.resource.data.senderId == request.auth.uid
+                    && isProjectMember(request.resource.data.projectId);
     }
 
     match /files/{fileId} {
