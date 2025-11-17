@@ -242,46 +242,6 @@
         "readBy",
         "recipients"
       ]
-    },
-    "Message": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Message",
-      "type": "object",
-      "description": "Represents a single chat message within a project.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the message."
-        },
-        "projectId": {
-          "type": "string",
-          "description": "The project this message belongs to."
-        },
-        "senderId": {
-          "type": "string",
-          "description": "The ID of the user who sent the message."
-        },
-        "senderName": {
-          "type": "string",
-          "description": "The name of the user who sent the message."
-        },
-        "message": {
-          "type": "string",
-          "description": "The text content of the message."
-        },
-        "timestamp": {
-          "type": "string",
-          "format": "date-time",
-          "description": "When the message was sent."
-        }
-      },
-      "required": [
-        "id",
-        "projectId",
-        "senderId",
-        "message",
-        "timestamp"
-      ]
     }
   },
   "auth": {
@@ -372,22 +332,6 @@
             {
               "name": "notificationId",
               "description": "The unique identifier of the notification."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/messages/{messageId}",
-        "definition": {
-          "entityName": "Message",
-          "schema": {
-            "$ref": "#/backend/entities/Message"
-          },
-          "description": "Stores chat messages for projects. Rules ensure only project members can read/write.",
-          "params": [
-            {
-              "name": "messageId",
-              "description": "The unique identifier for the message."
             }
           ]
         }

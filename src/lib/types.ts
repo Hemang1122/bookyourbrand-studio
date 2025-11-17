@@ -136,12 +136,3 @@ export interface TimerSession {
   endTime: number | null;
   date: string; // YYYY-MM-DD
 }
-
-export type ChatMessage = {
-  id: string;
-  projectId: string;
-  senderId: string;
-  senderName: string;
-  message: string;
-  timestamp: Timestamp;
-};

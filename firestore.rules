@@ -16,15 +16,6 @@ service cloud.firestore {
       return isSignedIn() && getUserRole() == 'admin';
     }
 
-    function isProjectMember(projectId) {
-      let project = get(/databases/$(database)/documents/projects/$(projectId)).data;
-      let userId = request.auth.uid;
-
-      return isAdmin()
-        || project.client.id == userId
-        || (project.team_ids != null && userId in project.team_ids);
-    }
-
     /* -------------------- USERS -------------------- */
     match /users/{userId} {
       allow read: if isSignedIn();
@@ -39,17 +30,10 @@ service cloud.firestore {
 
     /* -------------------- PROJECTS -------------------- */
     match /projects/{projectId} {
-      // Allow listing all projects
       allow list: if isSignedIn();
-
-      // Allow reading single document
-      allow get: if isProjectMember(projectId);
-
-      // Creating new projects
+      allow get: if isSignedIn();
       allow create: if isSignedIn();
-
-      // Updating / deleting projects
-      allow update, delete: if isProjectMember(projectId);
+      allow update, delete: if isSignedIn();
     }
 
     /* -------------------- TASKS -------------------- */
@@ -70,26 +54,8 @@ service cloud.firestore {
     /* -------------------- NOTIFICATIONS -------------------- */
     match /notifications/{notificationId} {
       allow create: if isSignedIn();
-      allow read: if isSignedIn()
-        && request.auth.uid in resource.data.recipients;
+      allow read: if isSignedIn() && request.auth.uid in resource.data.recipients;
       allow update, delete: if false;
-    }
-
-    /* -------------------- MESSAGES -------------------- */
-    match /messages/{messageId} {
-
-      // Allow querying messages by projectId
-      allow list: if isSignedIn()
-        && request.query.projectId != null
-        && isProjectMember(request.query.projectId);
-
-      // Reading single message
-      allow get: if isSignedIn()
-        && isProjectMember(resource.data.projectId);
-
-      // Creating/Editing messages
-      allow create, update, delete: if isSignedIn()
-        && isProjectMember(request.resource.data.projectId);
     }
   }
 }

@@ -48,7 +48,6 @@ export function DailyReportDialog({ children }: DailyReportDialogProps) {
         projects,
         tasks,
         users,
-        messages: [], // Messages are no longer globally available
       };
       const result = await generateActivityReport(input);
       // Basic markdown to HTML

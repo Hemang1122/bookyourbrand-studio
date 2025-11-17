@@ -2,7 +2,7 @@
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus, ChatMessage } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -26,7 +26,6 @@ type DataContextType = {
   notifications: Notification[];
   addProject: (project: Omit<Project, 'id' | 'coverImage' >) => void;
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks' | 'dueDate'>) => void;
-  addMessage: (projectId: string, message: string) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
   updateTaskStatus: (taskId: string, status: TaskStatus, remark: string) => void;
   addClient: (clientData: {
@@ -241,27 +240,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     addNotification(`New task '${newTask.title}' added to project '${project.name}'.`, project.id, finalRecipients);
   }
 
-  const addMessage = useCallback((projectId: string, message: string) => {
-    if (!firestore || !currentUser || !usersData || !projectsData) return;
-    const project = projectsData.find(p => p.id === projectId);
-    if (!project) return;
-
-    const newMessage: Omit<ChatMessage, 'id'> = {
-        projectId,
-        senderId: currentUser.id,
-        senderName: currentUser.name,
-        message,
-        timestamp: Timestamp.now(),
-    };
-    addDocumentNonBlocking(collection(firestore, 'messages'), newMessage);
-
-    // Notify other project members
-    const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
-    const recipients = Array.from(new Set([project.client.id, ...(project.team_ids || []), ...adminIds]));
-    const finalRecipients = recipients.filter(id => id !== currentUser.id);
-    addNotification(`New message in project '${project.name}': "${message.substring(0, 30)}..."`, project.id, finalRecipients);
-  }, [firestore, currentUser, usersData, projectsData, addNotification]);
-
   const updateProjectTeam = (projectId: string, teamMemberIds: string[]) => {
     if (!projectsData || !firestore || !currentUser || !usersData) return;
     const project = projectsData.find(p => p.id === projectId);
@@ -439,7 +417,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         notifications,
         addProject, 
         addTask, 
-        addMessage,
         updateProjectTeam, 
         updateTaskStatus,
         addClient,

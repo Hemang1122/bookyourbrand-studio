@@ -9,8 +9,8 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
-import type { Project, Task, User, ChatMessage } from '@/lib/types';
+import { z } from 'zod';
+import type { Project, Task, User } from '@/lib/types';
 import { isSameDay, parseISO } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 
@@ -20,7 +20,6 @@ const GenerateActivityReportInputSchema = z.object({
   projects: z.array(z.any()).describe('An array of all project objects.'),
   tasks: z.array(z.any()).describe('An array of all task objects.'),
   users: z.array(z.any()).describe('An array of all user objects.'),
-  messages: z.array(z.any()).describe('An array of all chat message objects.'),
 });
 export type GenerateActivityReportInput = z.infer<typeof GenerateActivityReportInputSchema>;
 
@@ -92,7 +91,6 @@ const generateActivityReportFlow = ai.defineFlow(
     const { output } = await generateActivityReportPrompt({ 
         ...input, 
         tasks: relevantTasks,
-        messages: [],
         projects: relevantProjects,
     });
     return output!;
