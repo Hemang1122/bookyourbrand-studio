@@ -10,7 +10,6 @@ import { useAuth } from '@/firebase/provider';
 import { useData } from '../../../data-provider';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
-import { uploadChatFile } from '@/lib/chat-upload';
 import { useCollection, useFirebaseServices, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
 
@@ -147,30 +146,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   };
   
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !currentUser) return;
-
-    setIsUploading(true);
-
-    try {
-      await uploadChatFile({
-        projectId,
-        file,
-        contentType: file.type,
-        senderId: currentUser.id,
-        senderName: currentUser.name,
-        senderAvatar: currentUser.avatar || '',
-        isVoice: false,
-      });
-
-      toast({ title: 'File sent' });
-    } catch (error) {
-      console.error(error);
-      toast({ title: 'Upload failed', variant: 'destructive' });
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+    toast({ title: 'Feature Not Available', description: 'File uploads are temporarily disabled.', variant: 'destructive' });
   };
 
   const startRecording = async () => {
@@ -204,28 +180,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
   };
 
   const sendVoiceMessage = async () => {
-    if (!audioBlob || !currentUser) return;
-
-    setIsSendingVoice(true);
-
-    try {
-        await uploadChatFile({
-            projectId,
-            file: audioBlob,
-            contentType: 'audio/webm',
-            senderId: currentUser.id,
-            senderName: currentUser.name,
-            senderAvatar: currentUser.avatar || '',
-            isVoice: true,
-        });
-        toast({ title: 'Voice message sent' });
-    } catch (error) {
-        console.error('Failed to send voice message', error);
-        toast({ title: 'Upload Failed', description: 'Could not send voice message.', variant: 'destructive' });
-    } finally {
-        setIsSendingVoice(false);
-        setAudioBlob(null);
-    }
+     toast({ title: 'Feature Not Available', description: 'Voice messages are temporarily disabled.', variant: 'destructive' });
   };
 
   if (!currentUser) return null;
@@ -236,7 +191,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
         <div className="space-y-4">
           {projectMessages && projectMessages.map((msg) => {
             const isCurrentUser = msg.senderId === currentUser.id;
-            const messageDate = msg.timestamp?.toDate ? msg.timestamp.toDate() : new Date();
+            const messageDate = msg.timestamp ? msg.timestamp.toDate() : new Date();
 
             return (
               <div
@@ -281,7 +236,7 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                          )}
                     </div>
                     <p className={`text-xs mt-1 ${isCurrentUser ? 'text-right' : 'text-left'} text-muted-foreground/80`}>
-                        {msg.timestamp ? msg.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Sending...'}
+                        {msg.timestamp ? messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Sending...'}
                     </p>
                 </div>
                 {isCurrentUser && (

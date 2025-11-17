@@ -1,4 +1,3 @@
-
 'use client';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL, type UploadMetadata } from 'firebase/storage';
 import { getApp } from 'firebase/app';

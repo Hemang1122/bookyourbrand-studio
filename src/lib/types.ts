@@ -1,6 +1,3 @@
-
-
-
 import { FieldValue, Timestamp } from 'firebase/firestore';
 
 export type UserRole = 'admin' | 'team' | 'client';
@@ -83,15 +80,13 @@ export type ChatMessage = {
   senderAvatar: string;
   message: string;
   fileUrl?: string | null;
-  filePath?: string;
   messageType: MessageType;
-  timestamp: Timestamp | null;
+  timestamp: Timestamp;
   replyTo?: {
     messageId: string;
     message: string;
     senderName: string;
   }
-  temp?: boolean;
 };
 
 export type ProjectFile = {
