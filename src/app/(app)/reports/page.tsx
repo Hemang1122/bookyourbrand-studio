@@ -19,7 +19,7 @@ import { useData } from '../data-provider';
 import { format, subDays, parseISO } from 'date-fns';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import type { User, TimerSession } from '@/lib/types';
+import type { User, TimerSession, PackageName } from '@/lib/types';
 import { packages } from '../settings/billing/packages-data';
 
 
@@ -50,6 +50,8 @@ export default function ReportsPage() {
     }
 
     const generatePdfHeader = (doc: jsPDF, title: string) => {
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 40;
         const addressLines = [
             'Shop No 14, Vishwakarma Nagar building. 03',
             '60 feet road, Landmark:, opposite old swaminarayan temple,',
@@ -58,32 +60,33 @@ export default function ReportsPage() {
         
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(24);
-        doc.text('BookYourBrands', 40, 60);
+        doc.text('BookYourBrands', margin, 60);
 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
         doc.setTextColor(100);
         addressLines.forEach((line, index) => {
-            doc.text(line, 40, 75 + (index * 12));
+            doc.text(line, margin, 75 + (index * 12));
         });
 
         doc.setFontSize(28);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(22, 22, 22);
-        doc.text(title.toUpperCase(), doc.internal.pageSize.getWidth() - 40, 105, { align: 'right' });
+        doc.text(title.toUpperCase(), pageWidth - margin, 60, { align: 'right' });
     };
 
     const handleDownload = () => {
         setIsDownloading(true);
 
         const doc = new jsPDF();
-        const dateRangeText = `Last ${dateRange} Days`;
+        const dateRangeText = `For the Last ${dateRange} Days`;
+        const allTimeText = 'All-Time Data';
 
         if (activeTab === 'team-analytics') {
             generatePdfHeader(doc, 'Team Report');
             doc.setFontSize(12);
             doc.setTextColor(100);
-            doc.text(dateRangeText, 40, 140);
+            doc.text(dateRangeText, 40, 130);
             
             const cutoffDate = subDays(new Date(), dateRange);
             const data = teamMembers.map(member => {
@@ -105,37 +108,37 @@ export default function ReportsPage() {
             }).sort((a, b) => parseInt(b[2]) - parseInt(a[2]));
 
             (doc as any).autoTable({
-                startY: 160,
+                startY: 150,
                 head: [['Name', 'Email', 'Tasks Completed', 'Time Tracked']],
                 body: data,
                 theme: 'striped',
-                headStyles: { fillColor: [75, 0, 130] }, // Deep Indigo
+                headStyles: { fillColor: [41, 22, 60] }, // Dark Purple
             });
 
         } else if (activeTab === 'client-analytics') {
             generatePdfHeader(doc, 'Client Report');
             doc.setFontSize(12);
             doc.setTextColor(100);
-            doc.text('All-Time Data', 40, 140);
+            doc.text(allTimeText, 40, 130);
 
-            const getPackagePrice = (packageName: any) => {
+            const getPackagePrice = (packageName: PackageName): number => {
                 const pkg = packages.find(p => p.name === packageName);
-                const tier = pkg?.tiers?.[0];
-                return tier ? parseInt(tier.price.replace(/,/g, '')) : 0;
+                if (!pkg || !pkg.tiers || !pkg.tiers[0] || !pkg.tiers[0].price) return 0;
+                return parseInt(pkg.tiers[0].price.replace(/,/g, ''));
             };
 
             const data = clients.map(client => {
                 const clientProjects = projects.filter(p => p.client.id === client.id);
-                const revenue = getPackagePrice(client.packageName) * clientProjects.length;
+                const revenue = client.packageName ? getPackagePrice(client.packageName) * clientProjects.length : 0;
                 return [client.name, client.company, clientProjects.length.toString(), `₹${revenue.toLocaleString('en-IN')}`];
             }).sort((a, b) => parseFloat(b[3].replace(/[^0-9]/g, '')) - parseFloat(a[3].replace(/[^0-9]/g, '')));
 
             (doc as any).autoTable({
-                startY: 160,
+                startY: 150,
                 head: [['Name', 'Company', 'Projects Created', 'Total Revenue']],
                 body: data,
                 theme: 'striped',
-                headStyles: { fillColor: [75, 0, 130] }, // Deep Indigo
+                headStyles: { fillColor: [41, 22, 60] },
             });
         }
         
@@ -153,16 +156,18 @@ export default function ReportsPage() {
                     </p>
                 </div>
                  <div className="flex items-center gap-2">
-                    <Select value={String(dateRange)} onValueChange={(value) => setDateRange(Number(value))}>
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Select date range" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="7">Last 7 Days</SelectItem>
-                            <SelectItem value="30">Last 30 Days</SelectItem>
-                            <SelectItem value="90">Last 90 Days</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    {activeTab === 'team-analytics' && (
+                        <Select value={String(dateRange)} onValueChange={(value) => setDateRange(Number(value))}>
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Select date range" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="7">Last 7 Days</SelectItem>
+                                <SelectItem value="30">Last 30 Days</SelectItem>
+                                <SelectItem value="90">Last 90 Days</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    )}
                      <Button onClick={handleDownload} disabled={isDownloading}>
                         {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                         Download PDF
