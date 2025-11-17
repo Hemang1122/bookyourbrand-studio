@@ -2,7 +2,7 @@
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus, ChatMessage } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -61,7 +61,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
 
   const addNotification = useCallback((message: string, projectId: string, recipients: string[]) => {
-    if (!firestore || recipients.length === 0 || !usersData) return;
+    if (!firestore || recipients.length === 0) return;
     const newNotif: Omit<Notification, 'id'> = {
       message,
       projectId,
@@ -71,7 +71,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     };
     addDocumentNonBlocking(collection(firestore, 'notifications'), newNotif);
     
-  }, [firestore, usersData]);
+  }, [firestore]);
   
   const { data: projectsData, isLoading: projectsLoading } = useCollection<Project>(useMemoFirebase(() => firestore ? collection(firestore, 'projects') : null, [firestore]));
   const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
