@@ -38,7 +38,12 @@ service cloud.firestore {
         return request.auth.uid == project.client.id || request.auth.uid in project.team_ids;
       }
 
-      allow read: if isSignedIn() && isProjectMember(resource.data.projectId);
+      allow list: if isSignedIn()
+              && isProjectMember(request.query.projectId);
+      
+      allow get: if isSignedIn()
+              && isProjectMember(resource.data.projectId);
+
       allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid && isProjectMember(request.resource.data.projectId);
     }
 
