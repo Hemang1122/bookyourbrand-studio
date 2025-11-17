@@ -31,7 +31,7 @@ export function DailyReportDialog({ children }: DailyReportDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const { toast } = useToast();
-  const { projects, tasks, users, messages } = useData();
+  const { projects, tasks, users } = useData();
   const reportContentRef = useRef<HTMLDivElement>(null);
 
   const handleGenerateReport = async () => {
@@ -47,7 +47,7 @@ export function DailyReportDialog({ children }: DailyReportDialogProps) {
         projects,
         tasks,
         users,
-        messages,
+        messages: [], // Messages are no longer globally available
       };
       const result = await generateActivityReport(input);
       // Basic markdown to HTML

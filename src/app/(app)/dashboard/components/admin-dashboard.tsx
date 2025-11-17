@@ -12,12 +12,11 @@ import { subDays, isAfter } from 'date-fns';
 
 
 export function AdminDashboard() {
-    const { projects, tasks, isLoading, clients, messages } = useData();
+    const { projects, tasks, isLoading, clients } = useData();
     
     const safeTasks = tasks || [];
     const safeProjects = projects || [];
     const safeClients = clients || [];
-    const safeMessages = messages || [];
 
     const completedTasks = safeTasks.filter(t => t.status === 'Completed').length;
     const activeProjects = safeProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;
@@ -34,15 +33,11 @@ export function AdminDashboard() {
             return count + recentRemarks;
         }, 0);
 
-        const recentMessages = safeMessages.filter(message => 
-            message.timestamp && isAfter(message.timestamp.toDate(), oneDayAgo)
-        ).length;
-
-        return recentTaskUpdates + recentMessages;
-    }, [safeTasks, safeMessages]);
+        return recentTaskUpdates;
+    }, [safeTasks]);
 
     const activityLevel = useMemo(() => {
-        if (recentActivityCount > 10) return 'High';
+        if (recentActivityCount > 5) return 'High';
         if (recentActivityCount > 0) return 'Medium';
         return 'Low';
     }, [recentActivityCount]);
