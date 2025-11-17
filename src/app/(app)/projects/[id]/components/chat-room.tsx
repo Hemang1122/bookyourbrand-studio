@@ -4,12 +4,10 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { ChatMessage, User } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Paperclip, FileText, Reply, X, Loader2, Mic, StopCircle } from 'lucide-react';
+import { Send, Reply, X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
 import { useData } from '../../../data-provider';
-import { useToast } from '@/hooks/use-toast';
-import { v4 as uuidv4 } from 'uuid';
 import { useCollection, useFirebaseServices, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
 
@@ -37,42 +35,15 @@ type ChatRoomProps = {
 export function ChatRoom({ projectId }: ChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
-  const { addMessage, users } = useData();
+  const { addMessage } = useData();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const { toast } = useToast();
-  
-  // Voice recording state
-  const [isRecording, setIsRecording] = useState(false);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const [isSendingVoice, setIsSendingVoice] = useState(false);
-  const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
-
 
   const { data: serverMessages, isLoading: messagesLoading } = useProjectMessages(projectId);
   
   const projectMessages = useMemo(() => {
-    const combined = [...(serverMessages || []), ...optimisticMessages];
-
-    const key = (m: ChatMessage) => `${m.senderId}_${m.message}_${m.fileUrl || ''}_${m.messageType}`;
-
-    const seen = new Set<string>();
-    const unique = combined.filter(m => {
-        const k = key(m);
-        if (seen.has(k)) return false;
-        seen.add(k);
-        return true;
-    });
-
-    return unique.sort((a, b) => {
-        const ta = a.timestamp?.toMillis?.() || 0;
-        const tb = b.timestamp?.toMillis?.() || 0;
-        return ta - tb;
-    });
-  }, [serverMessages, optimisticMessages]);
+    return serverMessages || [];
+  }, [serverMessages]);
 
 
   const getScrollableViewport = useCallback(() => {
@@ -145,51 +116,13 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
     setReplyTo(null);
   };
   
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    toast({ title: 'Feature Not Available', description: 'File uploads are temporarily disabled.', variant: 'destructive' });
-  };
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      const chunks: BlobPart[] = [];
-      mediaRecorderRef.current.ondataavailable = (e) => {
-        chunks.push(e.data);
-      };
-      mediaRecorderRef.current.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        setAudioBlob(blob);
-        // Stop all tracks on the stream to turn off the mic indicator
-        stream.getTracks().forEach(track => track.stop());
-      };
-      mediaRecorderRef.current.start();
-      setIsRecording(true);
-      setAudioBlob(null);
-    } catch (err) {
-      console.error("Could not start recording", err);
-      toast({ title: "Recording Error", description: "Could not access microphone.", variant: "destructive" });
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
-  };
-
-  const sendVoiceMessage = async () => {
-     toast({ title: 'Feature Not Available', description: 'Voice messages are temporarily disabled.', variant: 'destructive' });
-  };
-
   if (!currentUser) return null;
 
   return (
     <div className="flex h-[60vh] flex-col">
       <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
         <div className="space-y-4">
-          {projectMessages && projectMessages.map((msg) => {
+          {projectMessages.map((msg) => {
             const isCurrentUser = msg.senderId === currentUser.id;
             const messageDate = msg.timestamp ? msg.timestamp.toDate() : new Date();
 
@@ -217,18 +150,8 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                          </div>
                        )}
 
-                       {msg.messageType === 'file' ? (
-                           <a href={msg.fileUrl || '#'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-lg border bg-background/50 p-3 hover:bg-accent">
-                              <FileText className="h-6 w-6 text-muted-foreground" />
-                              <div className="flex-1">
-                                  <p className="text-sm font-medium text-foreground">{msg.message}</p>
-                              </div>
-                           </a>
-                        ) : msg.messageType === 'voice' ? (
-                          <audio controls src={msg.fileUrl!} className="max-w-full" />
-                        ) : (
-                           <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
-                        )}
+                       <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+
                          {!isCurrentUser && (
                             <Button size="icon" variant="ghost" className="absolute -right-10 top-1/2 -translate-y-1/2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setReplyTo(msg)}>
                                 <Reply className="h-4 w-4" />
@@ -261,43 +184,18 @@ export function ChatRoom({ projectId }: ChatRoomProps) {
                 </Button>
             </div>
         )}
-        {audioBlob ? (
-          <div className="flex w-full items-center space-x-2">
-             <Button variant="destructive" onClick={() => setAudioBlob(null)}>Cancel</Button>
-             <audio src={URL.createObjectURL(audioBlob)} controls className="flex-1"/>
-             <Button onClick={sendVoiceMessage} size="icon" disabled={isSendingVoice}>
-                {isSendingVoice ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-             </Button>
-          </div>
-        ) : (
-          <form onSubmit={handleSendMessage} className="flex w-full items-center space-x-2">
-              <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-              <Button variant="ghost" size="icon" type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                  {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
-                  <span className="sr-only">Attach file</span>
-              </Button>
-              
-              <Input
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type a message..."
-                  autoComplete="off"
-              />
-               {isRecording ? (
-                  <Button type="button" size="icon" onClick={stopRecording} variant="destructive">
-                      <StopCircle className="h-5 w-5" />
-                  </Button>
-              ) : (
-                  <Button type="button" size="icon" onClick={startRecording}>
-                      <Mic className="h-5 w-5" />
-                  </Button>
-              )}
-              <Button type="submit" size="icon" disabled={!newMessage.trim()}>
-                  <Send className="h-5 w-5" />
-                  <span className="sr-only">Send message</span>
-              </Button>
-          </form>
-        )}
+        <form onSubmit={handleSendMessage} className="flex w-full items-center space-x-2">
+            <Input
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type a message..."
+                autoComplete="off"
+            />
+            <Button type="submit" size="icon" disabled={!newMessage.trim()}>
+                <Send className="h-5 w-5" />
+                <span className="sr-only">Send message</span>
+            </Button>
+        </form>
       </div>
     </div>
   );
