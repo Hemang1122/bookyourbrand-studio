@@ -16,6 +16,7 @@ import { EditorResponsibilityPanel } from './editor-responsibility-panel';
 export function TeamDashboard() {
   const { user } = useAuth();
   const { projects, tasks } = useData();
+  const [elapsedTime, setElapsedTime] = useState(0);
 
   const myProjects = useMemo(() => {
     if (!user || !projects) return [];
@@ -39,7 +40,7 @@ export function TeamDashboard() {
     <div className="space-y-4">
       <div className="flex justify-center">
         <div className="w-full max-w-sm">
-          <WorkTimer />
+          <WorkTimer onTimeUpdate={setElapsedTime} />
         </div>
       </div>
 
@@ -130,7 +131,7 @@ export function TeamDashboard() {
             </Card>
         </div>
         <div className="lg:col-span-1">
-          <EditorResponsibilityPanel />
+          <EditorResponsibilityPanel elapsedTime={elapsedTime} />
         </div>
       </div>
     </div>

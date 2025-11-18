@@ -30,7 +30,11 @@ const setLocalStorage = (key: string, userId: string, value: any) => {
     }
 };
 
-export function WorkTimer() {
+type WorkTimerProps = {
+  onTimeUpdate: (time: number) => void;
+};
+
+export function WorkTimer({ onTimeUpdate }: WorkTimerProps) {
   const { user } = useAuth();
   const userId = user?.id;
 
@@ -42,6 +46,12 @@ export function WorkTimer() {
   // State for the session saving dialog
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [sessionToSave, setSessionToSave] = useState<Omit<TimerSession, 'name' | 'date'> | null>(null);
+
+  // Expose time update to parent
+  useEffect(() => {
+    onTimeUpdate(elapsedTime);
+  }, [elapsedTime, onTimeUpdate]);
+
 
   // Load state from localStorage on initial client-side render
   useEffect(() => {

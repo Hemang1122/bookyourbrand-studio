@@ -33,12 +33,13 @@ const setLocalStorage = (key: string, userId: string, value: any) => {
 };
 
 
-export function EditorResponsibilityPanel() {
+type EditorResponsibilityPanelProps = {
+    elapsedTime: number;
+};
+
+export function EditorResponsibilityPanel({ elapsedTime }: EditorResponsibilityPanelProps) {
     const { user } = useAuth();
     const { scrumUpdates } = useData();
-
-    // State for work timer
-    const [elapsedTime, setElapsedTime] = useState(0);
     
     // State for daily reporting
     const [hasReportedToAdmin, setHasReportedToAdmin] = useState(false);
@@ -82,24 +83,6 @@ export function EditorResponsibilityPanel() {
             setLocalStorage('hasReported', user.id, true);
         }
     };
-    
-    // This effect will poll local storage for the latest work timer value
-    useEffect(() => {
-        if (!user) return;
-        const interval = setInterval(() => {
-            const running = getLocalStorage('timerRunning', user.id, false);
-            const startTime = getLocalStorage('timerCurrentSessionStart', user.id, 0);
-            const savedElapsedTime = getLocalStorage('timerElapsedTimeToday', user.id, 0);
-            
-            if (running && startTime > 0) {
-              setElapsedTime(savedElapsedTime + (Date.now() - startTime));
-            } else {
-              setElapsedTime(savedElapsedTime);
-            }
-        }, 1000); // Update every second
-
-        return () => clearInterval(interval);
-    }, [user]);
     
     if (!user) return null;
 
