@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -130,7 +129,7 @@ export function EditorResponsibilityPanel({ elapsedTime }: EditorResponsibilityP
                 >
                     {!reportedToAdmin ? (
                         <Button size="sm" variant="destructive" className="h-7 px-2" onClick={handleReportedToAdmin}>
-                           Incomplete
+                           Report Now
                         </Button>
                     ) : (
                         <Badge variant='secondary' className="bg-green-600/20 text-green-400 border-green-600/30">Completed</Badge>
