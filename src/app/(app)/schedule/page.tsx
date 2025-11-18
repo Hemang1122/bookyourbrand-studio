@@ -41,54 +41,50 @@ export default function SchedulePage() {
         <div className="space-y-2 mb-8">
             <h2 className="text-3xl font-bold tracking-tight">Team Schedule</h2>
             <p className="text-muted-foreground">
-                Filter projects by team member and start date.
+                Filter projects by team member and start date to see their daily assignments.
             </p>
         </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-1 space-y-6">
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Filters</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Team Member</Label>
-                            <Select onValueChange={setSelectedTeamMemberId} value={selectedTeamMemberId || undefined}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a team member" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {teamMembers.map(member => (
-                                        <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Project Start Date</Label>
-                            <Calendar
-                                mode="single"
-                                selected={selectedDate}
-                                onSelect={setSelectedDate}
-                                className="rounded-md border"
-                            />
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-            <div className="lg:col-span-2">
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Projects starting on {selectedDate ? format(selectedDate, 'PPP') : '...'}</CardTitle>
+        
+        <Card>
+            <CardHeader>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                        <CardTitle>Project Assignments</CardTitle>
                         <CardDescription>
-                            {selectedTeamMemberId ? `Assigned to ${teamMembers.find(tm => tm.id === selectedTeamMemberId)?.name}` : 'Select a team member to see projects.'}
+                            {selectedTeamMemberId ? `Viewing projects for ${teamMembers.find(tm => tm.id === selectedTeamMemberId)?.name}` : 'Select a team member.'}
                         </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+                    </div>
+                     <div className="w-full sm:w-auto">
+                        <Select onValueChange={setSelectedTeamMemberId} value={selectedTeamMemberId || undefined}>
+                            <SelectTrigger className="w-full sm:w-[240px]">
+                                <SelectValue placeholder="Select a team member" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {teamMembers.map(member => (
+                                    <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="flex justify-center">
+                    <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        className="rounded-md border"
+                    />
+                </div>
+                <div className="space-y-4">
+                    <h3 className="font-semibold text-center md:text-left">
+                        Projects starting on {selectedDate ? format(selectedDate, 'PPP') : '...'}
+                    </h3>
+                    <div className="border rounded-lg min-h-[200px] p-4 space-y-4">
                         {filteredProjects.length > 0 ? (
                              filteredProjects.map(project => (
-                                <div key={project.id} className="flex items-center justify-between rounded-lg border p-4">
+                                <div key={project.id} className="flex items-center justify-between rounded-lg border bg-background p-4">
                                     <div>
                                         <h3 className="font-semibold">{project.name}</h3>
                                         <p className="text-sm text-muted-foreground">Client: {project.client.name}</p>
@@ -100,22 +96,22 @@ export default function SchedulePage() {
                                     <div className='flex items-center gap-4'>
                                         <Badge variant={project.status === 'Completed' ? 'secondary' : 'default'}>{project.status}</Badge>
                                         <Button variant="outline" size="sm" asChild>
-                                            <Link href={`/projects/${project.id}`}>View Project</Link>
+                                            <Link href={`/projects/${project.id}`}>View</Link>
                                         </Button>
                                     </div>
                                 </div>
                             ))
                         ) : (
-                            <div className="text-center py-12">
+                            <div className="text-center py-12 flex items-center justify-center h-full">
                                 <p className="text-muted-foreground">
-                                    {selectedTeamMemberId ? 'No projects starting for this member on this date.' : 'Please select a team member and a date.'}
+                                    {selectedTeamMemberId ? 'No projects start on this date.' : 'Please select a team member.'}
                                 </p>
                             </div>
                         )}
-                    </CardContent>
-                 </Card>
-            </div>
-        </div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
     </div>
   );
 }
