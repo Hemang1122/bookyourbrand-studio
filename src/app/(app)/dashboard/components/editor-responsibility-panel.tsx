@@ -1,22 +1,19 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Clock, ListChecks, MessageSquareWarning, CheckCircle, AlertCircle, UserCheck, MessageSquarePlus } from 'lucide-react';
+import { Clock, ListChecks, UserCheck, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/firebase/provider';
 import { useData } from '../../data-provider';
 import { format, isSameDay } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { LeaveRemarkDialog } from './leave-remark-dialog';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
 
-// Helper to get a value from localStorage, keyed by user ID
+
 const getLocalStorage = (key: string, userId: string, defaultValue: any) => {
     if (typeof window === 'undefined') return defaultValue;
     const userKey = `${key}_${userId}`;
@@ -29,7 +26,6 @@ const getLocalStorage = (key: string, userId: string, defaultValue: any) => {
     }
 };
 
-// Helper to set a value in localStorage, keyed by user ID
 const setLocalStorage = (key: string, userId: string, value: any) => {
     if (typeof window !== 'undefined') {
         const userKey = `${key}_${userId}`;
@@ -45,20 +41,10 @@ export function EditorResponsibilityPanel({ elapsedTime }: EditorResponsibilityP
     const { user } = useAuth();
     const { scrumUpdates } = useData();
 
-    const [dailyChecks, setDailyChecks] = useState({ reportedToAdmin: false, scrumSubmitted: false });
-    const [remarks, setRemarks] = useState({ hoursRemark: '', scrumRemark: '', reportingRemark: '' });
-    const [isRemarkDialogOpen, setIsRemarkDialogOpen] = useState(false);
-    const [remarkType, setRemarkType] = useState<'hours' | 'scrum' | 'reporting' | null>(null);
+    const [reportedToAdmin, setReportedToAdmin] = useState(false);
 
     const eightHoursInMs = 8 * 60 * 60 * 1000;
     const isWorkGoalMet = elapsedTime >= eightHoursInMs;
-
-    const formatTime = (ms: number) => {
-        const totalSeconds = Math.floor(ms / 1000);
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        return `${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m`;
-    };
 
     // Load states from localStorage on mount
     useEffect(() => {
@@ -67,143 +53,101 @@ export function EditorResponsibilityPanel({ elapsedTime }: EditorResponsibilityP
             const storedDate = getLocalStorage('checklistDate', user.id, null);
 
             if (storedDate === todayStr) {
-                setDailyChecks(getLocalStorage('dailyChecks', user.id, { reportedToAdmin: false, scrumSubmitted: false }));
-                setRemarks(getLocalStorage('dailyRemarks', user.id, { hoursRemark: '', scrumRemark: '', reportingRemark: '' }));
+                setReportedToAdmin(getLocalStorage('adminReported', user.id, false));
             } else {
+                // It's a new day, reset all daily stored values
                 setLocalStorage('checklistDate', user.id, todayStr);
-                setLocalStorage('dailyChecks', user.id, { reportedToAdmin: false, scrumSubmitted: false });
-                setLocalStorage('dailyRemarks', user.id, { hoursRemark: '', scrumRemark: '', reportingRemark: '' });
-                setDailyChecks({ reportedToAdmin: false, scrumSubmitted: false });
-                setRemarks({ hoursRemark: '', scrumRemark: '', reportingRemark: '' });
+                setLocalStorage('adminReported', user.id, false);
+                setReportedToAdmin(false);
             }
         }
     }, [user]);
 
-    // Derived scrum status
+    // Derived scrum status from data provider
     const hasSubmittedScrum = scrumUpdates.some(update =>
         update.userId === user?.id && isSameDay(new Date(update.timestamp), new Date())
     );
-    const isAfter7PM = new Date().getHours() >= 19;
-    
-    // Update scrum status in local storage if it's submitted via the form
-    useEffect(() => {
-        if(user && hasSubmittedScrum && !dailyChecks.scrumSubmitted) {
-            handleCheckChange('scrumSubmitted', true);
-        }
-    }, [hasSubmittedScrum, user]);
 
-
-    const handleCheckChange = (key: 'reportedToAdmin' | 'scrumSubmitted', value: boolean) => {
+    const handleCheckChange = (value: boolean) => {
         if (user) {
-            const newChecks = { ...dailyChecks, [key]: value };
-            setDailyChecks(newChecks);
-            setLocalStorage('dailyChecks', user.id, newChecks);
+            setReportedToAdmin(value);
+            setLocalStorage('adminReported', user.id, value);
         }
     };
+    
+    const ChecklistItem = ({ icon, title, description, isComplete, children }: { icon: React.ElementType, title: string, description: string, isComplete: boolean, children?: React.ReactNode }) => (
+      <div className="flex items-start gap-4">
+        {isComplete ? <CheckCircle className="h-6 w-6 text-green-500 mt-1" /> : <AlertCircle className="h-6 w-6 text-amber-500 mt-1" />}
+        <div className="flex-1 space-y-1">
+          <p className="font-medium">{title}</p>
+          <p className="text-xs text-muted-foreground">{description}</p>
+          {children}
+        </div>
+      </div>
+    );
 
-    const handleOpenRemarkDialog = (type: 'hours' | 'scrum' | 'reporting') => {
-        setRemarkType(type);
-        setIsRemarkDialogOpen(true);
-    };
-
-    const handleSaveRemark = (remark: string) => {
-        if (user && remarkType) {
-            const newRemarks = { ...remarks, [`${remarkType}Remark`]: remark };
-            setRemarks(newRemarks);
-            setLocalStorage('dailyRemarks', user.id, newRemarks);
-        }
-    };
 
     if (!user) return null;
 
     return (
-        <>
         <Card className="sticky top-4">
             <CardHeader>
-                <CardTitle className="text-lg">Editor Responsibility Panel</CardTitle>
-                <CardDescription>Your mandatory daily checklist.</CardDescription>
+                <CardTitle className="text-lg">Daily Completion Checklist</CardTitle>
+                <CardDescription>Your mandatory daily responsibilities.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-8">
                 
-                {/* Work Hours Tracker */}
-                <div className="space-y-3">
-                    <h4 className="font-medium text-sm flex items-center gap-2"><Clock className="text-primary"/>Work Hours Goal</h4>
-                    {isWorkGoalMet ? (
-                         <div className="flex items-center gap-2 text-sm text-green-600 rounded-md border border-green-500/30 bg-green-500/10 p-3">
-                             <CheckCircle className="h-4 w-4"/>
-                             <span>Daily 8-hour goal achieved. Well done!</span>
-                         </div>
-                    ) : (
-                         <Alert variant="default" className="border-amber-500/50 text-amber-600 [&>svg]:text-amber-600">
-                             <AlertCircle className="h-4 w-4" />
-                             <AlertDescription className="text-xs flex items-center justify-between">
-                                <span>Work Timer must reach 8 hours.</span>
-                                 <Button variant="link" size="sm" className="p-0 h-auto text-amber-600" onClick={() => handleOpenRemarkDialog('hours')}>Leave Remark</Button>
-                             </AlertDescription>
-                         </Alert>
-                     )}
-                     {remarks.hoursRemark && <p className="text-xs text-muted-foreground italic">Remark: {remarks.hoursRemark}</p>}
-                </div>
+                <ChecklistItem 
+                    icon={Clock}
+                    title="8-Hour Work Timer"
+                    description="Your daily minimum work duration requirement."
+                    isComplete={isWorkGoalMet}
+                >
+                  <Badge variant={isWorkGoalMet ? 'secondary' : 'destructive'}>
+                    {isWorkGoalMet ? 'Goal Achieved' : 'Incomplete'}
+                  </Badge>
+                </ChecklistItem>
 
-                {/* Scrum Sheet Status */}
-                <div className="space-y-3">
-                    <h4 className="font-medium text-sm flex items-center gap-2"><ListChecks className="text-primary"/>Scrum Sheet Submission</h4>
-                    {hasSubmittedScrum ? (
-                         <div className="flex items-center gap-2 text-sm text-green-600 rounded-md border border-green-500/30 bg-green-500/10 p-3">
-                             <CheckCircle className="h-4 w-4"/>
-                             <span>Daily scrum has been submitted.</span>
-                         </div>
-                    ) : (
-                        <>
-                        <Button asChild className='w-full'>
-                            <Link href="/scrum">Fill Scrum Sheet</Link>
-                        </Button>
-                        {isAfter7PM && (
-                            <Alert variant="destructive">
-                                <AlertCircle className="h-4 w-4" />
-                                <AlertDescription className="text-xs flex items-center justify-between">
-                                    <span>Submission is overdue.</span>
-                                    <Button variant="link" size="sm" className="p-0 h-auto text-destructive" onClick={() => handleOpenRemarkDialog('scrum')}>Leave Remark</Button>
-                                </AlertDescription>
-                            </Alert>
-                        )}
-                        </>
-                    )}
-                    {remarks.scrumRemark && <p className="text-xs text-muted-foreground italic">Remark: {remarks.scrumRemark}</p>}
-                </div>
+                <ChecklistItem 
+                    icon={ListChecks}
+                    title="Scrum Sheet"
+                    description="Submit your daily tasks and blockers."
+                    isComplete={hasSubmittedScrum}
+                >
+                  {!hasSubmittedScrum ? (
+                     <Button asChild size="sm">
+                       <Link href="/scrum">Fill Scrum Sheet</Link>
+                     </Button>
+                  ) : (
+                    <Badge variant="secondary">Submitted</Badge>
+                  )}
+                </ChecklistItem>
 
-                {/* Daily Reporting Status */}
-                <div className="space-y-3">
-                    <h4 className="font-medium text-sm flex items-center gap-2"><UserCheck className="text-primary"/>Daily Reporting to Admin</h4>
-                     <div className="flex items-center space-x-2">
-                        <Checkbox id="reporting-check" checked={dailyChecks.reportedToAdmin} onCheckedChange={(checked) => handleCheckChange('reportedToAdmin', !!checked)} />
-                        <Label htmlFor="reporting-check" className={cn("flex-1", dailyChecks.reportedToAdmin && "line-through text-muted-foreground")}>
-                           Reported my daily status to Niddhi Ma'am.
+                <ChecklistItem 
+                    icon={UserCheck}
+                    title="Reporting to Admin"
+                    description="Confirm that you have reported your daily progress to Nidhi Ma'am."
+                    isComplete={reportedToAdmin}
+                >
+                    <div className="flex items-center space-x-2 pt-1">
+                        <Checkbox 
+                            id="reporting-check" 
+                            checked={reportedToAdmin} 
+                            onCheckedChange={(checked) => handleCheckChange(!!checked)}
+                            disabled={reportedToAdmin}
+                        />
+                        <Label 
+                            htmlFor="reporting-check" 
+                            className={cn(
+                                "text-sm", 
+                                reportedToAdmin && "line-through text-muted-foreground"
+                            )}
+                        >
+                           I have reported my status.
                         </Label>
                     </div>
-                     {!dailyChecks.reportedToAdmin && (
-                         <Alert variant="default" className="border-amber-500/50 text-amber-600 [&>svg]:text-amber-600">
-                             <AlertCircle className="h-4 w-4" />
-                              <AlertDescription className="text-xs flex items-center justify-between">
-                                <span>Niddhi Mam ko daily report karna mandatory.</span>
-                                 <Button variant="link" size="sm" className="p-0 h-auto text-amber-600" onClick={() => handleOpenRemarkDialog('reporting')}>Leave Remark</Button>
-                             </AlertDescription>
-                         </Alert>
-                     )}
-                     {remarks.reportingRemark && <p className="text-xs text-muted-foreground italic">Remark: {remarks.reportingRemark}</p>}
-                </div>
+                </ChecklistItem>
             </CardContent>
         </Card>
-        {remarkType && (
-            <LeaveRemarkDialog
-                open={isRemarkDialogOpen}
-                onOpenChange={setIsRemarkDialogOpen}
-                onSaveRemark={handleSaveRemark}
-                remarkType={remarkType}
-                currentRemark={remarks[`${remarkType}Remark`]}
-            />
-        )}
-        </>
     );
 }
-

@@ -2,12 +2,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Timer, Play, StopCircle } from 'lucide-react';
+import { Timer, Play, StopCircle, History } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/firebase/provider';
 import type { TimerSession } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 import { SaveSessionDialog } from './save-session-dialog';
+import Link from 'next/link';
 
 // Helper to get a value from localStorage, keyed by user ID
 const getLocalStorage = (key: string, userId: string, defaultValue: any) => {
@@ -187,7 +188,12 @@ export function WorkTimer({ onTimeUpdate }: WorkTimerProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Work Timer</CardTitle>
-          <Timer className="h-4 w-4 text-muted-foreground" />
+          <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+            <Link href="/work-timer">
+                <History className="h-4 w-4"/>
+                <span className="sr-only">View Session History</span>
+            </Link>
+        </Button>
         </CardHeader>
         <CardContent className="space-y-3 pt-2">
           <div className="text-center">
