@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ListTodo, Clock, CheckCircle2, FolderKanban } from 'lucide-react';
+import { ListTodo, Clock, FolderKanban } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,12 +11,14 @@ import { useMemo, useState } from 'react';
 import { WorkTimer } from './work-timer';
 import { EditorResponsibilityPanel } from './editor-responsibility-panel';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ProjectCalendarCard } from './project-calendar-card';
 
 
 export function TeamDashboard() {
   const { user } = useAuth();
   const { projects, tasks } = useData();
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
 
   const myProjects = useMemo(() => {
     if (!user || !projects) return [];
@@ -34,7 +36,6 @@ export function TeamDashboard() {
   
   const pendingTasks = myTasks.filter(t => t.status === 'Pending').length;
   const inProgressTasks = myTasks.filter(t => t.status === 'In Progress').length;
-  const completedTasks = myTasks.filter(t => t.status === 'Completed').length;
 
   return (
     <div className="space-y-6">
@@ -84,43 +85,45 @@ export function TeamDashboard() {
             </Card>
           </div>
           
-          {/* Projects List */}
-          <Card>
-            <CardHeader>
-              <CardTitle>My Assigned Projects</CardTitle>
-              <CardDescription>
-                Here are the projects you are currently a member of.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[300px]">
-                <div className="space-y-4 pr-4">
-                  {myProjects.length > 0 ? (
-                    myProjects.map(project => (
-                      <div key={project.id} className="flex items-center justify-between rounded-lg border p-4">
-                        <div>
-                          <h3 className="font-semibold">{project.name}</h3>
-                          <p className="text-sm text-muted-foreground">Client: {project.client.name}</p>
+           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+             <Card>
+                <CardHeader>
+                <CardTitle>My Assigned Projects</CardTitle>
+                <CardDescription>
+                    Here are the projects you are currently a member of.
+                </CardDescription>
+                </CardHeader>
+                <CardContent>
+                <ScrollArea className="h-[400px]">
+                    <div className="space-y-4 pr-4">
+                    {myProjects.length > 0 ? (
+                        myProjects.map(project => (
+                        <div key={project.id} className="flex items-center justify-between rounded-lg border p-4">
+                            <div>
+                            <h3 className="font-semibold">{project.name}</h3>
+                            <p className="text-sm text-muted-foreground">Client: {project.client.name}</p>
+                            </div>
+                            <div className='flex items-center gap-4'>
+                            <Badge variant={project.status === 'Completed' ? 'secondary' : 'default'}>{project.status}</Badge>
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href={`/projects/${project.id}`}>View Project</Link>
+                            </Button>
+                            </div>
                         </div>
-                        <div className='flex items-center gap-4'>
-                          <Badge variant={project.status === 'Completed' ? 'secondary' : 'default'}>{project.status}</Badge>
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`/projects/${project.id}`}>View Project</Link>
-                          </Button>
+                        ))
+                    ) : (
+                        <div className="text-center py-8">
+                        <p className="text-muted-foreground">
+                            You have not been assigned to any projects yet.
+                        </p>
                         </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground">
-                        You have not been assigned to any projects yet.
-                      </p>
+                    )}
                     </div>
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+                </ScrollArea>
+                </CardContent>
+            </Card>
+            <ProjectCalendarCard selectedDate={calendarDate} onDateChange={setCalendarDate} />
+           </div>
         </div>
 
         {/* Right Column (Sticky) */}
