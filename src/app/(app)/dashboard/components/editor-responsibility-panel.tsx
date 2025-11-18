@@ -7,8 +7,6 @@ import { Clock, ListChecks, UserCheck, CheckCircle, AlertCircle } from 'lucide-r
 import { useAuth } from '@/firebase/provider';
 import { useData } from '../../data-provider';
 import { format, isSameDay } from 'date-fns';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
@@ -68,10 +66,10 @@ export function EditorResponsibilityPanel({ elapsedTime }: EditorResponsibilityP
         update.userId === user?.id && isSameDay(new Date(update.timestamp), new Date())
     );
 
-    const handleCheckChange = (value: boolean) => {
-        if (user) {
-            setReportedToAdmin(value);
-            setLocalStorage('adminReported', user.id, value);
+    const handleReportedToAdmin = () => {
+        if (user && !reportedToAdmin) {
+            setReportedToAdmin(true);
+            setLocalStorage('adminReported', user.id, true);
         }
     };
     
@@ -104,7 +102,7 @@ export function EditorResponsibilityPanel({ elapsedTime }: EditorResponsibilityP
                     isComplete={isWorkGoalMet}
                 >
                   <Badge variant={isWorkGoalMet ? 'secondary' : 'destructive'}>
-                    {isWorkGoalMet ? 'Goal Achieved' : 'Incomplete'}
+                    {isWorkGoalMet ? 'Completed' : 'Incomplete'}
                   </Badge>
                 </ChecklistItem>
 
@@ -114,13 +112,13 @@ export function EditorResponsibilityPanel({ elapsedTime }: EditorResponsibilityP
                     description="Submit your daily tasks and blockers."
                     isComplete={hasSubmittedScrum}
                 >
-                  {!hasSubmittedScrum ? (
-                     <Button asChild size="sm">
-                       <Link href="/scrum">Fill Scrum Sheet</Link>
-                     </Button>
-                  ) : (
-                    <Badge variant="secondary">Submitted</Badge>
-                  )}
+                    {!hasSubmittedScrum ? (
+                        <Button asChild size="sm" variant="destructive" className="h-7 px-2">
+                           <Link href="/scrum">Incomplete</Link>
+                        </Button>
+                    ) : (
+                        <Badge variant="secondary">Completed</Badge>
+                    )}
                 </ChecklistItem>
 
                 <ChecklistItem 
@@ -129,23 +127,13 @@ export function EditorResponsibilityPanel({ elapsedTime }: EditorResponsibilityP
                     description="Confirm that you have reported your daily progress to Nidhi Ma'am."
                     isComplete={reportedToAdmin}
                 >
-                    <div className="flex items-center space-x-2 pt-1">
-                        <Checkbox 
-                            id="reporting-check" 
-                            checked={reportedToAdmin} 
-                            onCheckedChange={(checked) => handleCheckChange(!!checked)}
-                            disabled={reportedToAdmin}
-                        />
-                        <Label 
-                            htmlFor="reporting-check" 
-                            className={cn(
-                                "text-sm", 
-                                reportedToAdmin && "line-through text-muted-foreground"
-                            )}
-                        >
-                           I have reported my status.
-                        </Label>
-                    </div>
+                    {!reportedToAdmin ? (
+                        <Button size="sm" variant="destructive" className="h-7 px-2" onClick={handleReportedToAdmin}>
+                           Incomplete
+                        </Button>
+                    ) : (
+                        <Badge variant="secondary">Completed</Badge>
+                    )}
                 </ChecklistItem>
             </CardContent>
         </Card>
