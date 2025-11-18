@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { LeaveRemarkDialog } from './leave-remark-dialog';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 // Helper to get a value from localStorage, keyed by user ID
 const getLocalStorage = (key: string, userId: string, defaultValue: any) => {
@@ -49,7 +51,7 @@ export function EditorResponsibilityPanel({ elapsedTime }: EditorResponsibilityP
     const [remarkType, setRemarkType] = useState<'hours' | 'scrum' | 'reporting' | null>(null);
 
     const eightHoursInMs = 8 * 60 * 60 * 1000;
-    const workProgress = Math.min((elapsedTime / eightHoursInMs) * 100, 100);
+    const isWorkGoalMet = elapsedTime >= eightHoursInMs;
 
     const formatTime = (ms: number) => {
         const totalSeconds = Math.floor(ms / 1000);
@@ -83,12 +85,13 @@ export function EditorResponsibilityPanel({ elapsedTime }: EditorResponsibilityP
     );
     const isAfter7PM = new Date().getHours() >= 19;
     
-    // Update scrum status in local storage if it's submitted
+    // Update scrum status in local storage if it's submitted via the form
     useEffect(() => {
         if(user && hasSubmittedScrum && !dailyChecks.scrumSubmitted) {
             handleCheckChange('scrumSubmitted', true);
         }
-    }, [hasSubmittedScrum, user, dailyChecks.scrumSubmitted]);
+    }, [hasSubmittedScrum, user]);
+
 
     const handleCheckChange = (key: 'reportedToAdmin' | 'scrumSubmitted', value: boolean) => {
         if (user) {
@@ -111,8 +114,6 @@ export function EditorResponsibilityPanel({ elapsedTime }: EditorResponsibilityP
         }
     };
 
-    const isWorkGoalMet = workProgress >= 100;
-
     if (!user) return null;
 
     return (
@@ -126,18 +127,11 @@ export function EditorResponsibilityPanel({ elapsedTime }: EditorResponsibilityP
                 
                 {/* Work Hours Tracker */}
                 <div className="space-y-3">
-                    <h4 className="font-medium text-sm flex items-center gap-2"><Clock className="text-primary"/>Work Hours Logged Today</h4>
-                    <div className="space-y-1">
-                        <div className="flex justify-between items-baseline">
-                             <p className="font-mono text-xl font-bold text-primary">{formatTime(elapsedTime)}</p>
-                             <p className="text-xs text-muted-foreground">Goal: 08h 00m</p>
-                        </div>
-                        <Progress value={workProgress} />
-                    </div>
+                    <h4 className="font-medium text-sm flex items-center gap-2"><Clock className="text-primary"/>Work Hours Goal</h4>
                     {isWorkGoalMet ? (
-                         <div className="flex items-center gap-2 text-sm text-green-600">
+                         <div className="flex items-center gap-2 text-sm text-green-600 rounded-md border border-green-500/30 bg-green-500/10 p-3">
                              <CheckCircle className="h-4 w-4"/>
-                             <span>Daily goal met. Well done!</span>
+                             <span>Daily 8-hour goal achieved. Well done!</span>
                          </div>
                     ) : (
                          <Alert variant="default" className="border-amber-500/50 text-amber-600 [&>svg]:text-amber-600">
@@ -154,21 +148,27 @@ export function EditorResponsibilityPanel({ elapsedTime }: EditorResponsibilityP
                 {/* Scrum Sheet Status */}
                 <div className="space-y-3">
                     <h4 className="font-medium text-sm flex items-center gap-2"><ListChecks className="text-primary"/>Scrum Sheet Submission</h4>
-                    <div className="flex items-center space-x-2">
-                        <Checkbox id="scrum-check" checked={dailyChecks.scrumSubmitted} onCheckedChange={(checked) => handleCheckChange('scrumSubmitted', !!checked)} disabled={hasSubmittedScrum}/>
-                        <Label htmlFor="scrum-check" className={cn("flex-1", dailyChecks.scrumSubmitted && "line-through text-muted-foreground")}>
-                           Daily scrum sheet has been submitted.
-                        </Label>
-                    </div>
-                     {!dailyChecks.scrumSubmitted && isAfter7PM && (
-                         <Alert variant="destructive">
-                             <AlertCircle className="h-4 w-4" />
-                             <AlertDescription className="text-xs flex items-center justify-between">
-                                <span>Mandatory daily submission is overdue.</span>
-                                <Button variant="link" size="sm" className="p-0 h-auto text-destructive" onClick={() => handleOpenRemarkDialog('scrum')}>Leave Remark</Button>
-                             </AlertDescription>
-                         </Alert>
-                     )}
+                    {hasSubmittedScrum ? (
+                         <div className="flex items-center gap-2 text-sm text-green-600 rounded-md border border-green-500/30 bg-green-500/10 p-3">
+                             <CheckCircle className="h-4 w-4"/>
+                             <span>Daily scrum has been submitted.</span>
+                         </div>
+                    ) : (
+                        <>
+                        <Button asChild className='w-full'>
+                            <Link href="/scrum">Fill Scrum Sheet</Link>
+                        </Button>
+                        {isAfter7PM && (
+                            <Alert variant="destructive">
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertDescription className="text-xs flex items-center justify-between">
+                                    <span>Submission is overdue.</span>
+                                    <Button variant="link" size="sm" className="p-0 h-auto text-destructive" onClick={() => handleOpenRemarkDialog('scrum')}>Leave Remark</Button>
+                                </AlertDescription>
+                            </Alert>
+                        )}
+                        </>
+                    )}
                     {remarks.scrumRemark && <p className="text-xs text-muted-foreground italic">Remark: {remarks.scrumRemark}</p>}
                 </div>
 
@@ -206,3 +206,4 @@ export function EditorResponsibilityPanel({ elapsedTime }: EditorResponsibilityP
         </>
     );
 }
+
