@@ -86,15 +86,15 @@ export function TeamDashboard() {
           </div>
           
            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-             <Card>
+             <Card className="xl:col-span-2">
                 <CardHeader>
-                <CardTitle>My Assigned Projects</CardTitle>
+                <CardTitle>My Assigned Projects &amp; Schedule</CardTitle>
                 <CardDescription>
-                    Here are the projects you are currently a member of.
+                    Here are your projects and a calendar for start dates.
                 </CardDescription>
                 </CardHeader>
-                <CardContent>
-                <ScrollArea className="h-[400px]">
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <ScrollArea className="h-[400px] md:h-auto">
                     <div className="space-y-4 pr-4">
                     {myProjects.length > 0 ? (
                         myProjects.map(project => (
@@ -120,9 +120,9 @@ export function TeamDashboard() {
                     )}
                     </div>
                 </ScrollArea>
+                <ProjectCalendarCard selectedDate={calendarDate} onDateChange={setCalendarDate} />
                 </CardContent>
             </Card>
-            <ProjectCalendarCard selectedDate={calendarDate} onDateChange={setCalendarDate} />
            </div>
         </div>
 
