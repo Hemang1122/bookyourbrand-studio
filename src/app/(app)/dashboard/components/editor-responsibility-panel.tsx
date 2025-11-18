@@ -101,7 +101,7 @@ export function EditorResponsibilityPanel({ elapsedTime }: EditorResponsibilityP
                     description="Your daily minimum work duration requirement."
                     isComplete={isWorkGoalMet}
                 >
-                  <Badge variant={isWorkGoalMet ? 'secondary' : 'destructive'}>
+                  <Badge variant={isWorkGoalMet ? 'secondary' : 'destructive'} className={cn(isWorkGoalMet && "bg-green-600/20 text-green-400 border-green-600/30")}>
                     {isWorkGoalMet ? 'Completed' : 'Incomplete'}
                   </Badge>
                 </ChecklistItem>
@@ -117,7 +117,7 @@ export function EditorResponsibilityPanel({ elapsedTime }: EditorResponsibilityP
                            <Link href="/scrum">Incomplete</Link>
                         </Button>
                     ) : (
-                        <Badge variant="secondary">Completed</Badge>
+                        <Badge variant='secondary' className="bg-green-600/20 text-green-400 border-green-600/30">Completed</Badge>
                     )}
                 </ChecklistItem>
 
@@ -132,7 +132,7 @@ export function EditorResponsibilityPanel({ elapsedTime }: EditorResponsibilityP
                            Incomplete
                         </Button>
                     ) : (
-                        <Badge variant="secondary">Completed</Badge>
+                        <Badge variant='secondary' className="bg-green-600/20 text-green-400 border-green-600/30">Completed</Badge>
                     )}
                 </ChecklistItem>
             </CardContent>
