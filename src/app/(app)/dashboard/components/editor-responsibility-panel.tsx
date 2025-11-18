@@ -12,6 +12,7 @@ import { format, isSameDay } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { LeaveRemarkDialog } from './leave-remark-dialog';
+import { cn } from '@/lib/utils';
 
 // Helper to get a value from localStorage, keyed by user ID
 const getLocalStorage = (key: string, userId: string, defaultValue: any) => {
