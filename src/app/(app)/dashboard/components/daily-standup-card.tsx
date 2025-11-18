@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,7 +18,7 @@ export function DailyStandupCard({ className, style }: { className?: string, sty
           Join the daily sync-up call.
         </p>
         <Button asChild className="w-full">
-            <a href="https://meet.google.com/trr-hsbo-ahe" target="_blank" rel="noopener noreferrer">
+            <a href="https://meet.google.com" target="_blank" rel="noopener noreferrer">
                 Join Meeting
             </a>
         </Button>
