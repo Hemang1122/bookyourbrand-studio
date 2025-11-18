@@ -88,7 +88,7 @@ export function EditorResponsibilityPanel({ elapsedTime }: EditorResponsibilityP
     if (!user) return null;
 
     return (
-        <Card className="sticky top-4">
+        <Card className="w-full lg:w-80">
             <CardHeader>
                 <CardTitle className="text-lg">Daily Completion Checklist</CardTitle>
                 <CardDescription>Your mandatory daily responsibilities.</CardDescription>
