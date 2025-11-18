@@ -109,11 +109,8 @@ export const useFirebaseServices = (): FirebaseServicesContextState => {
 /**
  * useFirestore: Convenience hook to get just the Firestore instance.
  */
-export const useFirestore = (): Firestore => {
+export const useFirestore = (): Firestore | null => {
     const { firestore } = useFirebaseServices();
-    if (!firestore) {
-        throw new Error('Firestore service not available. Check FirebaseProvider setup.');
-    }
     return firestore;
 };
 
