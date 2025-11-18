@@ -7,12 +7,14 @@ import { OverviewChart } from './overview-chart';
 import { useData } from '../../data-provider';
 import { DailyStandupCard } from './daily-standup-card';
 import type { Client } from '@/lib/types';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { subDays, isAfter } from 'date-fns';
+import { ProjectCalendarCard } from './project-calendar-card';
 
 
 export function AdminDashboard() {
     const { projects, tasks, isLoading, clients } = useData();
+    const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
     
     const safeTasks = tasks || [];
     const safeProjects = projects || [];
@@ -97,9 +99,10 @@ export function AdminDashboard() {
                 <OverviewChart tasks={safeTasks} />
             </CardContent>
             </Card>
+             <DailyStandupCard />
         </div>
         <div className="col-span-4 lg:col-span-3 space-y-4">
-            <DailyStandupCard />
+           <ProjectCalendarCard selectedDate={calendarDate} onDateChange={setCalendarDate} />
         </div>
       </div>
     </div>
