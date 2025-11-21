@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 
 type ProjectListProps = {
   statusFilter: ProjectStatus | 'All';
+  searchQuery: string;
 };
 
 const getStatusBadgeVariant = (status: ProjectStatus) => {
@@ -49,7 +50,7 @@ const getStatusBadgeClass = (status: ProjectStatus) => {
 }
 
 
-export function ProjectList({ statusFilter }: ProjectListProps) {
+export function ProjectList({ statusFilter, searchQuery }: ProjectListProps) {
   const { projects, users, isLoading } = useData();
   const { user } = useAuth();
 
@@ -63,12 +64,18 @@ export function ProjectList({ statusFilter }: ProjectListProps) {
       userProjects = projects.filter(p => p.team_ids && p.team_ids.includes(user.id));
     }
 
-    if (statusFilter === 'All') {
-      return userProjects;
+    let statusFilteredProjects = userProjects;
+    if (statusFilter !== 'All') {
+      statusFilteredProjects = userProjects.filter(p => p.status === statusFilter);
     }
-    return userProjects.filter(p => p.status === statusFilter);
 
-  }, [projects, user, statusFilter]);
+    if (!searchQuery) {
+        return statusFilteredProjects;
+    }
+
+    return statusFilteredProjects.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  }, [projects, user, statusFilter, searchQuery]);
 
   const teamEditorMapping = useMemo(() => {
     if (!users) return new Map<string, string>();
