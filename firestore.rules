@@ -3,33 +3,31 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /* ---- Helper Functions ---- */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
-
     function isAdmin() {
-      return request.auth != null &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+      return request.auth.token.role == "admin";
     }
 
-    /* ---- USERS ---- */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /* USERS */
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow write: if isOwner(userId) || isAdmin();
     }
 
-    /* ---- CLIENTS ---- */
+    /* CLIENTS */
     match /clients/{clientId} {
       allow read: if isAdmin() || isOwner(clientId);
       allow write: if isAdmin();
     }
 
-    /* ---- PROJECTS ---- */
+    /* PROJECTS */
     match /projects/{projectId} {
       allow list: if isSignedIn();
       allow get: if isSignedIn() &&
@@ -51,7 +49,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    /* ---- TASKS ---- */
+    /* TASKS */
     match /tasks/{taskId} {
       allow read, write: if isSignedIn() &&
                          (
@@ -61,7 +59,7 @@ service cloud.firestore {
                          );
     }
 
-    /* ---- FILES ---- */
+    /* FILES */
     match /files/{fileId} {
       allow read, write: if isSignedIn() &&
                          (
@@ -71,19 +69,18 @@ service cloud.firestore {
                          );
     }
 
-    /* ---- SCRUM UPDATES ---- */
+    /* SCRUM UPDATES */
     match /scrum-updates/{updateId} {
       allow read, list: if isAdmin();
       allow create: if isSignedIn() &&
                     request.resource.data.userId == request.auth.uid;
     }
 
-    /* ---- NOTIFICATIONS ---- */
+    /* NOTIFICATIONS */
     match /notifications/{notificationId} {
       allow create: if isSignedIn();
       allow read, update: if isSignedIn() &&
                           request.auth.uid in resource.data.recipients;
-      allow delete: if false;
     }
   }
 }
