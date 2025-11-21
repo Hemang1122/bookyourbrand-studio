@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useData } from '../data-provider';
-import { format, subDays } from 'date-fns';
+import { format, subDays, isAfter, parseISO } from 'date-fns';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { User, TimerSession, PackageName, Project, Task, Client } from '@/lib/types';
@@ -28,14 +28,6 @@ import { LoginLogo } from '@/components/login-logo';
 
 
 type AnalyticsTab = 'team-analytics' | 'client-analytics' | 'business-analytics';
-
-// Helper to get a value from localStorage, keyed by user ID
-const getLocalStorage = (key: string, userId: string, defaultValue: any) => {
-    if (typeof window === 'undefined') return defaultValue;
-    const userKey = `${key}_${userId}`;
-    const storedValue = window.localStorage.getItem(userKey);
-    return storedValue ? JSON.parse(storedValue) : defaultValue;
-};
 
 const getPackagePrice = (packageName: PackageName | undefined): number => {
     if (!packageName) return 0;
@@ -102,7 +94,7 @@ export default function ReportsPage() {
     const [activeTab, setActiveTab] = useState<AnalyticsTab>('team-analytics');
     const [isDownloading, setIsDownloading] = useState(false);
     
-    const { teamMembers, tasks, clients, projects, isLoading } = useData();
+    const { teamMembers, tasks, clients, projects, timerSessions, isLoading } = useData();
 
     if (user?.role !== 'admin') {
         if (typeof window !== 'undefined') {
@@ -246,9 +238,8 @@ export default function ReportsPage() {
         const cutoffDate = subDays(new Date(), 30);
         const teamTableData = teamMembers.map(member => {
             const completedTasks = tasks.filter(t => t.assignedTo.id === member.id && t.status === 'Completed').length;
-             const allSessions: TimerSession[] = getLocalStorage('timerAllSessions', member.id, []);
-            const totalTime = allSessions
-                .filter(session => new Date(session.date) > cutoffDate)
+            const totalTime = (timerSessions || [])
+                .filter(session => session.userId === member.id && isAfter(parseISO(session.date), cutoffDate))
                 .reduce((acc, session) => acc + (session.endTime ? session.endTime - session.startTime : 0), 0);
             
             const formatTime = (ms: number) => {
@@ -333,9 +324,8 @@ export default function ReportsPage() {
                     task.status === 'Completed' &&
                     task.remarks.some(r => r.toStatus === 'Completed' && new Date(r.timestamp) > cutoffDate)
                 ).length;
-                const allSessions: TimerSession[] = getLocalStorage('timerAllSessions', member.id, []);
-                const totalTime = allSessions
-                    .filter(session => new Date(session.date) > cutoffDate)
+                const totalTime = (timerSessions || [])
+                    .filter(session => session.userId === member.id && new Date(session.date) > cutoffDate)
                     .reduce((acc, session) => acc + (session.endTime ? session.endTime - session.startTime : 0), 0);
 
                 return [

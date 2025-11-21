@@ -9,6 +9,7 @@ import type { TimerSession } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 import { SaveSessionDialog } from './save-session-dialog';
 import Link from 'next/link';
+import { useData } from '../../data-provider';
 
 // Helper to get a value from localStorage, keyed by user ID
 const getLocalStorage = (key: string, userId: string, defaultValue: any) => {
@@ -38,6 +39,7 @@ type WorkTimerProps = {
 export function WorkTimer({ onTimeUpdate }: WorkTimerProps) {
   const { user } = useAuth();
   const userId = user?.id;
+  const { addTimerSession, users } = useData();
 
   const [isRunning, setIsRunning] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -46,7 +48,7 @@ export function WorkTimer({ onTimeUpdate }: WorkTimerProps) {
 
   // State for the session saving dialog
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
-  const [sessionToSave, setSessionToSave] = useState<Omit<TimerSession, 'name' | 'date'> | null>(null);
+  const [sessionToSave, setSessionToSave] = useState<Omit<TimerSession, 'name' | 'date' | 'userId'> | null>(null);
 
   // Expose time update to parent
   useEffect(() => {
@@ -102,7 +104,7 @@ export function WorkTimer({ onTimeUpdate }: WorkTimerProps) {
   }, [isRunning, userId]);
 
   const handleStart = () => {
-    if (isRunning || !userId) return;
+    if (isRunning || !userId || !user) return;
     const startTime = Date.now();
     setCurrentSessionStart(startTime);
     setLocalStorage('timerCurrentSessionStart', userId, startTime);
@@ -138,16 +140,14 @@ export function WorkTimer({ onTimeUpdate }: WorkTimerProps) {
     if (!sessionToSave || !userId) return;
 
     const todayStr = format(new Date(), 'yyyy-MM-dd');
-    const newSession: TimerSession = {
+    const newSession: Omit<TimerSession, 'id'> = {
       ...sessionToSave,
+      userId,
       name,
       date: todayStr,
     };
 
-    // Get all historical sessions, add the new one, and save back
-    const allSessions = getLocalStorage('timerAllSessions', userId, []);
-    setLocalStorage('timerAllSessions', userId, [...allSessions, newSession]);
-    
+    addTimerSession(newSession);
     setSessionToSave(null);
   };
 

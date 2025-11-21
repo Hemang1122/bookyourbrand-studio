@@ -8,34 +8,19 @@ import { useAuth } from '@/firebase/provider';
 import type { TimerSession } from '@/lib/types';
 import { format } from 'date-fns';
 import { ReportDialog } from '../dashboard/components/report-dialog';
-
-// Helper to get a value from localStorage, keyed by user ID
-const getLocalStorage = (key: string, userId: string, defaultValue: any) => {
-    if (typeof window === 'undefined') return defaultValue;
-    const userKey = `${key}_${userId}`;
-    const storedValue = window.localStorage.getItem(userKey);
-    return storedValue ? JSON.parse(storedValue) : defaultValue;
-};
+import { useData } from '../data-provider';
 
 export default function WorkTimerPage() {
     const { user } = useAuth();
+    const { timerSessions } = useData();
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-    const [allSessions, setAllSessions] = useState<TimerSession[]>([]);
     const [isReportOpen, setIsReportOpen] = useState(false);
 
-    // Effect to load sessions from local storage when the component mounts or user changes
-    useEffect(() => {
-        if (user?.id) {
-            const sessions = getLocalStorage('timerAllSessions', user.id, []);
-            setAllSessions(sessions);
-        }
-    }, [user?.id]);
-    
     const sessionsForSelectedDate = useMemo(() => {
-        if (!selectedDate) return [];
+        if (!selectedDate || !user) return [];
         const dateStr = format(selectedDate, 'yyyy-MM-dd');
-        return allSessions.filter(session => session.date === dateStr);
-    }, [selectedDate, allSessions]);
+        return timerSessions.filter(session => session.date === dateStr && session.userId === user.id);
+    }, [selectedDate, timerSessions, user]);
 
     const totalTimeForSelectedDate = useMemo(() => {
         return sessionsForSelectedDate.reduce((total, session) => {

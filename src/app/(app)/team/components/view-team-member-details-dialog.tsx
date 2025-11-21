@@ -1,6 +1,6 @@
 
 'use client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -16,13 +16,7 @@ import { Download } from 'lucide-react';
 import { ReportDialog } from '../../dashboard/components/report-dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-
-const getLocalStorage = (key: string, userId: string, defaultValue: any) => {
-    if (typeof window === 'undefined') return defaultValue;
-    const userKey = `${key}_${userId}`;
-    const storedValue = window.localStorage.getItem(userKey);
-    return storedValue ? JSON.parse(storedValue) : defaultValue;
-};
+import { useData } from '../../data-provider';
 
 
 type ViewTeamMemberDetailsDialogProps = {
@@ -34,12 +28,13 @@ export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMe
   const [open, setOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const { timerSessions } = useData();
   
-  const allSessions: TimerSession[] = getLocalStorage('timerAllSessions', teamMember.id, []);
-  
-  const sessionsForSelectedDate = selectedDate 
-    ? allSessions.filter(session => session.date === format(selectedDate, 'yyyy-MM-dd')) 
-    : [];
+  const sessionsForSelectedDate = useMemo(() => {
+    if (!selectedDate) return [];
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    return timerSessions.filter(s => s.userId === teamMember.id && s.date === dateStr);
+  }, [selectedDate, timerSessions, teamMember.id]);
 
   const totalTimeForSelectedDate = sessionsForSelectedDate.reduce((total, session) => {
     return total + (session.endTime ? session.endTime - session.startTime : 0);

@@ -1,4 +1,3 @@
-
 import { FieldValue, Timestamp } from 'firebase/firestore';
 
 export type UserRole = 'admin' | 'team' | 'client';
@@ -131,6 +130,7 @@ export type Notification = {
 
 export interface TimerSession {
   id: string;
+  userId: string;
   name: string;
   startTime: number;
   endTime: number | null;

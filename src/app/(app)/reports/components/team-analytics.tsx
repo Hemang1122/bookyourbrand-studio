@@ -9,13 +9,6 @@ import { subDays, isAfter, parseISO, format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Award, Clock } from 'lucide-react';
 
-const getLocalStorage = (key: string, userId: string, defaultValue: any) => {
-    if (typeof window === 'undefined') return defaultValue;
-    const userKey = `${key}_${userId}`;
-    const storedValue = window.localStorage.getItem(userKey);
-    return storedValue ? JSON.parse(storedValue) : defaultValue;
-};
-
 const formatTime = (ms: number) => {
     if (ms < 0) ms = 0;
     const totalSeconds = Math.floor(ms / 1000);
@@ -26,7 +19,7 @@ const formatTime = (ms: number) => {
 
 
 export function TeamAnalytics({ dateRange }: { dateRange: number }) {
-  const { teamMembers, tasks } = useData();
+  const { teamMembers, tasks, timerSessions } = useData();
 
   const analyticsData = useMemo(() => {
     const cutoffDate = subDays(new Date(), dateRange);
@@ -42,9 +35,8 @@ export function TeamAnalytics({ dateRange }: { dateRange: number }) {
         }).length;
         
         // Calculate total tracked time
-        const allSessions: TimerSession[] = getLocalStorage('timerAllSessions', member.id, []);
-        const totalTime = allSessions
-            .filter(session => isAfter(parseISO(session.date), cutoffDate))
+        const totalTime = (timerSessions || [])
+            .filter(session => session.userId === member.id && isAfter(parseISO(session.date), cutoffDate))
             .reduce((acc, session) => acc + (session.endTime ? session.endTime - session.startTime : 0), 0);
 
         return {
@@ -54,7 +46,7 @@ export function TeamAnalytics({ dateRange }: { dateRange: number }) {
         }
     }).sort((a, b) => b.completedTasks - a.completedTasks || b.totalTime - a.totalTime); // Sort by tasks, then by time
 
-  }, [teamMembers, tasks, dateRange]);
+  }, [teamMembers, tasks, dateRange, timerSessions]);
 
 
   return (

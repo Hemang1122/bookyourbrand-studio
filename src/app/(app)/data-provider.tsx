@@ -2,7 +2,7 @@
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus, TimerSession } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -24,6 +24,7 @@ type DataContextType = {
   scrumUpdates: ScrumUpdate[];
   files: ProjectFile[];
   notifications: Notification[];
+  timerSessions: TimerSession[];
   addProject: (project: Omit<Project, 'id' | 'coverImage' >) => void;
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks' | 'dueDate'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
@@ -43,6 +44,7 @@ type DataContextType = {
   }) => void;
   updateTeamMember: (userId: string, memberData: Partial<User>) => void;
   addScrumUpdate: (update: Omit<ScrumUpdate, 'id' | 'timestamp'>) => void;
+  addTimerSession: (session: Omit<TimerSession, 'id'>) => void;
   isLoading: boolean;
   deleteProject: (projectId: string) => void;
   updateProject: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => void;
@@ -78,13 +80,14 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: files, isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? collection(firestore, 'files') : null, [firestore]));
   const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
   const { data: scrumUpdatesData, isLoading: scrumUpdatesLoading } = useCollection<ScrumUpdate>(useMemoFirebase(() => firestore ? collection(firestore, 'scrum-updates') : null, [firestore]));
+  const { data: timerSessions, isLoading: timerSessionsLoading } = useCollection<TimerSession>(useMemoFirebase(() => firestore ? collection(firestore, 'timer-sessions') : null, [firestore]));
   
   const { data: notificationsData = [], isLoading: notificationsLoading } = useCollection<Notification>(useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
     return query(collection(firestore, 'notifications'), where('recipients', 'array-contains', currentUser.id));
   }, [firestore, currentUser]));
   
-  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading;
+  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading;
   
   const teamEditorMapping = useMemo(() => {
     if (!usersData) return new Map<string, string>();
@@ -338,6 +341,20 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     }
   };
 
+  const addTimerSession = (session: Omit<TimerSession, 'id'>) => {
+    if (!firestore || !currentUser || !usersData) return;
+    const newSessionId = doc(collection(firestore, 'timer-sessions')).id;
+    const newSession: TimerSession = { id: newSessionId, ...session };
+    setDocumentNonBlocking(doc(firestore, 'timer-sessions', newSession.id), newSession, {});
+    
+    const admins = usersData.filter(u => u.role === 'admin');
+    if (admins.length > 0) {
+        const adminIds = admins.map(a => a.id).filter(id => id !== currentUser.id);
+        const action = session.endTime ? 'stopped' : 'started';
+        addNotification(`${currentUser.name} has ${action} a work timer for session: "${session.name}".`, `/team`, adminIds);
+    }
+  };
+
   const deleteProject = (projectId: string) => {
     if (!firestore) return;
     const projectRef = doc(firestore, 'projects', projectId);
@@ -415,6 +432,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         scrumUpdates,
         files,
         notifications,
+        timerSessions: timerSessions || [],
         addProject, 
         addTask, 
         updateProjectTeam, 
@@ -424,6 +442,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         addTeamMember,
         updateTeamMember,
         addScrumUpdate,
+        addTimerSession,
         isLoading,
         deleteProject,
         updateProject,
