@@ -3,86 +3,86 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /* -------------------- Helper Functions -------------------- */
+    /* ---- Helper Functions ---- */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // A user is an admin if their document in the /users collection has role == 'admin'
-    function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    // Check if the requesting user is the owner of the document
     function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+      return request.auth != null && request.auth.uid == userId;
     }
 
-    /* -------------------- USERS -------------------- */
+    function isAdmin() {
+      return request.auth != null &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    /* ---- USERS ---- */
     match /users/{userId} {
-      // Allow a user to read their own document, or allow admins to read any user document.
       allow read: if isOwner(userId) || isAdmin();
-      // Allow a user to write to their own document. Admins can also update user profiles.
       allow write: if isOwner(userId) || isAdmin();
     }
 
-    /* -------------------- CLIENTS -------------------- */
+    /* ---- CLIENTS ---- */
     match /clients/{clientId} {
-      // Admins can read/write clients. A client can read their own details.
       allow read: if isAdmin() || isOwner(clientId);
       allow write: if isAdmin();
     }
 
-    /* -------------------- PROJECTS -------------------- */
+    /* ---- PROJECTS ---- */
     match /projects/{projectId} {
-      // Anyone signed in can view the list of projects (rules on read will filter them).
       allow list: if isSignedIn();
-      // An admin can get any project.
-      // A user can get a project if they are the client for it.
-      // A user can get a project if their ID is in the team_ids list.
-      allow get: if isSignedIn() && (
-                    isAdmin() || 
-                    resource.data.client.id == request.auth.uid || 
-                    request.auth.uid in resource.data.team_ids
-                  );
-      // Admins and clients can create projects.
-      allow create: if isSignedIn() && (isAdmin() || request.resource.data.client.id == request.auth.uid);
-      // Admins can update/delete. Team members can update if they are on the project.
-      allow update: if isSignedIn() && (isAdmin() || request.auth.uid in resource.data.team_ids);
+      allow get: if isSignedIn() &&
+                 (
+                   isAdmin() ||
+                   resource.data.client.id == request.auth.uid ||
+                   request.auth.uid in resource.data.team_ids
+                 );
+      allow create: if isSignedIn() &&
+                    (
+                      isAdmin() ||
+                      request.resource.data.client.id == request.auth.uid
+                    );
+      allow update: if isSignedIn() &&
+                    (
+                      isAdmin() ||
+                      request.auth.uid in resource.data.team_ids
+                    );
       allow delete: if isAdmin();
     }
 
-    /* -------------------- TASKS -------------------- */
+    /* ---- TASKS ---- */
     match /tasks/{taskId} {
-      // Allow read/write if user is admin, the project client, or on the project team.
-      allow read, write: if isSignedIn() && (
+      allow read, write: if isSignedIn() &&
+                         (
                            isAdmin() ||
                            get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.client.id == request.auth.uid ||
                            request.auth.uid in get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.team_ids
                          );
     }
 
-    /* -------------------- FILES -------------------- */
+    /* ---- FILES ---- */
     match /files/{fileId} {
-       // Allow read/write if user is admin, the project client, or on the project team.
-      allow read, write: if isSignedIn() && (
+      allow read, write: if isSignedIn() &&
+                         (
                            isAdmin() ||
                            get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.client.id == request.auth.uid ||
                            request.auth.uid in get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.team_ids
                          );
     }
 
-    /* -------------------- SCRUM UPDATES -------------------- */
+    /* ---- SCRUM UPDATES ---- */
     match /scrum-updates/{updateId} {
-      // Only admins can read all scrum updates. Team members can create their own.
       allow read, list: if isAdmin();
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() &&
+                    request.resource.data.userId == request.auth.uid;
     }
 
-    /* -------------------- NOTIFICATIONS -------------------- */
+    /* ---- NOTIFICATIONS ---- */
     match /notifications/{notificationId} {
       allow create: if isSignedIn();
-      allow read, update: if isSignedIn() && request.auth.uid in resource.data.recipients;
+      allow read, update: if isSignedIn() &&
+                          request.auth.uid in resource.data.recipients;
       allow delete: if false;
     }
   }
