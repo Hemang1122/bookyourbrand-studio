@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -12,6 +13,7 @@ import { WorkTimer } from './work-timer';
 import { EditorResponsibilityPanel } from './editor-responsibility-panel';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ProjectCalendarCard } from './project-calendar-card';
+import { DailyStandupCard } from './daily-standup-card';
 
 
 export function TeamDashboard() {
@@ -122,8 +124,9 @@ export function TeamDashboard() {
         </div>
 
         {/* Right Column (Sticky) */}
-        <div className="sticky top-6">
+        <div className="sticky top-6 space-y-6">
           <EditorResponsibilityPanel elapsedTime={elapsedTime} />
+          <DailyStandupCard />
         </div>
     </div>
   );
