@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -6,10 +7,11 @@ import { Calendar } from '@/components/ui/calendar';
 import { CalendarDays } from 'lucide-react';
 import { useData } from '../../data-provider';
 import { useAuth } from '@/firebase/provider';
-import { isSameDay, parseISO } from 'date-fns';
+import { isSameDay, parseISO, format } from 'date-fns';
 import Link from 'next/link';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 type ProjectCalendarCardProps = {
   selectedDate: Date | undefined;
@@ -47,11 +49,16 @@ export function ProjectCalendarCard({ selectedDate, onDateChange }: ProjectCalen
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">Project Start Dates</CardTitle>
-        <CalendarDays className="h-4 w-4 text-muted-foreground" />
+      <CardHeader>
+        <CardTitle className='flex items-center gap-2'>
+            <CalendarDays className="h-5 w-5" />
+            Project Schedule
+        </CardTitle>
+        <CardDescription>
+            Select a date to view projects scheduled to start on that day.
+        </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className='flex justify-center'>
             <Calendar
                 mode="single"
@@ -61,8 +68,10 @@ export function ProjectCalendarCard({ selectedDate, onDateChange }: ProjectCalen
             />
         </div>
         <div className='space-y-2'>
-            <h4 className="text-sm font-medium">Projects starting on selected date:</h4>
-            <ScrollArea className="h-32 rounded-md border">
+            <h4 className="text-sm font-medium">
+                Projects starting on {selectedDate ? format(selectedDate, 'PPP') : '...'}
+            </h4>
+            <ScrollArea className="h-72 rounded-md border">
                 <div className='p-2 space-y-2'>
                 {isLoading ? <p className='text-sm text-muted-foreground p-2'>Loading...</p> : null}
                 {!isLoading && projectsForDate.length === 0 ? (
@@ -72,12 +81,12 @@ export function ProjectCalendarCard({ selectedDate, onDateChange }: ProjectCalen
                 ) : (
                     projectsForDate.map(p => (
                         <Link href={`/projects/${p.id}`} key={p.id}>
-                            <div className='p-2 rounded-md hover:bg-muted text-xs'>
-                                <p className='font-semibold truncate'>{p.name}</p>
+                            <div className='p-3 rounded-md hover:bg-muted text-sm border bg-background'>
                                 <div className='flex justify-between items-center'>
-                                     <p className='text-muted-foreground'>{p.client.name}</p>
+                                     <p className='font-semibold truncate'>{p.name}</p>
                                      <Badge variant="outline">{p.status}</Badge>
                                 </div>
+                                <p className='text-xs text-muted-foreground'>{p.client.name}</p>
                             </div>
                         </Link>
                     ))
