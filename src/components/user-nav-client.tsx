@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -16,25 +15,31 @@ import Link from 'next/link';
 import { CreditCard, LogOut, Settings, User as UserIcon } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useRouter } from 'next/navigation';
-import { useAuth, useFirebaseServices } from '@/firebase';
+import { useFirebaseServices } from '@/firebase';
+import { useAuth } from '@/lib/auth-client';
 import { signOut } from 'firebase/auth';
 
 
 export function UserNavClient() {
   const { user } = useAuth();
   const router = useRouter();
-  const { auth } = useFirebaseServices(); // Correctly get the auth service
+  const { auth: authService } = useFirebaseServices();
   
   if (!user) {
-    return null; // Don't render if user data is not available yet
+    return null;
   }
+  
+  // This is a workaround to get the full profile data until the main layout's context is available
+  const displayName = user.displayName || user.email?.split('@')[0] || 'User';
+  const displayEmail = user.email || 'No email';
+  const displayAvatar = `avatar-${(user.uid.charCodeAt(0) % 3) + 2}`
+  const userAvatar = PlaceHolderImages.find(img => img.id === displayAvatar);
 
-  const userAvatar = PlaceHolderImages.find(img => img.id === user.avatar);
 
   const handleLogout = async () => {
     try {
-      if (auth) {
-        await signOut(auth); // Pass the correct auth instance
+      if (authService) {
+        await signOut(authService);
       }
       router.push('/login');
     } catch (error) {
@@ -47,17 +52,17 @@ export function UserNavClient() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            {user.avatar && userAvatar && <AvatarImage src={userAvatar.imageUrl} alt={user.name} data-ai-hint={userAvatar?.imageHint} />}
-            <AvatarFallback>{user.name?.charAt(0) || 'U'}</AvatarFallback>
+            {userAvatar && <AvatarImage src={userAvatar.imageUrl} alt={displayName} data-ai-hint={userAvatar?.imageHint} />}
+            <AvatarFallback>{displayName?.charAt(0) || 'U'}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.name}</p>
+            <p className="text-sm font-medium leading-none">{displayName}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              {user.email}
+              {displayEmail}
             </p>
           </div>
         </DropdownMenuLabel>
@@ -69,14 +74,15 @@ export function UserNavClient() {
               <span>Profile</span>
             </Link>
           </DropdownMenuItem>
-          {user.role !== 'team' && (
+           {/* This role check will be re-enabled once the full user profile is available */}
+           {/* {user.role !== 'team' && ( */}
             <DropdownMenuItem asChild>
                <Link href="/settings/billing">
                 <CreditCard className="mr-2 h-4 w-4" />
                 <span>Billing</span>
               </Link>
             </DropdownMenuItem>
-          )}
+          {/* )} */}
           <DropdownMenuItem asChild>
             <Link href="/settings">
               <Settings className="mr-2 h-4 w-4" />

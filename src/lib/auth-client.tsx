@@ -1,12 +1,25 @@
 'use client';
+import { useEffect, useState } from 'react';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { useFirebaseServices } from '@/firebase';
 
-// This file is obsolete and its functionality has been integrated into the Firebase Provider.
-// It is kept for now to prevent breaking imports, but should be removed in the future.
-import { useAuth as useAppAuth } from '@/firebase/provider';
-
-// The useAuth hook is now a proxy to the more comprehensive useUser hook from the Firebase provider.
 export function useAuth() {
-  // This now correctly pulls the fully-formed User object and loading state
-  // from the AuthProvider context, which is set in the main app layout.
-  return useAppAuth();
+  const { auth } = useFirebaseServices();
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [auth]);
+
+  return { user, loading };
 }

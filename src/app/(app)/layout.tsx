@@ -1,10 +1,11 @@
-
 'use client';
 import AppLayoutClient from './layout-client';
-import { useEffect, useState, ReactNode } from 'react';
+import { useEffect, useState, ReactNode }
+from 'react';
 import type { User } from '@/lib/types';
 import { redirect } from 'next/navigation';
-import { FirebaseClientProvider, useUser as useFirebaseUser, useFirestore } from '@/firebase';
+import { FirebaseClientProvider, useFirestore } from '@/firebase';
+import { useAuth as useFirebaseAuth } from '@/lib/auth-client';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { AuthProvider } from '@/firebase/provider';
@@ -12,45 +13,47 @@ import { packages as subscriptionPackages } from './settings/billing/packages-da
 
 
 function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
-  const { user: authUser, isUserLoading: isAuthLoading } = useFirebaseUser();
+  const { user: authUser, loading: isAuthLoading } = useFirebaseAuth();
   const firestore = useFirestore();
   const [appUser, setAppUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isAppLoading, setIsAppLoading] = useState(true);
 
   useEffect(() => {
-    // We can't do anything until Firebase auth is resolved and Firestore is ready.
-    if (isAuthLoading || !firestore) {
+    // Wait for Firebase auth to stop loading
+    if (isAuthLoading) {
       return;
     }
 
-    // If Firebase says there's no user, they need to log in.
+    // If auth is done and there's no user, redirect to login
     if (!authUser) {
       redirect('/login');
       return;
     }
-    
-    // At this point, we have an authenticated user from Firebase.
-    // Now, we need to get their application-specific profile from Firestore.
+
+    // If we don't have firestore yet, wait.
+    if (!firestore) {
+        setIsAppLoading(true);
+        return;
+    }
+
+    // We have a Firebase user, now get their app-specific profile
     const userRef = doc(firestore, 'users', authUser.uid);
     
     getDoc(userRef).then(async (userDoc) => {
       let finalUser: User;
 
       if (userDoc.exists()) {
-        // The user profile already exists in Firestore, so we'll use it.
         finalUser = { id: userDoc.id, ...userDoc.data() } as User;
-        
-        // Backwards compatibility/safety check: if the name is a placeholder but auth has a real name, update it.
+         // Ensure local profile name is synced with auth display name if it's different
         if (finalUser.name !== authUser.displayName && authUser.displayName) {
             finalUser.name = authUser.displayName;
             await updateDoc(userRef, { name: authUser.displayName });
         }
       } else {
-        // This is a first-time sign-up. We need to create their profile.
+        // First-time sign-in, create a new profile in Firestore
         const userEmail = authUser.email || '';
-        const name = authUser.displayName || userEmail.split('@')[0];
+        const name = authUser.displayName || userEmail.split('@')[0] || 'New User';
         
-        // Determine role based on email domain
         let role: User['role'] = 'client';
         if (userEmail.endsWith('@bookyourbrands.com')) {
           role = 'admin';
@@ -63,11 +66,10 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
           email: userEmail,
           name: name,
           role: role,
-          avatar: `avatar-${Math.floor(Math.random() * 3) + 2}`, // Assign a valid random avatar
+          avatar: `avatar-${Math.floor(Math.random() * 3) + 2}`,
           username: name.toLowerCase().replace(/\s/g, ''),
         };
         
-        // Only create a 'client' record if the user is actually a client
         if (role === 'client') {
             const clientRef = doc(firestore, 'clients', finalUser.id);
             const defaultPackage = subscriptionPackages.find(p => p.name === 'Gold');
@@ -88,23 +90,21 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
             };
             await setDoc(clientRef, newClient);
         }
-
-        // Save the new user profile to the 'users' collection
+        
         await setDoc(userRef, finalUser);
       }
       
       setAppUser(finalUser);
-      setIsLoading(false);
+      setIsAppLoading(false);
 
     }).catch(error => {
         console.error("Error fetching or creating user document:", error);
-        // If something goes wrong, we can't proceed.
         redirect('/login');
     });
 
   }, [authUser, isAuthLoading, firestore]);
 
-  if (isLoading) {
+  if (isAppLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="flex items-center text-lg text-muted-foreground">
@@ -116,7 +116,8 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
   }
   
   if (!appUser) {
-    // If we're done loading and still have no app user, something went wrong.
+    // This case should be rare, but as a fallback, if loading is done and
+    // there's still no app user, we should redirect.
     redirect('/login');
     return null;
   }

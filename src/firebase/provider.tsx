@@ -29,22 +29,6 @@ export const FirebaseProvider: React.FC<{ children: ReactNode; firebaseApp: Fire
   firestore,
   auth,
 }) => {
-  const [userAuthState, setUserAuthState] = useState<{ user: FirebaseUser | null; isUserLoading: boolean }>({
-    user: null,
-    isUserLoading: true,
-  });
-
-  useEffect(() => {
-    if (!auth) {
-      setUserAuthState({ user: null, isUserLoading: false });
-      return;
-    }
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUserAuthState({ user: firebaseUser, isUserLoading: false });
-    });
-    return () => unsubscribe();
-  }, [auth]);
-
   const servicesContextValue = useMemo((): FirebaseServicesContextState => {
     const servicesAvailable = !!(firebaseApp && firestore && auth);
     return {
@@ -89,7 +73,8 @@ export const AuthProvider: React.FC<{ user: User; children: ReactNode }> = ({ us
 export const useAuth = (): { user: User | null } => {
     const context = useContext(AuthContext);
     if (context === undefined) {
-        throw new Error('useAuth must be used within an AuthProvider.');
+        // This can happen transiently during loading, so we return null instead of throwing
+        return { user: null };
     }
     return context;
 };
@@ -113,32 +98,6 @@ export const useFirestore = (): Firestore | null => {
     const { firestore } = useFirebaseServices();
     return firestore;
 };
-
-/**
- * useUser: Hook to get the raw Firebase Auth user object and its loading state.
- * Useful for checking initial authentication status.
- */
-export const useUser = (): { user: FirebaseUser | null; isUserLoading: boolean } => {
-    const { auth } = useFirebaseServices();
-    const [state, setState] = useState<{ user: FirebaseUser | null; isUserLoading: boolean }>({
-        user: auth?.currentUser || null,
-        isUserLoading: !auth?.currentUser,
-    });
-
-    useEffect(() => {
-        if (!auth) {
-            setState({ user: null, isUserLoading: false });
-            return;
-        }
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setState({ user, isUserLoading: false });
-        });
-        return () => unsubscribe();
-    }, [auth]);
-
-    return state;
-};
-
 
 type MemoFirebase <T> = T & {__memo?: boolean};
 
