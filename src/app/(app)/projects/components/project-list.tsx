@@ -11,10 +11,43 @@ import { Button } from '@/components/ui/button';
 import { useData } from '../../data-provider';
 import { useAuth } from '@/firebase/provider';
 import { useMemo } from 'react';
+import { cn } from '@/lib/utils';
 
 type ProjectListProps = {
   statusFilter: ProjectStatus | 'All';
 };
+
+const getStatusBadgeVariant = (status: ProjectStatus) => {
+    switch (status) {
+        case 'Active':
+        case 'In Progress':
+            return 'default';
+        case 'Completed':
+            return 'secondary';
+        case 'On Hold':
+        case 'Rework':
+            return 'destructive';
+        default:
+            return 'outline';
+    }
+}
+
+const getStatusBadgeClass = (status: ProjectStatus) => {
+    switch (status) {
+        case 'Active':
+        case 'In Progress':
+            return 'bg-green-600/90 hover:bg-green-600 text-white';
+        case 'Completed':
+            return '';
+        case 'On Hold':
+            return 'bg-amber-500/90 hover:bg-amber-500 text-white';
+        case 'Rework':
+            return 'bg-red-500/90 hover:bg-red-500 text-white';
+        default:
+            return '';
+    }
+}
+
 
 export function ProjectList({ statusFilter }: ProjectListProps) {
   const { projects, users, isLoading } = useData();
@@ -93,7 +126,7 @@ export function ProjectList({ statusFilter }: ProjectListProps) {
                 </div>
               </CardHeader>
               <CardContent className="p-4">
-                <Badge variant={project.status === 'Completed' ? 'secondary' : 'default'} className="mb-2">
+                <Badge variant={getStatusBadgeVariant(project.status)} className={cn("mb-2", getStatusBadgeClass(project.status))}>
                   {project.status}
                 </Badge>
                 <CardTitle className="text-lg font-semibold">{project.name}</CardTitle>

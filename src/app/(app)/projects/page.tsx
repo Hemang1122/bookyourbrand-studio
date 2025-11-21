@@ -10,7 +10,7 @@ import { useData } from '../data-provider';
 import { type ProjectStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
-const statusFilters: (ProjectStatus | 'All')[] = ['All', 'Active', 'In Progress', 'Rework', 'Completed'];
+const statusFilters: (ProjectStatus | 'All')[] = ['All', 'Active', 'In Progress', 'Rework', 'Completed', 'On Hold'];
 
 export default function ProjectsPage() {
   const { user } = useAuth();

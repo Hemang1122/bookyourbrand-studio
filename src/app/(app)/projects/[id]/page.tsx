@@ -19,6 +19,24 @@ import { EditProjectDialog } from './components/edit-project-dialog';
 import { DeleteProjectDialog } from './components/delete-project-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+
+
+const getStatusBadgeClass = (status: ProjectStatus) => {
+    switch (status) {
+        case 'Active':
+        case 'In Progress':
+            return 'bg-green-600/90 hover:bg-green-600 text-white';
+        case 'Completed':
+            return '';
+        case 'On Hold':
+            return 'bg-amber-500/90 hover:bg-amber-500 text-white';
+        case 'Rework':
+            return 'bg-red-500/90 hover:bg-red-500 text-white';
+        default:
+            return '';
+    }
+}
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -120,7 +138,7 @@ export default function ProjectDetailPage() {
                 </DeleteProjectDialog>
               </>
             )}
-             {user?.role === 'team' ? (
+             {user?.role === 'team' || user?.role === 'admin' ? (
               <Select onValueChange={(value: ProjectStatus) => handleStatusChange(value)} value={project.status}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Update status" />
@@ -134,7 +152,7 @@ export default function ProjectDetailPage() {
                 </SelectContent>
               </Select>
             ) : (
-               <Badge variant={project.status === 'Completed' ? 'secondary' : 'default'} className="text-base px-4 py-2">
+               <Badge variant={project.status === 'Completed' ? 'secondary' : 'default'} className={cn("text-base px-4 py-2", getStatusBadgeClass(project.status))}>
                   {project.status}
               </Badge>
             )}
