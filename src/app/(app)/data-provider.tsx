@@ -77,7 +77,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: projectsData, isLoading: projectsLoading } = useCollection<Project>(useMemoFirebase(() => firestore ? collection(firestore, 'projects') : null, [firestore]));
   const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
   const { data: files, isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? collection(firestore, 'files') : null, [firestore]));
-  const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
+  const { data: clients, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
   const { data: scrumUpdatesData, isLoading: scrumUpdatesLoading } = useCollection<ScrumUpdate>(useMemoFirebase(() => firestore ? collection(firestore, 'scrum-updates') : null, [firestore]));
   const { data: timerSessions, isLoading: timerSessionsLoading } = useCollection<TimerSession>(useMemoFirebase(() => firestore ? collection(firestore, 'timer-sessions') : null, [firestore]));
   
@@ -121,9 +121,9 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const teamMembers = useMemo(() => (usersData || []).filter(u => u.role === 'admin' || u.role === 'team'), [usersData]);
   
   const projects = useMemo(() => {
-    if (!projectsData || !clientsData) return initialProjects;
+    if (!projectsData || !clients) return initialProjects;
     return projectsData.map(p => {
-        const client = clientsData.find(c => c.id === (p.client as unknown as string));
+        const client = clients.find(c => c.id === (p.client as unknown as string));
         return {
             ...p,
             client: client || p.client,
@@ -131,7 +131,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
             startDate: p.startDate || format(new Date(), 'yyyy-MM-dd'),
         };
     }).filter(p => p.client);
-  }, [projectsData, clientsData]);
+  }, [projectsData, clients]);
 
   const tasks = useMemo(() => {
     if (!tasksData) return initialTasks;
@@ -158,21 +158,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     });
   }, [tasksData, projects, currentUser, anonymizeUser, teamEditorMapping]);
     
-  const clients = useMemo(() => {
-    if (!clientsData) return initialClients;
-    const projectCountByClient = (projectsData || []).reduce((acc, p) => {
-        const clientId = (p.client as unknown as { id: string })?.id || p.client;
-        acc[clientId] = (acc[clientId] || 0) + 1;
-        return acc;
-    }, {} as { [key: string]: number });
-    
-    return clientsData.map(c => ({
-      ...c,
-      reelsCreated: projectCountByClient[c.id] || c.reelsCreated || 0,
-    }));
-  }, [clientsData, projectsData]);
-
-
   const notifications = notificationsData;
   const scrumUpdates = scrumUpdatesData ? [...scrumUpdatesData].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : [];
 
@@ -195,7 +180,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
             if (reelsCreated >= reelsLimit) {
                 throw "This client has reached their project limit. Please upgrade their plan.";
             }
-
+            
             const newProjectId = doc(collection(firestore, 'projects')).id;
             const newProject: Project = {
               id: newProjectId,
@@ -222,7 +207,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
             if (projectData.team_ids.length > 0) {
                 addNotification(`You have been assigned to the new project: '${newProject.name}'.`, `/projects/${newProject.id}`, projectData.team_ids);
             }
-
             router.push(`/projects/${newProject.id}`);
         });
 
@@ -322,12 +306,12 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }
   
   const updateClient = async (clientId: string, clientData: Partial<Client>) => {
-    if (!firestore || !usersData || !clientsData) return;
+    if (!firestore || !usersData || !clients) return;
     const clientRef = doc(firestore, 'clients', clientId);
     await updateDocumentNonBlocking(clientRef, clientData);
 
     if (clientData.packageName) {
-        const client = clientsData.find(c => c.id === clientId);
+        const client = clients.find(c => c.id === clientId);
         const admins = usersData.filter(u => u.role === 'admin');
 
         if (client && admins.length > 0) {
@@ -448,7 +432,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     <DataContext.Provider value={{ 
         projects,
         tasks,
-        clients,
+        clients: clients || [],
         teamMembers, 
         users,
         scrumUpdates,
