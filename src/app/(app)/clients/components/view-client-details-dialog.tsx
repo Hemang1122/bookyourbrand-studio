@@ -31,7 +31,7 @@ export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsD
   const [selectedPackage, setSelectedPackage] = useState<PackageName | undefined>(client.packageName);
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleSaveSubscription = () => {
+  const handleSaveSubscription = async () => {
     if (!selectedPackage) {
         toast({ title: "Error", description: "Please select a package.", variant: "destructive" });
         return;
@@ -56,7 +56,7 @@ export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsD
         clientUpdate.maxDuration = maxDuration;
       }
       
-      updateClient(client.id, clientUpdate);
+      await updateClient(client.id, clientUpdate);
       toast({ title: "Subscription Updated", description: `${client.name}'s plan set to ${pkg.name}.` });
     }
     

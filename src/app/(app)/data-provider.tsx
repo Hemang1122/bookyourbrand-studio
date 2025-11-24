@@ -1,4 +1,3 @@
-
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
@@ -7,7 +6,7 @@ import { users as initialUsers, clients as initialClients, projects as initialPr
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking, useFirebaseServices } from '@/firebase';
-import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp, arrayUnion } from 'firebase/firestore';
+import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp, arrayUnion, runTransaction } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -37,7 +36,7 @@ type DataContextType = {
     agreementUrl?: string;
     idCardUrl?: string;
   }) => void;
-  updateClient: (clientId: string, clientData: Partial<Client>) => void;
+  updateClient: (clientId: string, clientData: Partial<Client>) => Promise<void>;
   addTeamMember: (memberData: {
     name: string;
     email: string;
@@ -161,64 +160,80 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
   const clients = useMemo(() => {
     if (!clientsData) return initialClients;
-    const projectCountByClient = (projects || []).reduce((acc, p) => {
-        acc[p.client.id] = (acc[p.client.id] || 0) + 1;
+    const projectCountByClient = (projectsData || []).reduce((acc, p) => {
+        const clientId = (p.client as unknown as { id: string })?.id || p.client;
+        acc[clientId] = (acc[clientId] || 0) + 1;
         return acc;
     }, {} as { [key: string]: number });
-
-    const defaultPackage = subscriptionPackages.find(p => p.name === 'Gold');
-    const defaultTier = defaultPackage?.tiers?.[0];
-    const durationString = defaultTier?.duration || defaultPackage?.duration;
-    const maxDuration = durationString ? parseInt(durationString.replace(/[^0-9]/g, ''), 10) : 90;
     
-    return clientsData.map(c => {
-      return {
-        ...c,
-        packageName: c.packageName || 'Gold',
-        reelsLimit: c.reelsLimit ?? defaultTier?.reels ?? 10,
-        reelsCreated: c.reelsCreated ?? projectCountByClient[c.id] ?? 0, // Fallback to project count
-        maxDuration: c.maxDuration ?? (isNaN(maxDuration) ? 90 : maxDuration),
-      }
-    });
-  }, [clientsData, projects]);
+    return clientsData.map(c => ({
+      ...c,
+      reelsCreated: projectCountByClient[c.id] || c.reelsCreated || 0,
+    }));
+  }, [clientsData, projectsData]);
 
 
   const notifications = notificationsData;
   const scrumUpdates = scrumUpdatesData ? [...scrumUpdatesData].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : [];
 
-  const addProject = (projectData: Omit<Project, 'id' | 'coverImage'>) => {
-    if (!firestore || !currentUser || !usersData || !clientsData) return;
-    const newProjectId = doc(collection(firestore, 'projects')).id;
-    const newProject: Project = {
-      id: newProjectId,
-      ...projectData,
-      coverImage: `project-${Math.ceil(Math.random() * 3)}`,
-    };
-    setDocumentNonBlocking(doc(firestore, 'projects', newProject.id), newProject, {});
+  const addProject = async (projectData: Omit<Project, 'id' | 'coverImage'>) => {
+    if (!firestore || !currentUser || !usersData) return;
     
     const clientRef = doc(firestore, 'clients', projectData.client.id);
-    const client = clientsData.find(c => c.id === projectData.client.id);
-    if(client) {
-        updateDocumentNonBlocking(clientRef, { reelsCreated: (client.reelsCreated || 0) + 1 });
-    }
 
-    const admins = usersData.filter(u => u.role === 'admin');
-    const adminIds = admins.map(a => a.id).filter(id => id !== currentUser.id);
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            const clientDoc = await transaction.get(clientRef);
+            if (!clientDoc.exists()) {
+                throw "Client document does not exist!";
+            }
 
-    const notificationRecipients = [
-        ...(projectData.team_ids || []),
-        ...adminIds
-    ];
-    
-    if (notificationRecipients.length > 0) {
-        addNotification(`New project '${newProject.name}' was created by ${currentUser.name}.`, `/projects/${newProject.id}`, notificationRecipients);
-    }
-    
-    if (projectData.team_ids.length > 0) {
-        addNotification(`You have been assigned to the new project: '${newProject.name}'.`, `/projects/${newProject.id}`, projectData.team_ids);
-    }
+            const clientData = clientDoc.data() as Client;
+            const reelsCreated = clientData.reelsCreated || 0;
+            const reelsLimit = clientData.reelsLimit || 0;
 
-    router.push(`/projects/${newProject.id}`);
+            if (reelsCreated >= reelsLimit) {
+                throw "This client has reached their project limit. Please upgrade their plan.";
+            }
+
+            const newProjectId = doc(collection(firestore, 'projects')).id;
+            const newProject: Project = {
+              id: newProjectId,
+              ...projectData,
+              coverImage: `project-${Math.ceil(Math.random() * 3)}`,
+            };
+            
+            const projectRef = doc(firestore, 'projects', newProjectId);
+            transaction.set(projectRef, newProject);
+            transaction.update(clientRef, { reelsCreated: reelsCreated + 1 });
+            
+            const admins = usersData.filter(u => u.role === 'admin');
+            const adminIds = admins.map(a => a.id).filter(id => id !== currentUser.id);
+
+            const notificationRecipients = [
+                ...(projectData.team_ids || []),
+                ...adminIds
+            ];
+            
+            if (notificationRecipients.length > 0) {
+                addNotification(`New project '${newProject.name}' was created by ${currentUser.name}.`, `/projects/${newProject.id}`, notificationRecipients);
+            }
+            
+            if (projectData.team_ids.length > 0) {
+                addNotification(`You have been assigned to the new project: '${newProject.name}'.`, `/projects/${newProject.id}`, projectData.team_ids);
+            }
+
+            router.push(`/projects/${newProject.id}`);
+        });
+
+    } catch (e: any) {
+        console.error("Add project transaction failed: ", e);
+        toast({
+            title: 'Project Creation Failed',
+            description: typeof e === 'string' ? e : e.message || 'Could not create the project due to an error.',
+            variant: 'destructive',
+        });
+    }
   };
 
   const addTask = (taskData: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks' | 'dueDate'>) => {
@@ -306,10 +321,10 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     setDocumentNonBlocking(doc(firestore, 'clients', newClient.id), newClient, {});
   }
   
-  const updateClient = (clientId: string, clientData: Partial<Client>) => {
+  const updateClient = async (clientId: string, clientData: Partial<Client>) => {
     if (!firestore || !usersData || !clientsData) return;
     const clientRef = doc(firestore, 'clients', clientId);
-    updateDocumentNonBlocking(clientRef, clientData);
+    await updateDocumentNonBlocking(clientRef, clientData);
 
     if (clientData.packageName) {
         const client = clientsData.find(c => c.id === clientId);

@@ -47,7 +47,7 @@ export function ClientDashboard() {
   const completedProjects = myProjects.filter(p => p.status === 'Completed').length;
   const safeTasks = tasks || [];
   
-  const reelsUsed = myProjects.length;
+  const reelsUsed = myClientRecord.reelsCreated || 0;
   const reelsLimit = myClientRecord.reelsLimit || 0;
   const canAddProject = reelsUsed < reelsLimit;
 

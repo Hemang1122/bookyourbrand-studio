@@ -49,7 +49,7 @@ export function UpgradeDialog({ client, children }: UpgradeDialogProps) {
     setIsProcessing(true);
     
     // Simulate payment processing
-    setTimeout(() => {
+    setTimeout(async () => {
       const pkg = subscriptionPackages.find(p => p.name === selectedPackage);
       if (pkg) {
          const tier = pkg.tiers?.[0]; // Default to the first tier
@@ -68,7 +68,7 @@ export function UpgradeDialog({ client, children }: UpgradeDialogProps) {
             clientUpdate.maxDuration = maxDuration;
          }
 
-         updateClient(client.id, clientUpdate);
+         await updateClient(client.id, clientUpdate);
       }
       
       setFinalPackage(selectedPackage);
