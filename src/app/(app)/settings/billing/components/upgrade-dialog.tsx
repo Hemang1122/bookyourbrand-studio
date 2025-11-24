@@ -1,3 +1,4 @@
+
 'use client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -55,12 +56,12 @@ export function UpgradeDialog({ client, children }: UpgradeDialogProps) {
          const durationString = tier?.duration || pkg.duration;
          const maxDuration = durationString ? parseInt(durationString.replace(/[^0-9]/g, ''), 10) : 0;
          
-         const remainingProjects = (client.reelsLimit || 0) - (client.reelsCreated || 0);
-         const newReelsLimit = (tier?.reels || 0) + (remainingProjects > 0 ? remainingProjects : 0);
+         const newReelsLimit = tier?.reels || 0;
 
          const clientUpdate: Partial<Client> = {
             packageName: selectedPackage,
             reelsLimit: newReelsLimit,
+            reelsCreated: 0, // Reset created count on plan change
          };
 
          if (!isNaN(maxDuration)) {
