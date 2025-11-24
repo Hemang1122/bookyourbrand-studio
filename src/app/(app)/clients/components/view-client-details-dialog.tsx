@@ -44,7 +44,7 @@ export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsD
       const durationString = tier?.duration || pkg.duration;
       const maxDuration = durationString ? parseInt(durationString.replace(/[^0-9]/g, ''), 10) : 0;
       
-      const newReelsLimit = tier?.reels || 0;
+      const newReelsLimit = tier?.reels ? parseInt(tier.reels.toString(), 10) : 0;
 
       const clientUpdate: Partial<Client> = {
         packageName: pkg.name as PackageName,
