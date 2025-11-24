@@ -160,19 +160,23 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }, [tasksData, projects, currentUser, anonymizeUser, teamEditorMapping]);
     
   const clients = useMemo(() => {
-    if (!clientsData || !projects) return initialClients;
+    if (!clientsData) return initialClients;
+    const projectCountByClient = (projects || []).reduce((acc, p) => {
+        acc[p.client.id] = (acc[p.client.id] || 0) + 1;
+        return acc;
+    }, {} as { [key: string]: number });
+
     const defaultPackage = subscriptionPackages.find(p => p.name === 'Gold');
     const defaultTier = defaultPackage?.tiers?.[0];
     const durationString = defaultTier?.duration || defaultPackage?.duration;
     const maxDuration = durationString ? parseInt(durationString.replace(/[^0-9]/g, ''), 10) : 90;
     
     return clientsData.map(c => {
-      const clientProjects = projects.filter(p => p.client.id === c.id);
       return {
         ...c,
         packageName: c.packageName || 'Gold',
         reelsLimit: c.reelsLimit ?? defaultTier?.reels ?? 10,
-        reelsCreated: c.reelsCreated ?? clientProjects.length,
+        reelsCreated: c.reelsCreated ?? projectCountByClient[c.id] ?? 0, // Fallback to project count
         maxDuration: c.maxDuration ?? (isNaN(maxDuration) ? 90 : maxDuration),
       }
     });
