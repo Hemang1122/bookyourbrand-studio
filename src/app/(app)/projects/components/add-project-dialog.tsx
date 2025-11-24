@@ -44,7 +44,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   const [team_ids, setTeamIds] = useState<string[]>([]);
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
-  const { teamMembers, clients, projects } = useData();
+  const { teamMembers, clients } = useData();
 
   const teamMemberOptions = teamMembers.map(tm => ({ value: tm.id, label: tm.name }));
   const isClientUser = currentUser?.role === 'client';
@@ -56,8 +56,8 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
     clientForProject = clients.find(c => c.id === selectedClientId);
   }
   
-  const clientProjectsCount = clientForProject ? projects.filter(p => p.client.id === clientForProject?.id).length : 0;
-  const canAddProject = clientForProject ? clientProjectsCount < (clientForProject.reelsLimit || 0) : false;
+  const reelsCreated = clientForProject?.reelsCreated || 0;
+  const canAddProject = clientForProject ? reelsCreated < (clientForProject.reelsLimit || 0) : false;
 
   const handleAddProject = () => {
     if (!canAddProject) {

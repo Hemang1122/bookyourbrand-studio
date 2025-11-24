@@ -160,20 +160,24 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }, [tasksData, projects, currentUser, anonymizeUser, teamEditorMapping]);
     
   const clients = useMemo(() => {
-    if (!clientsData) return initialClients;
+    if (!clientsData || !projectsData) return initialClients;
     const defaultPackage = subscriptionPackages.find(p => p.name === 'Gold');
     const defaultTier = defaultPackage?.tiers?.[0];
     const durationString = defaultTier?.duration || defaultPackage?.duration;
     const maxDuration = durationString ? parseInt(durationString.replace(/[^0-9]/g, ''), 10) : 90;
     
-    return clientsData.map(c => ({
-      ...c,
-      packageName: c.packageName || 'Gold',
-      reelsLimit: c.reelsLimit ?? defaultTier?.reels ?? 10,
-      reelsCreated: c.reelsCreated ?? 0,
-      maxDuration: c.maxDuration ?? (isNaN(maxDuration) ? 90 : maxDuration),
-    }));
-  }, [clientsData]);
+    return clientsData.map(c => {
+      const clientProjects = projectsData.filter(p => p.client.id === c.id);
+      return {
+        ...c,
+        packageName: c.packageName || 'Gold',
+        reelsLimit: c.reelsLimit ?? defaultTier?.reels ?? 10,
+        reelsCreated: clientProjects.length, // Calculate from projects
+        maxDuration: c.maxDuration ?? (isNaN(maxDuration) ? 90 : maxDuration),
+      }
+    });
+  }, [clientsData, projectsData]);
+
 
   const notifications = notificationsData;
   const scrumUpdates = scrumUpdatesData ? [...scrumUpdatesData].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : [];
@@ -187,13 +191,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       coverImage: `project-${Math.ceil(Math.random() * 3)}`,
     };
     setDocumentNonBlocking(doc(firestore, 'projects', newProject.id), newProject, {});
-    
-    // Update client's reel count
-    const clientRef = doc(firestore, 'clients', newProject.client.id);
-    const client = clients.find(c => c.id === newProject.client.id);
-    if(client) {
-      updateDocumentNonBlocking(clientRef, { reelsCreated: (client.reelsCreated || 0) + 1 });
-    }
 
     const admins = usersData.filter(u => u.role === 'admin');
     const adminIds = admins.map(a => a.id).filter(id => id !== currentUser.id);
