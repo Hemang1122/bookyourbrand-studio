@@ -12,10 +12,9 @@ import {
 } from '@/components/ui/dialog';
 import { Loader2, Download } from 'lucide-react';
 import jsPDF from 'jspdf';
-import { useAuth } from '@/firebase/provider';
 import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { TimerSession } from '@/lib/types';
+import type { TimerSession, User } from '@/lib/types';
 
 
 type ReportDialogProps = {
@@ -24,10 +23,10 @@ type ReportDialogProps = {
   sessions: TimerSession[];
   totalTime: number;
   reportDate: Date;
+  user: User; // The user for whom the report is being generated
 };
 
-export function ReportDialog({ open, onOpenChange, sessions, totalTime, reportDate }: ReportDialogProps) {
-  const { user } = useAuth();
+export function ReportDialog({ open, onOpenChange, sessions, totalTime, reportDate, user }: ReportDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const formatTime = (ms: number) => {

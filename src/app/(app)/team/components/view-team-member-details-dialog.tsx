@@ -90,6 +90,7 @@ export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMe
             sessions={sessionsForSelectedDate}
             totalTime={totalTimeForSelectedDate}
             reportDate={selectedDate}
+            user={teamMember}
         />
       )}
     </>

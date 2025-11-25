@@ -108,6 +108,7 @@ export default function WorkTimerPage() {
                     sessions={sessionsForSelectedDate}
                     totalTime={totalTimeForSelectedDate}
                     reportDate={selectedDate}
+                    user={user}
                 />
             )}
         </>
