@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -16,24 +17,27 @@ import { CreditCard, LogOut, Settings, User as UserIcon } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useRouter } from 'next/navigation';
 import { useFirebaseServices } from '@/firebase';
-import { useAuth } from '@/lib/auth-client';
+import { useAuth as useAppAuth } from '@/firebase/provider';
+import { useAuth as useFirebaseAuth } from '@/lib/auth-client';
 import { signOut } from 'firebase/auth';
 
 
 export function UserNavClient() {
-  const { user } = useAuth();
+  const { user: appUser } = useAppAuth();
+  const { user: firebaseUser } = useFirebaseAuth();
   const router = useRouter();
   const { auth: authService } = useFirebaseServices();
+  
+  const user = appUser || firebaseUser;
   
   if (!user) {
     return null;
   }
   
-  // This is a workaround to get the full profile data until the main layout's context is available
-  const displayName = user.displayName || user.email?.split('@')[0] || 'User';
-  const displayEmail = user.email || 'No email';
-  const displayAvatar = `avatar-${(user.uid.charCodeAt(0) % 3) + 2}`
-  const userAvatar = PlaceHolderImages.find(img => img.id === displayAvatar);
+  const displayName = appUser?.name || firebaseUser?.displayName || firebaseUser?.email?.split('@')[0] || 'User';
+  const displayEmail = appUser?.email || firebaseUser?.email || 'No email';
+  const displayAvatarId = appUser?.avatar || `avatar-${(user.uid.charCodeAt(0) % 3) + 2}`
+  const userAvatar = PlaceHolderImages.find(img => img.id === displayAvatarId);
 
 
   const handleLogout = async () => {
@@ -53,7 +57,7 @@ export function UserNavClient() {
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
             {userAvatar && <AvatarImage src={userAvatar.imageUrl} alt={displayName} data-ai-hint={userAvatar?.imageHint} />}
-            <AvatarFallback>{displayName?.charAt(0) || 'U'}</AvatarFallback>
+            <AvatarFallback>{displayName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
@@ -74,15 +78,14 @@ export function UserNavClient() {
               <span>Profile</span>
             </Link>
           </DropdownMenuItem>
-           {/* This role check will be re-enabled once the full user profile is available */}
-           {/* {user.role !== 'team' && ( */}
+           {appUser?.role !== 'team' && (
             <DropdownMenuItem asChild>
                <Link href="/settings/billing">
                 <CreditCard className="mr-2 h-4 w-4" />
                 <span>Billing</span>
               </Link>
             </DropdownMenuItem>
-          {/* )} */}
+           )}
           <DropdownMenuItem asChild>
             <Link href="/settings">
               <Settings className="mr-2 h-4 w-4" />
