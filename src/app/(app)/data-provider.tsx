@@ -28,14 +28,7 @@ type DataContextType = {
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks' | 'dueDate'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
   updateTaskStatus: (taskId: string, status: TaskStatus, remark: string) => void;
-  addClient: (clientData: {
-    name: string;
-    company: string;
-    email: string;
-    founderDetails: string;
-    agreementUrl?: string;
-    idCardUrl?: string;
-  }) => void;
+  addClient: (clientData: Omit<Client, 'id' | 'avatar'>) => void;
   updateClient: (clientId: string, clientData: Partial<Client>) => Promise<void>;
   addTeamMember: (memberData: {
     name: string;
@@ -77,7 +70,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: projectsData, isLoading: projectsLoading } = useCollection<Project>(useMemoFirebase(() => firestore ? collection(firestore, 'projects') : null, [firestore]));
   const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
   const { data: files, isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? collection(firestore, 'files') : null, [firestore]));
-  const { data: clients, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
+  const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
   const { data: scrumUpdatesData, isLoading: scrumUpdatesLoading } = useCollection<ScrumUpdate>(useMemoFirebase(() => firestore ? collection(firestore, 'scrum-updates') : null, [firestore]));
   const { data: timerSessions, isLoading: timerSessionsLoading } = useCollection<TimerSession>(useMemoFirebase(() => firestore ? collection(firestore, 'timer-sessions') : null, [firestore]));
   
@@ -120,10 +113,21 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   const teamMembers = useMemo(() => (usersData || []).filter(u => u.role === 'admin' || u.role === 'team'), [usersData]);
   
+  const clients = useMemo(() => {
+    if (!clientsData || !projectsData) return initialClients;
+    return clientsData.map(c => {
+        const projectCount = projectsData.filter(p => p.client.id === c.id).length;
+        return {
+            ...c,
+            reelsCreated: projectCount,
+        }
+    });
+  }, [clientsData, projectsData]);
+
   const projects = useMemo(() => {
     if (!projectsData || !clients) return initialProjects;
     return projectsData.map(p => {
-        const client = clients.find(c => c.id === (p.client as unknown as string));
+        const client = clients.find(c => c.id === (p.client as unknown as { id: string }).id);
         return {
             ...p,
             client: client || p.client,
@@ -294,7 +298,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     addNotification(`Task '${task.title}' in project '${project.name}' was updated to '${status}'.`, `/projects/${project.id}`, recipients.filter(id => id !== currentUser.id));
   }
 
-  const addClient = (clientData: {name: string, company: string, email: string, founderDetails: string, agreementUrl?: string, idCardUrl?: string}) => {
+  const addClient = (clientData: Omit<Client, 'id' | 'avatar'>) => {
     if (!firestore) return;
     const newClientId = doc(collection(firestore, 'clients')).id;
     const newClient: Client = {
@@ -432,7 +436,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     <DataContext.Provider value={{ 
         projects,
         tasks,
-        clients: clients || [],
+        clients,
         teamMembers, 
         users,
         scrumUpdates,

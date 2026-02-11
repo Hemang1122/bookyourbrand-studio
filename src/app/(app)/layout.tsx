@@ -87,6 +87,10 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
                 reelsLimit: defaultTier?.reels ?? 10,
                 reelsCreated: 0,
                 maxDuration: isNaN(maxDuration) ? 90 : maxDuration,
+                social: {
+                    instagram: { connected: false },
+                    facebook: { connected: false },
+                },
             };
             await setDoc(clientRef, newClient);
         }

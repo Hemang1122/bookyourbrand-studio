@@ -17,6 +17,13 @@ export type User = {
 
 export type PackageName = 'Bronze' | 'Silver' | 'Gold' | 'Advanced Editing' | 'Podcast';
 
+export type SocialConnection = {
+  connected: boolean;
+  userId?: string;
+  pageId?: string;
+  pageName?: string;
+};
+
 export type Client = {
   id: string;
   name: string;
@@ -31,6 +38,10 @@ export type Client = {
   reelsLimit?: number;
   reelsCreated?: number;
   maxDuration?: number; // in seconds
+  social?: {
+    instagram?: SocialConnection;
+    facebook?: SocialConnection;
+  };
 };
 
 export type ProjectStatus = 'Active' | 'On Hold' | 'Completed' | 'In Progress' | 'Rework';
