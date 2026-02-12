@@ -154,6 +154,15 @@ export interface TimerSession {
 
 export type MessageType = 'text' | 'voice' | 'media';
 
+export interface Chat {
+    id: string;
+    participants: string[];
+    lastActivity: Timestamp;
+    lastMessage?: string;
+    lastSenderId?: string;
+    createdAt: Timestamp;
+}
+
 export type ChatMessage = {
   id: string;
   senderId: string;

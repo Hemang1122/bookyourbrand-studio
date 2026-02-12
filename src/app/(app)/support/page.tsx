@@ -7,17 +7,20 @@ import { SupportChatRoom } from './components/support-chat-room';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import type { User, Notification } from '@/lib/types';
+import type { User, Notification, Chat } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSearchParams } from 'next/navigation';
+import { useCollection, useFirebaseServices, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
 
 export default function SupportPage() {
     const { user: currentUser } = useAuth();
     const { users, notifications, markChatNotificationsAsRead } = useData();
+    const { firestore } = useFirebaseServices();
     const [selectedChatPartner, setSelectedChatPartner] = useState<User | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [roleFilter, setRoleFilter] = useState('all'); // 'all', 'client', 'team'
@@ -44,6 +47,27 @@ export default function SupportPage() {
         return counts;
     }, [notifications, currentUser.id]);
 
+    const chatsQuery = useMemoFirebase(() => {
+        if (!firestore || !currentUser) return null;
+        return query(collection(firestore, 'chats'), where('participants', 'array-contains', currentUser.id));
+    }, [firestore, currentUser]);
+
+    const { data: chatsData } = useCollection<Chat>(chatsQuery);
+
+    const chatLastActivity = useMemo(() => {
+        const lastActivity = new Map<string, number>();
+        if (!chatsData || !currentUser) return lastActivity;
+
+        chatsData.forEach(chat => {
+            const partnerId = chat.id.replace(currentUser.id, '').replace('_', '');
+            if (chat.lastActivity) {
+                const timestamp = chat.lastActivity.toDate ? chat.lastActivity.toDate().getTime() : 0;
+                lastActivity.set(partnerId, timestamp);
+            }
+        });
+        return lastActivity;
+    }, [chatsData, currentUser]);
+
 
     const availablePartners = useMemo(() => {
         let partners: User[] = [];
@@ -53,16 +77,18 @@ export default function SupportPage() {
             partners = users.filter(u => u.role === 'admin');
         }
         
-        // Sort partners: those with unread messages first, then alphabetically
         return partners.sort((a, b) => {
-            const aUnread = unreadChatCounts.get(a.id) || 0;
-            const bUnread = unreadChatCounts.get(b.id) || 0;
-            if (aUnread > 0 && bUnread === 0) return -1;
-            if (bUnread > 0 && aUnread === 0) return 1;
+            const aLastActivity = chatLastActivity.get(a.id) || 0;
+            const bLastActivity = chatLastActivity.get(b.id) || 0;
+            
+            if (aLastActivity !== bLastActivity) {
+                return bLastActivity - aLastActivity;
+            }
+            
             return a.name.localeCompare(b.name);
         });
 
-    }, [users, currentUser, unreadChatCounts]);
+    }, [users, currentUser, chatLastActivity]);
 
 
     const filteredPartners = useMemo(() => {

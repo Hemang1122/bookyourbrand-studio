@@ -243,6 +243,20 @@
         "recipients"
       ]
     },
+    "Chat": {
+      "title": "Chat",
+      "type": "object",
+      "description": "Represents a chat conversation metadata.",
+      "properties": {
+        "id": { "type": "string" },
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "lastActivity": { "type": "string", "format": "date-time" },
+        "lastMessage": { "type": "string" },
+        "lastSenderId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "participants", "createdAt"]
+    },
     "ChatMessage": {
       "title": "Chat Message",
       "type": "object",
@@ -395,6 +409,16 @@
             "$ref": "#/backend/entities/ChatMessage"
           },
           "description": "Stores chat messages for a specific project."
+        }
+      },
+      {
+        "path": "/chats/{chatId}",
+        "definition": {
+          "entityName": "Chat",
+          "schema": {
+            "$ref": "#/backend/entities/Chat"
+          },
+          "description": "Stores metadata for global 1-on-1 chats."
         }
       },
       {

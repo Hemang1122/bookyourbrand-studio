@@ -9,7 +9,7 @@ import { useAuth } from '@/firebase/provider';
 import { AddChatAttachmentDialog } from '../../projects/[id]/components/add-chat-attachment-dialog';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useCollection, useFirebaseServices, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, serverTimestamp, addDoc, Timestamp, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, serverTimestamp, addDoc, Timestamp, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
 
@@ -37,7 +37,10 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
     const chatDocRef = doc(firestore, 'chats', chatId);
     getDoc(chatDocRef).then((docSnap) => {
       if (!docSnap.exists()) {
-        setDoc(chatDocRef, { createdAt: serverTimestamp(), participants: [currentUser.id, chatPartner.id] });
+        setDoc(chatDocRef, { 
+            createdAt: serverTimestamp(), 
+            participants: [currentUser.id, chatPartner.id] 
+        });
       }
     });
   }, [firestore, chatId, currentUser, chatPartner.id]);
@@ -71,8 +74,9 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
      if (!currentUser || !firestore || !chatId || (!messageText.trim() && !mediaUrl)) return;
      
      const messageType = mediaUrl ? 'media' : 'text';
-
-     const messagesColRef = collection(firestore, 'chats', chatId, 'messages');
+     
+     const chatDocRef = doc(firestore, 'chats', chatId);
+     const messagesColRef = collection(chatDocRef, 'messages');
 
      const messagePayload = {
       senderId: currentUser.id,
@@ -85,6 +89,13 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
     };
     
     addDoc(messagesColRef, messagePayload);
+    
+    // Update the parent chat document for sorting
+    updateDoc(chatDocRef, {
+        lastActivity: serverTimestamp(),
+        lastMessage: messageText.substring(0, 50),
+        lastSenderId: currentUser.id
+    });
 
     addNotification(
         `New message from ${currentUser.name}`,

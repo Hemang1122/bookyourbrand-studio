@@ -91,6 +91,11 @@ service cloud.firestore {
     }
     
     /* GLOBAL CHATS */
+    match /chats/{chatId} {
+      allow get, update: if (request.auth.uid in chatId.split('_')) || isAdmin();
+      allow create: if request.auth.uid in request.resource.data.participants;
+    }
+
     match /chats/{chatId}/messages/{messageId} {
       allow read, write: if (request.auth.uid in chatId.split('_')) || isAdmin();
       allow create: if request.resource.data.senderId == request.auth.uid;
