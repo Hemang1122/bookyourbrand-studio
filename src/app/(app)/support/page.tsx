@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/firebase/provider';
 import { useData } from '../data-provider';
 import { SupportChatRoom } from './components/support-chat-room';
@@ -27,10 +26,12 @@ export default function SupportPage() {
         ? users.filter(u => u.id !== currentUser.id)
         : users.filter(u => u.role === 'admin');
 
-    // If client has only one admin to talk to, auto-select them.
-    if (currentUser.role === 'client' && chatPartners.length === 1 && !selectedChatPartner) {
-        setSelectedChatPartner(chatPartners[0]);
-    }
+    // Correctly handle auto-selection in useEffect
+    useEffect(() => {
+        if (currentUser?.role === 'client' && chatPartners.length === 1 && !selectedChatPartner) {
+            setSelectedChatPartner(chatPartners[0]);
+        }
+    }, [currentUser, chatPartners, selectedChatPartner]);
     
     // For team members, this page isn't available, but as a fallback:
     if (currentUser.role === 'team') {
