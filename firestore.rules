@@ -91,18 +91,6 @@ service cloud.firestore {
                          );
     }
     
-    /* GLOBAL CHATS */
-    match /chats/{chatId} {
-      allow list: if isSignedIn();
-      allow get, update: if isSignedIn() && (request.auth.uid in chatId.split('_') || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid in request.resource.data.participants;
-    }
-
-    match /chats/{chatId}/messages/{messageId} {
-      allow read, write: if isSignedIn() && (request.auth.uid in chatId.split('_') || isAdmin());
-      allow create: if request.resource.data.senderId == request.auth.uid;
-    }
-
     /* SCRUM UPDATES */
     match /scrum-updates/{updateId} {
       allow read, list: if isAdmin();

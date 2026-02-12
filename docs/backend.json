@@ -242,71 +242,6 @@
         "readBy",
         "recipients"
       ]
-    },
-    "Chat": {
-      "title": "Chat",
-      "type": "object",
-      "description": "Represents a chat conversation metadata.",
-      "properties": {
-        "id": { "type": "string" },
-        "participants": { "type": "array", "items": { "type": "string" } },
-        "lastActivity": { "type": "string", "format": "date-time" },
-        "lastMessage": { "type": "string" },
-        "lastSenderId": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "participants", "createdAt"]
-    },
-    "ChatMessage": {
-      "title": "Chat Message",
-      "type": "object",
-      "description": "Represents a single message in a chat room.",
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "senderId": {
-          "type": "string"
-        },
-        "senderName": {
-          "type": "string"
-        },
-        "senderRole": {
-          "type": "string",
-          "enum": [
-            "admin",
-            "team",
-            "client"
-          ]
-        },
-        "messageText": {
-          "type": "string"
-        },
-        "messageType": {
-          "type": "string",
-          "enum": [
-            "text",
-            "voice",
-            "media"
-          ]
-        },
-        "mediaUrl": {
-          "type": "string"
-        },
-        "timestamp": {
-          "type": "string",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "senderId",
-        "senderName",
-        "senderRole",
-        "messageText",
-        "messageType",
-        "timestamp"
-      ]
     }
   },
   "auth": {
@@ -409,26 +344,6 @@
             "$ref": "#/backend/entities/ChatMessage"
           },
           "description": "Stores chat messages for a specific project."
-        }
-      },
-      {
-        "path": "/chats/{chatId}",
-        "definition": {
-          "entityName": "Chat",
-          "schema": {
-            "$ref": "#/backend/entities/Chat"
-          },
-          "description": "Stores metadata for global 1-on-1 chats."
-        }
-      },
-      {
-        "path": "/chats/{chatId}/messages/{messageId}",
-        "definition": {
-          "entityName": "ChatMessage",
-          "schema": {
-            "$ref": "#/backend/entities/ChatMessage"
-          },
-          "description": "Stores messages for global 1-on-1 chats."
         }
       }
     ],
