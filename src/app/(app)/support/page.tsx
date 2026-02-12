@@ -1,44 +1,79 @@
 
 'use client';
 
+import { useState } from 'react';
 import { useAuth } from '@/firebase/provider';
 import { useData } from '../data-provider';
 import { SupportChatRoom } from './components/support-chat-room';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import type { User } from '@/lib/types';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 export default function SupportPage() {
-    const { user } = useAuth();
+    const { user: currentUser } = useAuth();
     const { users } = useData();
+    const [selectedChatPartner, setSelectedChatPartner] = useState<User | null>(null);
 
-    if (!user) {
+    if (!currentUser) {
         return null; // Or a loading state
     }
 
-    // For clients, they chat directly with an admin.
-    // For admins, we need a list of clients to chat with. This will be implemented next.
-    // For now, let's find the first admin to act as the support agent.
-    const supportAgent = users.find(u => u.role === 'admin');
+    // Admins can chat with anyone but themselves.
+    // Clients can only chat with admins.
+    const chatPartners = currentUser.role === 'admin' 
+        ? users.filter(u => u.id !== currentUser.id)
+        : users.filter(u => u.role === 'admin');
+
+    // If client has only one admin to talk to, auto-select them.
+    if (currentUser.role === 'client' && chatPartners.length === 1 && !selectedChatPartner) {
+        setSelectedChatPartner(chatPartners[0]);
+    }
     
-    // The client will chat with the admin, the admin will chat with the client
-    const chatPartnerId = user.role === 'client' 
-        ? supportAgent?.id 
-        : users.find(u => u.role === 'client')?.id; // Admin chats with the first client for demo
-
-
-    if (!chatPartnerId) {
-        return (
-            <div className="flex h-full flex-col">
-                <div className="flex-1 flex items-center justify-center">
-                    <p className="text-muted-foreground">No one is available to chat with.</p>
-                </div>
-            </div>
-        )
+    // For team members, this page isn't available, but as a fallback:
+    if (currentUser.role === 'team') {
+        return <div className="text-center p-8">Support chat is available for admins and clients.</div>
     }
 
     return (
-        <div className="h-[calc(100vh_-_100px)]">
+        <div className="h-[calc(100vh_-_100px)] grid grid-cols-1 md:grid-cols-[300px_1fr] gap-4">
+            <Card className="h-full flex flex-col">
+                <CardHeader>
+                    <CardTitle>Contacts</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0 flex-1">
+                    <ScrollArea className="h-full">
+                        <div className="p-2 space-y-1">
+                            {chatPartners.map(partner => (
+                                <Button
+                                    key={partner.id}
+                                    variant="ghost"
+                                    className={cn(
+                                        "w-full justify-start h-auto p-3 text-left",
+                                        selectedChatPartner?.id === partner.id && "bg-accent"
+                                    )}
+                                    onClick={() => setSelectedChatPartner(partner)}
+                                >
+                                    <div className="flex-1">
+                                        <p className="font-semibold">{partner.name}</p>
+                                        <Badge variant="outline" className="capitalize">{partner.role}</Badge>
+                                    </div>
+                                </Button>
+                            ))}
+                        </div>
+                    </ScrollArea>
+                </CardContent>
+            </Card>
             <Card className="h-full">
-                <SupportChatRoom chatPartnerId={chatPartnerId} />
+                {selectedChatPartner ? (
+                    <SupportChatRoom key={selectedChatPartner.id} chatPartner={selectedChatPartner} />
+                ) : (
+                    <div className="flex h-full items-center justify-center">
+                        <p className="text-muted-foreground">Select a contact to start chatting</p>
+                    </div>
+                )}
             </Card>
         </div>
     );

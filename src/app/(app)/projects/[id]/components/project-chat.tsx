@@ -1,27 +1,22 @@
-
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import type { ChatMessage, User } from '@/lib/types';
+import type { ChatMessage, User, Project } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Send, Paperclip, Link as LinkIcon, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
-import { useData } from '../../data-provider';
-import { AddChatAttachmentDialog } from '../../projects/[id]/components/add-chat-attachment-dialog';
+import { useData } from '../../../data-provider';
+import { AddChatAttachmentDialog } from './add-chat-attachment-dialog';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { FieldValue } from 'firebase/firestore';
 
 
-function getChatId(id1: string, id2: string) {
-  return [id1, id2].sort().join('_');
-}
-
-type SupportChatRoomProps = {
-  chatPartner: User;
+type ProjectChatProps = {
+  project: Project;
 };
 
-export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
+export function ProjectChat({ project }: ProjectChatProps) {
   const [newMessage, setNewMessage] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const { user: currentUser } = useAuth();
@@ -38,9 +33,9 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
   };
   
   useEffect(() => {
-    // Clear messages when chat partner changes
+    // Clear messages when project changes (if component is reused)
     setMessages([]);
-  }, [chatPartner]);
+  }, [project]);
 
   useEffect(() => {
     scrollToBottom();
@@ -51,7 +46,7 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
      if (!currentUser || (!message.trim() && !fileUrl)) return;
      
      const messagePayload: any = {
-      id: `support-msg-${Date.now()}`,
+      id: `project-msg-${Date.now()}`,
       senderId: currentUser.id,
       senderName: currentUser.name,
       message: message,
@@ -73,14 +68,16 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
     sendMessage(message || url, url);
   }
   
-  if (!currentUser || !chatPartner) return <div className="flex h-full items-center justify-center"><p className="text-muted-foreground">Select a conversation</p></div>;
+  if (!currentUser) return null;
+
+  const chatParticipants = users.filter(u => project.team_ids.includes(u.id) || u.role === 'admin');
 
   return (
     <div className="flex h-full flex-col">
        <CardHeader className="flex-row items-center border-b">
          <div className="ml-4">
-            <CardTitle className="text-base">{chatPartner.name}</CardTitle>
-            <CardDescription className="text-xs capitalize">{chatPartner.role}</CardDescription>
+            <CardTitle className="text-base">Project Chat</CardTitle>
+            <CardDescription className="text-xs">Discussion for: {project.name}</CardDescription>
          </div>
       </CardHeader>
 
@@ -88,7 +85,7 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
         <div className="space-y-4">
           {messages?.length === 0 && (
             <div className="text-center text-muted-foreground py-12">
-              No messages yet. Send a message to start the conversation!
+              No messages in this project yet. Start the conversation!
             </div>
           )}
           {messages.map((msg) => {
@@ -140,7 +137,7 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
+            placeholder="Type a message for the project team..."
             autoComplete="off"
           />
           <Button type="submit" size="icon" disabled={!newMessage}>

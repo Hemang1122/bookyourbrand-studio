@@ -8,7 +8,7 @@ import { TaskList } from './components/task-list';
 import { FileManager } from './components/file-manager';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ListTodo, Files, Info, Users, Edit, Trash2 } from 'lucide-react';
+import { ListTodo, Files, Info, Users, Edit, Trash2, MessageSquare } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
 import type { Project, Client, User, ProjectStatus } from '@/lib/types';
@@ -20,6 +20,7 @@ import { DeleteProjectDialog } from './components/delete-project-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { ProjectChat } from './components/project-chat';
 
 
 const getStatusBadgeClass = (status: ProjectStatus) => {
@@ -204,9 +205,10 @@ export default function ProjectDetailPage() {
       </div>
 
       <Tabs defaultValue="tasks" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="tasks"><ListTodo className="mr-2 h-4 w-4" />Tasks</TabsTrigger>
           <TabsTrigger value="files"><Files className="mr-2 h-4 w-4" />Files</TabsTrigger>
+          <TabsTrigger value="chat"><MessageSquare className="mr-2 h-4 w-4" />Chat</TabsTrigger>
         </TabsList>
         <TabsContent value="tasks">
           <Card>
@@ -229,6 +231,11 @@ export default function ProjectDetailPage() {
               <FileManager projectId={project.id} />
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="chat">
+           <Card className="h-[70vh]">
+             <ProjectChat project={project} />
+           </Card>
         </TabsContent>
       </Tabs>
     </div>
