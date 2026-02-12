@@ -50,6 +50,21 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    /* PROJECT CHAT */
+    match /projects/{projectId}/chat/messages/{messageId} {
+        function isProjectParticipant() {
+            let projectData = get(/databases/$(database)/documents/projects/$(projectId)).data;
+            return isAdmin() || 
+                   request.auth.uid in projectData.team_ids || 
+                   request.auth.uid == projectData.client.id;
+        }
+
+        allow read, write: if isSignedIn() && isProjectParticipant();
+
+        allow create: if request.resource.data.senderId == request.auth.uid;
+    }
+
+
     /* TASKS */
     match /tasks/{taskId} {
       allow read, write: if isSignedIn() &&
@@ -69,6 +84,13 @@ service cloud.firestore {
                            request.auth.uid in get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.team_ids
                          );
     }
+    
+    /* GLOBAL CHATS */
+    match /chats/{chatId}/messages/{messageId} {
+      allow read, write: if (request.auth.uid in chatId.split('_')) || isAdmin();
+      allow create: if request.resource.data.senderId == request.auth.uid;
+    }
+
 
     /* SCRUM UPDATES */
     match /scrum-updates/{updateId} {

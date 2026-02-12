@@ -1,16 +1,16 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import type { ChatMessage, User, Project } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Send, Paperclip, Link as LinkIcon, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
-import { useData } from '../../../data-provider';
 import { AddChatAttachmentDialog } from './add-chat-attachment-dialog';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import type { FieldValue } from 'firebase/firestore';
-
+import { useCollection, useFirebaseServices, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, serverTimestamp, addDoc, Timestamp } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type ProjectChatProps = {
   project: Project;
@@ -18,10 +18,16 @@ type ProjectChatProps = {
 
 export function ProjectChat({ project }: ProjectChatProps) {
   const [newMessage, setNewMessage] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const { user: currentUser } = useAuth();
-  const { users } = useData();
+  const { firestore } = useFirebaseServices();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  const messagesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'projects', project.id, 'chat', 'messages'), orderBy('timestamp', 'asc'));
+  }, [firestore, project.id]);
+
+  const { data: messages, isLoading: messagesLoading } = useCollection<ChatMessage>(messagesQuery);
   
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
@@ -31,33 +37,35 @@ export function ProjectChat({ project }: ProjectChatProps) {
         }
     }
   };
-  
-  useEffect(() => {
-    // Clear messages when project changes (if component is reused)
-    setMessages([]);
-  }, [project]);
 
   useEffect(() => {
-    scrollToBottom();
+    // Scroll to bottom when new messages arrive
+    if ((messages?.length || 0) > 0) {
+      scrollToBottom();
+    }
   }, [messages]);
 
 
-  const sendMessage = (message: string, fileUrl?: string) => {
-     if (!currentUser || (!message.trim() && !fileUrl)) return;
+  const sendMessage = (messageText: string, mediaUrl?: string) => {
+     if (!currentUser || !firestore || (!messageText.trim() && !mediaUrl)) return;
      
-     const messagePayload: any = {
-      id: `project-msg-${Date.now()}`,
+     const messageType = mediaUrl ? 'media' : 'text';
+
+     const messagesColRef = collection(firestore, 'projects', project.id, 'chat', 'messages');
+
+     const messagePayload = {
       senderId: currentUser.id,
       senderName: currentUser.name,
-      message: message,
-      timestamp: new Date(),
-      fileUrl: fileUrl || null,
+      senderRole: currentUser.role,
+      messageText,
+      messageType,
+      mediaUrl: mediaUrl || null,
+      timestamp: serverTimestamp(),
     };
     
-    setMessages(prev => [...prev, messagePayload]);
+    addDoc(messagesColRef, messagePayload);
     setNewMessage('');
   }
-
 
   const handleSendTextMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,8 +78,6 @@ export function ProjectChat({ project }: ProjectChatProps) {
   
   if (!currentUser) return null;
 
-  const chatParticipants = users.filter(u => project.team_ids.includes(u.id) || u.role === 'admin');
-
   return (
     <div className="flex h-full flex-col">
        <CardHeader className="flex-row items-center border-b">
@@ -83,14 +89,22 @@ export function ProjectChat({ project }: ProjectChatProps) {
 
       <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
         <div className="space-y-4">
-          {messages?.length === 0 && (
+          {messagesLoading && (
+            <div className="space-y-4">
+              <Skeleton className="h-16 w-3/4" />
+              <Skeleton className="h-16 w-3/4 ml-auto" />
+              <Skeleton className="h-12 w-1/2" />
+            </div>
+          )}
+          {!messagesLoading && messages?.length === 0 && (
             <div className="text-center text-muted-foreground py-12">
               No messages in this project yet. Start the conversation!
             </div>
           )}
-          {messages.map((msg) => {
+          {!messagesLoading && messages?.map((msg) => {
             const isCurrentUser = msg.senderId === currentUser.id;
-            const messageDate = new Date();
+            const timestamp = msg.timestamp as Timestamp;
+            const messageDate = timestamp ? timestamp.toDate() : new Date();
 
             return (
               <div
@@ -100,20 +114,20 @@ export function ProjectChat({ project }: ProjectChatProps) {
                 <div className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                     {!isCurrentUser && <span className="text-xs text-muted-foreground">{msg.senderName}</span>}
                     <div className={`rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                        {msg.fileUrl ? (
+                        {msg.mediaUrl ? (
                            <div className="space-y-2">
-                             <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-lg border bg-background/50 p-3 hover:bg-accent">
+                             <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-lg border bg-background/50 p-3 hover:bg-accent">
                                 <FileText className="h-6 w-6 text-muted-foreground" />
                                 <div className="flex-1">
                                     <p className="text-sm font-medium text-foreground">File Attachment</p>
-                                    <p className="text-xs text-muted-foreground truncate">{msg.fileUrl}</p>
+                                    <p className="text-xs text-muted-foreground truncate">{msg.mediaUrl}</p>
                                 </div>
                                 <LinkIcon className="h-4 w-4 text-muted-foreground"/>
                              </a>
-                             {msg.message && msg.message !== msg.fileUrl && <p className="text-sm">{msg.message}</p>}
+                             {msg.messageText && msg.messageText !== msg.mediaUrl && <p className="text-sm">{msg.messageText}</p>}
                            </div>
                         ) : (
-                            <p className="text-sm">{msg.message}</p>
+                            <p className="text-sm">{msg.messageText}</p>
                         )}
                     </div>
                     <p className={`text-xs mt-1 ${isCurrentUser ? 'text-right' : 'text-left'} text-muted-foreground/80`}>
@@ -140,7 +154,7 @@ export function ProjectChat({ project }: ProjectChatProps) {
             placeholder="Type a message for the project team..."
             autoComplete="off"
           />
-          <Button type="submit" size="icon" disabled={!newMessage}>
+          <Button type="submit" size="icon" disabled={!newMessage.trim()}>
             <Send className="h-5 w-5" />
             <span className="sr-only">Send message</span>
           </Button>

@@ -150,11 +150,15 @@ export interface TimerSession {
   date: string; // YYYY-MM-DD
 }
 
+export type MessageType = 'text' | 'voice' | 'media';
+
 export type ChatMessage = {
   id: string;
   senderId: string;
   senderName: string;
-  message: string;
-  timestamp: Date | FieldValue;
-  fileUrl?: string | null;
+  senderRole: UserRole;
+  messageText: string;
+  messageType: MessageType;
+  timestamp: Timestamp;
+  mediaUrl?: string | null;
 };
