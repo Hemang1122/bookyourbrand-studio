@@ -1,39 +1,68 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/firebase/provider';
 import { useData } from '../data-provider';
 import { SupportChatRoom } from './components/support-chat-room';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import type { User } from '@/lib/types';
+import type { User, Notification } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useSearchParams } from 'next/navigation';
 
 export default function SupportPage() {
     const { user: currentUser } = useAuth();
-    const { users } = useData();
+    const { users, notifications, markChatNotificationsAsRead } = useData();
     const [selectedChatPartner, setSelectedChatPartner] = useState<User | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [roleFilter, setRoleFilter] = useState('all'); // 'all', 'client', 'team'
+    const searchParams = useSearchParams();
 
     if (!currentUser) {
         return null; // Or a loading state
     }
 
+    const unreadChatCounts = useMemo(() => {
+        const counts = new Map<string, number>();
+        if (!notifications) return counts;
+        
+        notifications
+            .filter(n => n.type === 'chat' && !n.readBy.includes(currentUser.id))
+            .forEach(n => {
+                const chatId = n.chatId;
+                if (chatId) {
+                    // Other user's ID is the part of the chatId that is not the current user's ID
+                    const partnerId = chatId.replace(currentUser.id, '').replace('_', '');
+                    counts.set(partnerId, (counts.get(partnerId) || 0) + 1);
+                }
+            });
+        return counts;
+    }, [notifications, currentUser.id]);
+
+
     const availablePartners = useMemo(() => {
+        let partners: User[] = [];
         if (currentUser.role === 'admin') {
-            return users.filter(u => u.id !== currentUser.id);
+            partners = users.filter(u => u.id !== currentUser.id);
+        } else if (currentUser.role === 'client') {
+            partners = users.filter(u => u.role === 'admin');
         }
-        if (currentUser.role === 'client') {
-            return users.filter(u => u.role === 'admin');
-        }
-        return []; // Team members don't use this page
-    }, [users, currentUser]);
+        
+        // Sort partners: those with unread messages first, then alphabetically
+        return partners.sort((a, b) => {
+            const aUnread = unreadChatCounts.get(a.id) || 0;
+            const bUnread = unreadChatCounts.get(b.id) || 0;
+            if (aUnread > 0 && bUnread === 0) return -1;
+            if (bUnread > 0 && aUnread === 0) return 1;
+            return a.name.localeCompare(b.name);
+        });
+
+    }, [users, currentUser, unreadChatCounts]);
 
 
     const filteredPartners = useMemo(() => {
@@ -49,15 +78,30 @@ export default function SupportPage() {
             });
     }, [availablePartners, searchQuery, roleFilter]);
 
-    // Correctly handle auto-selection in useEffect
-    useState(() => {
-        if (currentUser?.role === 'client' && availablePartners.length > 0 && !selectedChatPartner) {
+    // Effect to auto-select chat partner from URL or default
+    useEffect(() => {
+        const chatWithId = searchParams.get('chatWith');
+        if (chatWithId) {
+            const partner = availablePartners.find(p => p.id === chatWithId);
+            if (partner) {
+                setSelectedChatPartner(partner);
+                 const chatId = [currentUser.id, partner.id].sort().join('_');
+                markChatNotificationsAsRead(chatId);
+            }
+        } else if (currentUser.role === 'client' && availablePartners.length > 0 && !selectedChatPartner) {
             setSelectedChatPartner(availablePartners[0]);
         }
-    });
+    }, [searchParams, availablePartners, currentUser, selectedChatPartner, markChatNotificationsAsRead]);
+    
     
     if (currentUser.role === 'team') {
         return <div className="text-center p-8">Support chat is available for admins and clients.</div>
+    }
+
+    const handleSelectPartner = (partner: User) => {
+        setSelectedChatPartner(partner);
+        const chatId = [currentUser.id, partner.id].sort().join('_');
+        markChatNotificationsAsRead(chatId);
     }
 
     return (
@@ -87,7 +131,9 @@ export default function SupportPage() {
                 <CardContent className="p-0 flex-1">
                     <ScrollArea className="h-full">
                         <div className="p-2 space-y-1">
-                            {filteredPartners.map(partner => (
+                            {filteredPartners.map(partner => {
+                                const unreadCount = unreadChatCounts.get(partner.id) || 0;
+                                return (
                                 <Button
                                     key={partner.id}
                                     variant="ghost"
@@ -95,14 +141,17 @@ export default function SupportPage() {
                                         "w-full justify-start h-auto p-3 text-left",
                                         selectedChatPartner?.id === partner.id && "bg-accent"
                                     )}
-                                    onClick={() => setSelectedChatPartner(partner)}
+                                    onClick={() => handleSelectPartner(partner)}
                                 >
                                     <div className="flex-1">
                                         <p className="font-semibold">{partner.name}</p>
                                         <Badge variant="outline" className="capitalize">{partner.role}</Badge>
                                     </div>
+                                    {unreadCount > 0 && (
+                                        <Badge className="bg-primary hover:bg-primary">{unreadCount}</Badge>
+                                    )}
                                 </Button>
-                            ))}
+                            )})}
                         </div>
                     </ScrollArea>
                 </CardContent>

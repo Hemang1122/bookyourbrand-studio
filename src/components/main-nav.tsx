@@ -21,6 +21,10 @@ import {
 } from '@/components/ui/sidebar';
 import type { UserRole } from '@/lib/types';
 import { useSidebar } from '@/components/ui/sidebar';
+import { useData } from '@/app/(app)/data-provider';
+import { useMemo } from 'react';
+import { useAuth } from '@/firebase/provider';
+import { Badge } from './ui/badge';
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'team', 'client'] },
@@ -36,6 +40,20 @@ const navItems = [
 
 export function MainNav({ userRole }: { userRole: UserRole }) {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const { notifications } = useData();
+
+  const unreadSupportCount = useMemo(() => {
+    if (!user || !notifications) return 0;
+    const unreadChatIds = new Set<string>();
+    notifications.forEach(n => {
+        if (n.type === 'chat' && !n.readBy.includes(user.id) && n.chatId) {
+            unreadChatIds.add(n.chatId);
+        }
+    });
+    return unreadChatIds.size;
+  }, [notifications, user]);
+
   const visibleItems = navItems.filter(item => item.roles.includes(userRole));
   const { isMobile } = useSidebar();
 
@@ -44,7 +62,7 @@ export function MainNav({ userRole }: { userRole: UserRole }) {
       <SidebarMenu>
         {visibleItems.map((item) => (
           <SidebarMenuItem key={item.href}>
-            <Link href={item.href}>
+            <Link href={item.href} className="relative">
               <SidebarMenuButton
                 isActive={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))}
                 tooltip={item.label}
@@ -52,6 +70,9 @@ export function MainNav({ userRole }: { userRole: UserRole }) {
                 <item.icon className="h-5 w-5" />
                  {isMobile && <span>{item.label}</span>}
               </SidebarMenuButton>
+              {item.href === '/support' && unreadSupportCount > 0 && !isMobile && (
+                <Badge className="absolute -top-1 -right-1 h-5 w-5 justify-center p-0">{unreadSupportCount}</Badge>
+              )}
             </Link>
           </SidebarMenuItem>
         ))}

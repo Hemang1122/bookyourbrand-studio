@@ -139,6 +139,8 @@ export type Notification = {
   readBy: string[]; // Array of user IDs who have read it
   recipients: string[]; // Array of user IDs who should receive the notification
   url: string; // The URL to navigate to when clicked
+  type: 'system' | 'chat';
+  chatId?: string;
 }
 
 export interface TimerSession {

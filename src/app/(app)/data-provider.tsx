@@ -6,7 +6,7 @@ import { users as initialUsers, clients as initialClients, projects as initialPr
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking, useFirebaseServices } from '@/firebase';
-import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp, arrayUnion, runTransaction } from 'firebase/firestore';
+import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp, arrayUnion, runTransaction, getDocs } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -42,7 +42,9 @@ type DataContextType = {
   updateProject: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => void;
   addFile: (file: Omit<ProjectFile, 'id'>) => void;
   deleteFile: (fileId: string) => void;
-  markNotificationsAsRead: () => void;
+  addNotification: (message: string, url: string, recipients: string[], type: 'system' | 'chat', chatId?: string) => void;
+  markNotificationsAsRead: (type?: 'system' | 'chat') => void;
+  markChatNotificationsAsRead: (chatId: string) => void;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -54,7 +56,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   
   const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
 
-  const addNotification = useCallback((message: string, url: string, recipients: string[]) => {
+  const addNotification = useCallback((message: string, url: string, recipients: string[], type: 'system' | 'chat' = 'system', chatId?: string) => {
     if (!firestore || recipients.length === 0) return;
     const newNotif: Omit<Notification, 'id'> = {
       message,
@@ -62,6 +64,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       recipients,
       readBy: [],
       timestamp: Timestamp.now(),
+      type,
+      ...(chatId && { chatId }),
     };
     addDocumentNonBlocking(collection(firestore, 'notifications'), newNotif);
     
@@ -205,11 +209,11 @@ export function DataProvider({ children, user: currentUser }: { children: React.
             ];
             
             if (notificationRecipients.length > 0) {
-                addNotification(`New project '${newProject.name}' was created by ${currentUser.name}.`, `/projects/${newProject.id}`, notificationRecipients);
+                addNotification(`New project '${newProject.name}' was created by ${currentUser.name}.`, `/projects/${newProject.id}`, notificationRecipients, 'system');
             }
             
             if (projectData.team_ids.length > 0) {
-                addNotification(`You have been assigned to the new project: '${newProject.name}'.`, `/projects/${newProject.id}`, projectData.team_ids);
+                addNotification(`You have been assigned to the new project: '${newProject.name}'.`, `/projects/${newProject.id}`, projectData.team_ids, 'system');
             }
             router.push(`/projects/${newProject.id}`);
         });
@@ -250,7 +254,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
     const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...adminIds]));
     const finalRecipients = recipients.filter(id => id !== currentUser.id);
-    addNotification(`New task '${newTask.title}' added to project '${project.name}'.`, `/projects/${project.id}`, finalRecipients);
+    addNotification(`New task '${newTask.title}' added to project '${project.name}'.`, `/projects/${project.id}`, finalRecipients, 'system');
   }
 
   const updateProjectTeam = (projectId: string, teamMemberIds: string[]) => {
@@ -265,7 +269,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
     const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
     const recipients = Array.from(new Set([...teamMemberIds, project.client.id, ...adminIds]));
-    addNotification(`The team for project '${project.name}' has been updated.`, `/projects/${projectId}`, recipients.filter(id => id !== currentUser.id));
+    addNotification(`The team for project '${project.name}' has been updated.`, `/projects/${projectId}`, recipients.filter(id => id !== currentUser.id), 'system');
   };
 
   const updateTaskStatus = (taskId: string, status: TaskStatus, remark: string) => {
@@ -294,8 +298,25 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     toast({ title: 'Task Updated', description: `Task status changed to "${status}".` });
     
     const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
-    const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...adminIds]));
-    addNotification(`Task '${task.title}' in project '${project.name}' was updated to '${status}'.`, `/projects/${project.id}`, recipients.filter(id => id !== currentUser.id));
+    let recipients: string[] = [];
+
+    if (currentUser.role === 'admin') {
+      recipients = [project.client.id, ...project.team_ids];
+    } else if (currentUser.role === 'team') {
+      recipients = [project.client.id, ...adminIds];
+    } else { // client
+      recipients = [...project.team_ids, ...adminIds];
+    }
+    const finalRecipients = Array.from(new Set(recipients)).filter(id => id !== currentUser.id);
+
+    if (finalRecipients.length > 0) {
+      addNotification(
+          `Task '${task.title}' in project '${project.name}' was updated to '${status}'.`, 
+          `/projects/${project.id}`, 
+          finalRecipients,
+          'system'
+      );
+    }
   }
 
   const addClient = (clientData: Omit<Client, 'id' | 'avatar'>) => {
@@ -322,7 +343,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
             addNotification(
                 `${client.name} has upgraded their plan to ${clientData.packageName}.`,
                 `/settings/billing`,
-                admins.map(a => a.id)
+                admins.map(a => a.id),
+                'system'
             );
         }
     }
@@ -347,7 +369,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const admins = usersData.filter(u => u.role === 'admin');
     if (admins.length > 0) {
       const adminIds = admins.map(a => a.id).filter(id => id !== currentUser.id);
-      addNotification(`${currentUser.name} has submitted their daily scrum update.`, `/scrum`, adminIds);
+      addNotification(`${currentUser.name} has submitted their daily scrum update.`, `/scrum`, adminIds, 'system');
     }
   };
 
@@ -361,7 +383,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     if (admins.length > 0) {
         const adminIds = admins.map(a => a.id).filter(id => id !== currentUser.id);
         const action = session.endTime ? 'stopped' : 'started';
-        addNotification(`${currentUser.name} has ${action} a work timer for session: "${session.name}".`, `/team`, adminIds);
+        addNotification(`${currentUser.name} has ${action} a work timer for session: "${session.name}".`, `/team`, adminIds, 'system');
     }
   };
 
@@ -388,7 +410,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         addNotification(
             `Project '${project.name}' status has been updated to '${projectData.status}' by ${currentUser.name}.`,
             `/projects/${projectId}`,
-            [...clientRecipients, ...teamRecipients]
+            [...clientRecipients, ...teamRecipients],
+            'system'
         );
     }
 
@@ -412,10 +435,13 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     deleteDocumentNonBlocking(fileRef);
   };
   
-  const markNotificationsAsRead = useCallback(() => {
+  const markNotificationsAsRead = useCallback(async (type?: 'system' | 'chat') => {
     if (!firestore || !notifications || notifications.length === 0 || !currentUser) return;
 
-    const unreadNotifications = notifications.filter(n => !(n.readBy || []).includes(currentUser.id));
+    const unreadNotifications = notifications.filter(n => 
+        !(n.readBy || []).includes(currentUser.id) &&
+        (!type || n.type === type)
+    );
     if (unreadNotifications.length === 0) return;
 
     const batch = writeBatch(firestore);
@@ -426,10 +452,38 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       });
     });
 
-    batch.commit().catch(err => {
+    await batch.commit().catch(err => {
       console.error("Failed to mark notifications as read:", err);
     });
   }, [firestore, notifications, currentUser]);
+
+  const markChatNotificationsAsRead = useCallback(async (chatId: string) => {
+    if (!firestore || !currentUser) return;
+    
+    const q = query(
+      collection(firestore, 'notifications'),
+      where('chatId', '==', chatId),
+      where('recipients', 'array-contains', currentUser.id)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) return;
+    
+    const batch = writeBatch(firestore);
+    querySnapshot.docs.forEach(document => {
+      const notif = document.data() as Notification;
+      if (!notif.readBy.includes(currentUser.id)) {
+        const notifRef = doc(firestore, 'notifications', document.id);
+        batch.update(notifRef, {
+          readBy: arrayUnion(currentUser.id)
+        });
+      }
+    });
+
+    await batch.commit().catch(err => {
+      console.error(`Failed to mark chat ${chatId} as read:`, err);
+    });
+  }, [firestore, currentUser]);
 
 
   return (
@@ -458,7 +512,9 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         updateProject,
         addFile,
         deleteFile,
+        addNotification,
         markNotificationsAsRead,
+        markChatNotificationsAsRead,
     }}>
       {children}
     </DataContext.Provider>

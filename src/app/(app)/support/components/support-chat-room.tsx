@@ -11,6 +11,7 @@ import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useCollection, useFirebaseServices, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, serverTimestamp, addDoc, Timestamp, doc, getDoc, setDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useData } from '../../data-provider';
 
 
 type SupportChatRoomProps = {
@@ -21,6 +22,7 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
   const { firestore } = useFirebaseServices();
+  const { addNotification } = useData();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const chatId = useMemo(() => {
@@ -83,6 +85,15 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
     };
     
     addDoc(messagesColRef, messagePayload);
+
+    addNotification(
+        `New message from ${currentUser.name}`,
+        `/support?chatWith=${currentUser.id}`,
+        [chatPartner.id],
+        'chat',
+        chatId
+    );
+
     setNewMessage('');
   }
 

@@ -33,16 +33,19 @@ export function NotificationBell() {
   const [playSound, setPlaySound] = useState(false);
 
   // Memoize notifications to prevent re-renders, handle null safety
-  const safeNotifications = useMemo(() => Array.isArray(notifications) ? notifications : [], [notifications]);
+  const systemNotifications = useMemo(() => {
+    if (!Array.isArray(notifications)) return [];
+    return notifications.filter(n => n.type === 'system');
+  }, [notifications]);
 
   // Sort notifications once
   const sortedNotifications = useMemo(() => {
-    return safeNotifications.sort((a, b) => {
+    return systemNotifications.sort((a, b) => {
         const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp || 0);
         const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp || 0);
         return compareDesc(dateA, dateB);
     });
-  }, [safeNotifications]);
+  }, [systemNotifications]);
 
 
   const unreadCount = useMemo(() => {
@@ -92,7 +95,7 @@ export function NotificationBell() {
           <div className="flex items-center justify-between p-4 border-b">
             <h3 className="font-medium">Notifications</h3>
             {unreadCount > 0 && (
-              <Button variant="link" size="sm" onClick={markNotificationsAsRead} className="p-0 h-auto">
+              <Button variant="link" size="sm" onClick={() => markNotificationsAsRead()} className="p-0 h-auto">
                 Mark all as read
               </Button>
             )}

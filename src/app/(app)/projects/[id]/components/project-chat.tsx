@@ -11,6 +11,7 @@ import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useCollection, useFirebaseServices, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, serverTimestamp, addDoc, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useData } from '../../../data-provider';
 
 type ProjectChatProps = {
   project: Project;
@@ -20,6 +21,7 @@ export function ProjectChat({ project }: ProjectChatProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
   const { firestore } = useFirebaseServices();
+  const { addNotification, users } = useData();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const messagesQuery = useMemoFirebase(() => {
@@ -64,6 +66,22 @@ export function ProjectChat({ project }: ProjectChatProps) {
     };
     
     addDoc(messagesColRef, messagePayload);
+
+    // Send notification
+    const adminIds = users.filter(u => u.role === 'admin').map(u => u.id);
+    const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...adminIds]));
+    const finalRecipients = recipients.filter(id => id !== currentUser.id);
+
+    if (finalRecipients.length > 0) {
+        addNotification(
+            `New message in '${project.name}': "${messageText.substring(0, 30)}..."`,
+            `/projects/${project.id}?tab=chat`,
+            finalRecipients,
+            'chat',
+            `project_${project.id}`
+        );
+    }
+    
     setNewMessage('');
   }
 
