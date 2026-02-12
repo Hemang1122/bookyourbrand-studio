@@ -9,7 +9,7 @@ import { useAuth } from '@/firebase/provider';
 import { AddChatAttachmentDialog } from '../../projects/[id]/components/add-chat-attachment-dialog';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useCollection, useFirebaseServices, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, serverTimestamp, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, serverTimestamp, addDoc, Timestamp, doc, getDoc, setDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 
@@ -28,6 +28,18 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
     // Create a consistent chat ID for any two users
     return [currentUser.id, chatPartner.id].sort().join('_');
   }, [currentUser, chatPartner]);
+
+  // Ensure the chat document exists before trying to query its subcollection
+  useEffect(() => {
+    if (!firestore || !chatId || !currentUser) return;
+    const chatDocRef = doc(firestore, 'chats', chatId);
+    getDoc(chatDocRef).then((docSnap) => {
+      if (!docSnap.exists()) {
+        setDoc(chatDocRef, { createdAt: serverTimestamp(), participants: [currentUser.id, chatPartner.id] });
+      }
+    });
+  }, [firestore, chatId, currentUser, chatPartner.id]);
+
 
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore || !chatId) return null;
@@ -100,7 +112,7 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
         </div>
       </CardHeader>
   
-      {/* Scrollable message area */}
+      {/* Messages area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
           <div className="space-y-4">
