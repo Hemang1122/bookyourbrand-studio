@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/firebase/provider';
 import { useData } from '../data-provider';
 import { SupportChatRoom } from './components/support-chat-room';
@@ -10,30 +10,52 @@ import { Button } from '@/components/ui/button';
 import type { User } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { Search } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function SupportPage() {
     const { user: currentUser } = useAuth();
     const { users } = useData();
     const [selectedChatPartner, setSelectedChatPartner] = useState<User | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [roleFilter, setRoleFilter] = useState('all'); // 'all', 'client', 'team'
 
     if (!currentUser) {
         return null; // Or a loading state
     }
 
-    // Admins can chat with anyone but themselves.
-    // Clients can only chat with admins.
-    const chatPartners = currentUser.role === 'admin' 
-        ? users.filter(u => u.id !== currentUser.id)
-        : users.filter(u => u.role === 'admin');
+    const availablePartners = useMemo(() => {
+        if (currentUser.role === 'admin') {
+            return users.filter(u => u.id !== currentUser.id);
+        }
+        if (currentUser.role === 'client') {
+            return users.filter(u => u.role === 'admin');
+        }
+        return []; // Team members don't use this page
+    }, [users, currentUser]);
+
+
+    const filteredPartners = useMemo(() => {
+        return availablePartners
+            .filter(partner => {
+                // Role filter
+                if (roleFilter === 'all') return true;
+                return partner.role === roleFilter;
+            })
+            .filter(partner => {
+                // Search filter
+                return partner.name.toLowerCase().includes(searchQuery.toLowerCase());
+            });
+    }, [availablePartners, searchQuery, roleFilter]);
 
     // Correctly handle auto-selection in useEffect
-    useEffect(() => {
-        if (currentUser?.role === 'client' && chatPartners.length === 1 && !selectedChatPartner) {
-            setSelectedChatPartner(chatPartners[0]);
+    useState(() => {
+        if (currentUser?.role === 'client' && availablePartners.length > 0 && !selectedChatPartner) {
+            setSelectedChatPartner(availablePartners[0]);
         }
-    }, [currentUser, chatPartners, selectedChatPartner]);
+    });
     
-    // For team members, this page isn't available, but as a fallback:
     if (currentUser.role === 'team') {
         return <div className="text-center p-8">Support chat is available for admins and clients.</div>
     }
@@ -43,11 +65,29 @@ export default function SupportPage() {
             <Card className="h-full flex flex-col">
                 <CardHeader>
                     <CardTitle>Contacts</CardTitle>
+                    <div className="relative mt-2">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            placeholder="Search by name..."
+                            className="pl-10"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    {currentUser.role === 'admin' && (
+                        <Tabs value={roleFilter} onValueChange={setRoleFilter} className="w-full pt-2">
+                            <TabsList className="grid w-full grid-cols-3">
+                                <TabsTrigger value="all">All</TabsTrigger>
+                                <TabsTrigger value="client">Clients</TabsTrigger>
+                                <TabsTrigger value="team">Team</TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                    )}
                 </CardHeader>
                 <CardContent className="p-0 flex-1">
                     <ScrollArea className="h-full">
                         <div className="p-2 space-y-1">
-                            {chatPartners.map(partner => (
+                            {filteredPartners.map(partner => (
                                 <Button
                                     key={partner.id}
                                     variant="ghost"
