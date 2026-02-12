@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -71,16 +72,16 @@ export function SocialConnectCard() {
 
   const handleConnect = (platform: 'instagram' | 'facebook') => {
      if (platform === 'instagram') {
-      // IMPORTANT: Replace with your actual Meta App ID in your environment variables.
-      const metaAppId = process.env.NEXT_PUBLIC_META_APP_ID || 'YOUR_META_APP_ID';
+      const metaAppId = process.env.NEXT_PUBLIC_META_APP_ID;
       
-      // This is derived from your Firebase Project ID.
+      // These details are from your Firebase project configuration.
       const projectId = 'studio-6449361728-f6242'; 
       const cloudFunctionRegion = 'us-central1';
+      // This is the URL of the backend function we are about to create.
       const redirectUri = `https://${cloudFunctionRegion}-${projectId}.cloudfunctions.net/metaOAuthCallback`;
       
-      const scope = 'pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish';
-      const state = myClientRecord?.id;
+      const scope = 'pages_show_list,pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish';
+      const state = myClientRecord?.id; // Pass the client's ID to the backend.
 
       if (!state) {
         toast({
@@ -91,10 +92,10 @@ export function SocialConnectCard() {
         return;
       }
       
-      if (metaAppId === 'YOUR_META_APP_ID') {
+      if (!metaAppId || metaAppId === 'YOUR_META_APP_ID') {
          toast({
             title: "Configuration Needed",
-            description: "The Meta App ID has not been configured by the developer.",
+            description: "The Meta App ID has not been configured yet. Please add it to the .env.local file.",
             variant: "destructive"
         });
         return;
@@ -102,7 +103,7 @@ export function SocialConnectCard() {
 
       const oauthUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${metaAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&response_type=code&state=${state}`;
 
-      // Redirect the user to the OAuth URL.
+      // Redirect the user to the Meta login screen.
       window.location.href = oauthUrl;
 
     } else {
