@@ -22,6 +22,8 @@ export type SocialConnection = {
   userId?: string;
   pageId?: string;
   pageName?: string;
+  accessToken?: string;
+  connectedAt?: Timestamp;
 };
 
 export type Client = {
@@ -147,3 +149,12 @@ export interface TimerSession {
   endTime: number | null;
   date: string; // YYYY-MM-DD
 }
+
+export type ChatMessage = {
+  id: string;
+  senderId: string;
+  senderName: string;
+  message: string;
+  timestamp: Date | FieldValue;
+  fileUrl?: string | null;
+};

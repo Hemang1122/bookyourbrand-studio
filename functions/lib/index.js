@@ -53,6 +53,11 @@ const APP_URL = functions.config().app.url || "http://localhost:9002";
  */
 exports.metaOAuthCallback = functions.https.onRequest(async (req, res) => {
     var _a, _b;
+    functions.logger.info("metaOAuthCallback received a request.", {
+        url: req.originalUrl,
+        query: req.query,
+        headers: req.headers,
+    });
     const code = req.query.code;
     const clientId = req.query.state;
     // --- Step 1: Validate the incoming request ---
