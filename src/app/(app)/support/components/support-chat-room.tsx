@@ -33,17 +33,18 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
 
   // Ensure the chat document exists before trying to query its subcollection
   useEffect(() => {
-    if (!firestore || !chatId || !currentUser) return;
+    if (!firestore || !chatId || !currentUser || !chatPartner) return;
     const chatDocRef = doc(firestore, 'chats', chatId);
     getDoc(chatDocRef).then((docSnap) => {
       if (!docSnap.exists()) {
         setDoc(chatDocRef, { 
             createdAt: serverTimestamp(), 
+            lastActivity: serverTimestamp(),
             participants: [currentUser.id, chatPartner.id] 
         });
       }
     });
-  }, [firestore, chatId, currentUser, chatPartner.id]);
+  }, [firestore, chatId, currentUser, chatPartner]);
 
 
   const messagesQuery = useMemoFirebase(() => {

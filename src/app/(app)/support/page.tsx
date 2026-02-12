@@ -15,7 +15,7 @@ import { Search } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSearchParams } from 'next/navigation';
 import { useCollection, useFirebaseServices, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 
 export default function SupportPage() {
     const { user: currentUser } = useAuth();
@@ -49,46 +49,40 @@ export default function SupportPage() {
 
     const chatsQuery = useMemoFirebase(() => {
         if (!firestore || !currentUser) return null;
-        return query(collection(firestore, 'chats'), where('participants', 'array-contains', currentUser.id));
+        return query(
+            collection(firestore, 'chats'), 
+            where('participants', 'array-contains', currentUser.id),
+            orderBy('lastActivity', 'desc')
+        );
     }, [firestore, currentUser]);
 
     const { data: chatsData } = useCollection<Chat>(chatsQuery);
 
-    const chatLastActivity = useMemo(() => {
-        const lastActivity = new Map<string, number>();
-        if (!chatsData || !currentUser) return lastActivity;
-
-        chatsData.forEach(chat => {
-            const partnerId = chat.id.replace(currentUser.id, '').replace('_', '');
-            if (chat.lastActivity) {
-                const timestamp = chat.lastActivity.toDate ? chat.lastActivity.toDate().getTime() : 0;
-                lastActivity.set(partnerId, timestamp);
-            }
-        });
-        return lastActivity;
-    }, [chatsData, currentUser]);
-
-
     const availablePartners = useMemo(() => {
-        let partners: User[] = [];
+        if (!users || !currentUser) return [];
+
+        // Get a list of partners from the sorted chats data from Firestore
+        const partnersFromChats = (chatsData || []).map(chat => {
+            const partnerId = chat.participants.find(p => p !== currentUser.id);
+            return users.find(u => u.id === partnerId);
+        }).filter((p): p is User => !!p);
+
+        // Determine all possible users the current user can chat with
+        let allPotentialPartners: User[] = [];
         if (currentUser.role === 'admin') {
-            partners = users.filter(u => u.id !== currentUser.id);
+            allPotentialPartners = users.filter(u => u.id !== currentUser.id);
         } else if (currentUser.role === 'client') {
-            partners = users.filter(u => u.role === 'admin');
+            allPotentialPartners = users.filter(u => u.role === 'admin');
         }
         
-        return partners.sort((a, b) => {
-            const aLastActivity = chatLastActivity.get(a.id) || 0;
-            const bLastActivity = chatLastActivity.get(b.id) || 0;
-            
-            if (aLastActivity !== bLastActivity) {
-                return bLastActivity - aLastActivity;
-            }
-            
-            return a.name.localeCompare(b.name);
-        });
+        // Find which potential partners do NOT have an existing chat history
+        const partnersWithNoChats = allPotentialPartners.filter(potentialPartner => 
+            !partnersFromChats.some(chatPartner => chatPartner.id === potentialPartner.id)
+        );
 
-    }, [users, currentUser, chatLastActivity]);
+        // The final list is the sorted list from Firestore, followed by the rest
+        return [...partnersFromChats, ...partnersWithNoChats];
+    }, [chatsData, users, currentUser]);
 
 
     const filteredPartners = useMemo(() => {
