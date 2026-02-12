@@ -18,6 +18,12 @@ const APP_URL = functions.config().app.url || "http://localhost:9002";
  * page and Instagram account IDs, and stores them securely in Firestore.
  */
 export const metaOAuthCallback = functions.https.onRequest(async (req, res) => {
+  functions.logger.info("metaOAuthCallback received a request.", {
+    url: req.originalUrl,
+    query: req.query,
+    headers: req.headers,
+  });
+
   const code = req.query.code as string;
   const clientId = req.query.state as string;
 
