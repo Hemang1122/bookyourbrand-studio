@@ -12,7 +12,9 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && getUserData(request.auth.uid).role == 'admin';
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             getUserData(request.auth.uid).role == 'admin';
     }
 
     function isOwner(userId) {
@@ -65,10 +67,8 @@ service cloud.firestore {
         }
 
         allow read, write: if isSignedIn() && isProjectParticipant();
-
         allow create: if request.resource.data.senderId == request.auth.uid;
     }
-
 
     /* TASKS */
     match /tasks/{taskId} {
@@ -94,15 +94,14 @@ service cloud.firestore {
     /* GLOBAL CHATS */
     match /chats/{chatId} {
       allow list: if isSignedIn();
-      allow get, update: if (request.auth.uid in chatId.split('_')) || isAdmin();
-      allow create: if request.auth.uid in request.resource.data.participants;
+      allow get, update: if isSignedIn() && (request.auth.uid in chatId.split('_') || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid in request.resource.data.participants;
     }
 
     match /chats/{chatId}/messages/{messageId} {
-      allow read, write: if (request.auth.uid in chatId.split('_')) || isAdmin();
+      allow read, write: if isSignedIn() && (request.auth.uid in chatId.split('_') || isAdmin());
       allow create: if request.resource.data.senderId == request.auth.uid;
     }
-
 
     /* SCRUM UPDATES */
     match /scrum-updates/{updateId} {
