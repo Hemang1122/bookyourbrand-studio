@@ -25,6 +25,7 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
 
   const chatId = useMemo(() => {
     if (!currentUser || !chatPartner) return null;
+    // Create a consistent chat ID for any two users
     return [currentUser.id, chatPartner.id].sort().join('_');
   }, [currentUser, chatPartner]);
 
@@ -44,6 +45,7 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
     }
   };
   
+  // Scroll to bottom when new messages arrive
   useEffect(() => {
     if ((messages?.length || 0) > 0) {
       scrollToBottom();
@@ -81,7 +83,13 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
     sendMessage(message || url, url);
   }
   
-  if (!currentUser || !chatPartner) return <div className="flex h-full items-center justify-center"><p className="text-muted-foreground">Select a conversation</p></div>;
+  if (!currentUser || !chatPartner) {
+      return (
+        <div className="flex h-full items-center justify-center">
+            <p className="text-muted-foreground">Select a contact to start chatting</p>
+        </div>
+      );
+  }
 
   return (
     <div className="flex h-full flex-col">
