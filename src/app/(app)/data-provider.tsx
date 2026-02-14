@@ -99,18 +99,18 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: timerSessions, isLoading: timerSessionsLoading } = useCollection<TimerSession>(timerSessionsQuery);
   
   const { data: notificationsData = [], isLoading: notificationsLoading } = useCollection<Notification>(useMemoFirebase(() => {
-    if (!firestore || !currentUser) return null;
-    return query(collection(firestore, 'notifications'), where('recipients', 'array-contains', currentUser.id));
-  }, [firestore, currentUser]));
+    if (!firestore || !currentUser || !auth?.currentUser) return null;
+    return query(collection(firestore, 'notifications'), where('recipients', 'array-contains', auth.currentUser.uid));
+  }, [firestore, currentUser, auth]));
   
   const chatsQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUser) return null;
+    if (!firestore || !currentUser || !auth?.currentUser) return null;
     return query(
       collection(firestore, 'chats'),
-      where('participants', 'array-contains', currentUser.id),
+      where('participants', 'array-contains', auth.currentUser.uid),
       orderBy('lastMessageAt', 'desc')
     );
-  }, [firestore, currentUser]);
+  }, [firestore, currentUser, auth]);
   
   const { data: chatsData, isLoading: chatsLoading } = useCollection<Chat>(chatsQuery);
 
