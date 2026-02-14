@@ -12,7 +12,6 @@ import { useCollection, useFirebaseServices, useMemoFirebase } from '@/firebase'
 import { collection, query, orderBy, serverTimestamp, addDoc, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../../data-provider';
-import { sendPushNotificationFlow } from '@/ai/flows/send-push-notification';
 
 type ProjectChatProps = {
   project: Project;
@@ -69,7 +68,7 @@ export function ProjectChat({ project }: ProjectChatProps) {
     
     addDoc(messagesColRef, messagePayload);
 
-    // Send notification
+    // In-app notification
     const adminIds = users.filter(u => u.role === 'admin').map(u => u.id);
     const recipientIds = Array.from(new Set([project.client.id, ...project.team_ids, ...adminIds]));
     const finalRecipientIds = recipientIds.filter(id => id !== currentUser.id);
@@ -82,23 +81,6 @@ export function ProjectChat({ project }: ProjectChatProps) {
             'chat',
             `project_${project.id}`
         );
-        
-        try {
-            const recipientUsers = users.filter(u => finalRecipientIds.includes(u.id));
-            const allTokens = recipientUsers.flatMap(u => u.fcmTokens || []);
-            const uniqueTokens = [...new Set(allTokens)];
-
-            if (uniqueTokens.length > 0) {
-                await sendPushNotificationFlow({
-                  tokens: uniqueTokens,
-                  title: `New message in ${project.name}`,
-                  body: `${currentUser.name}: ${messageText}`,
-                  url: `/projects/${project.id}?tab=chat`
-                });
-            }
-        } catch (error) {
-            console.error("Error sending project chat push notification:", error);
-        }
     }
     
     setNewMessage('');

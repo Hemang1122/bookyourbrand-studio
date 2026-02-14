@@ -13,7 +13,6 @@ import { v4 as uuidv4 } from 'uuid';
 import type { FirebaseApp } from 'firebase/app';
 import { packages as subscriptionPackages } from './settings/billing/packages-data';
 import { format, addWeeks } from 'date-fns';
-import { sendPushNotificationFlow } from '@/ai/flows/send-push-notification';
 
 type DataContextType = {
   projects: Project[];
@@ -268,6 +267,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       lastMessageAt: serverTimestamp(),
     });
     
+    // In-app notification logic
     try {
       const chatSnap = await getDoc(chatDocRef);
       if (!chatSnap.exists()) return;
@@ -275,27 +275,21 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       const chatData = chatSnap.data() as Chat;
       const recipients = chatData.participants.filter(p => p !== authUid);
       
-      if (recipients.length === 0) return;
-
-      const recipientUsers = usersData.filter(u => recipients.includes(u.id));
-      const allTokens = recipientUsers.flatMap(u => u.fcmTokens || []);
-      const uniqueTokens = [...new Set(allTokens)];
-
-      if (uniqueTokens.length > 0) {
-        await sendPushNotificationFlow({
-          tokens: uniqueTokens,
-          title: `New message from ${currentUser.name}`,
-          body: messageText,
-          url: `/support` 
-        });
+      if (recipients.length > 0) {
+        addNotification(
+            `New message from ${currentUser.name}`,
+            `/support`,
+            recipients,
+            'chat',
+            `support_${chatId}`
+        );
       }
-
     } catch (error) {
-      console.error("Error sending push notification:", error);
+      console.error("Error creating in-app notification:", error);
     }
 
 
-  }, [currentUser, firestore, authUid, usersData]);
+  }, [currentUser, firestore, authUid, usersData, addNotification]);
 
   const addProject = async (projectData: Omit<Project, 'id' | 'coverImage'>) => {
     if (!firestore || !currentUser || !usersData || !authUid) return;
