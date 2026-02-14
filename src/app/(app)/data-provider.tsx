@@ -6,7 +6,7 @@ import { users as initialUsers, clients as initialClients, projects as initialPr
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking, useFirebaseServices } from '@/firebase';
-import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp, arrayUnion, runTransaction, getDocs, updateDoc, addDoc, getDoc, orderBy } from 'firebase/firestore';
+import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp, arrayUnion, runTransaction, getDocs, updateDoc, addDoc, getDoc, orderBy, setDoc } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -103,14 +103,16 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     return query(collection(firestore, 'notifications'), where('recipients', 'array-contains', currentUser.id));
   }, [firestore, currentUser]));
   
-  const { data: chatsData, isLoading: chatsLoading } = useCollection<Chat>(useMemoFirebase(() => {
+  const chatsQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
     return query(
       collection(firestore, 'chats'),
       where('participants', 'array-contains', currentUser.id),
       orderBy('lastMessageAt', 'desc')
     );
-  }, [firestore, currentUser]));
+  }, [firestore, currentUser]);
+  
+  const { data: chatsData, isLoading: chatsLoading } = useCollection<Chat>(chatsQuery);
 
   const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading || chatsLoading;
   
@@ -200,9 +202,10 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const scrumUpdates = scrumUpdatesData ? [...scrumUpdatesData].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : [];
 
   const getOrCreateChat = useCallback(async (partnerId: string): Promise<string | null> => {
-    if (!firestore || !currentUser) return null;
+    if (!firestore || !currentUser || !auth?.currentUser) return null;
 
-    const sortedIds = [currentUser.id, partnerId].sort();
+    const authUid = auth.currentUser.uid;
+    const sortedIds = [authUid, partnerId].sort();
     const chatId = sortedIds.join('_');
     const chatDocRef = doc(firestore, 'chats', chatId);
 
@@ -215,7 +218,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
           id: chatId,
           type: 'direct',
           participants: sortedIds,
-          createdBy: currentUser.id,
+          createdBy: authUid,
           createdAt: serverTimestamp(),
           lastMessage: null,
           lastMessageAt: serverTimestamp(),
@@ -227,22 +230,23 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         return null;
       }
     }
-  }, [firestore, currentUser, toast]);
+  }, [firestore, currentUser, auth, toast]);
 
   const sendMessage = useCallback((chatId: string, messageText: string, mediaUrl?: string) => {
-    if (!currentUser || !firestore || (!messageText.trim() && !mediaUrl)) return;
+    if (!currentUser || !firestore || (!messageText.trim() && !mediaUrl) || !auth?.currentUser) return;
     
+    const authUid = auth.currentUser.uid;
     const messagesColRef = collection(firestore, 'chats', chatId, 'messages');
     const chatDocRef = doc(firestore, 'chats', chatId);
 
     const messagePayload: Omit<ChatMessage, 'id' | 'timestamp'> = {
-      senderId: currentUser.id,
+      senderId: authUid,
       senderName: currentUser.name,
       senderRole: currentUser.role,
       type: mediaUrl ? 'media' : 'text',
       text: messageText,
       mediaURL: mediaUrl || null,
-      readBy: [currentUser.id],
+      readBy: [authUid],
       deleted: false,
     };
     
@@ -251,7 +255,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     updateDoc(chatDocRef, {
       lastMessage: {
         text: messageText,
-        senderId: currentUser.id,
+        senderId: authUid,
         senderName: currentUser.name,
         type: mediaUrl ? 'media' : 'text',
         timestamp: serverTimestamp(),
@@ -259,7 +263,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       lastMessageAt: serverTimestamp(),
     });
 
-  }, [currentUser, firestore]);
+  }, [currentUser, firestore, auth]);
 
   const addProject = async (projectData: Omit<Project, 'id' | 'coverImage'>) => {
     if (!firestore || !currentUser || !usersData) return;
