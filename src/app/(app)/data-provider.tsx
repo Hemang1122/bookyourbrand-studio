@@ -1,12 +1,12 @@
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus, TimerSession } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus, TimerSession, Chat, ChatMessage } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking, useFirebaseServices } from '@/firebase';
-import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp, arrayUnion, runTransaction, getDocs } from 'firebase/firestore';
+import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp, arrayUnion, runTransaction, getDocs, updateDoc, addDoc, getDoc, orderBy } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -24,6 +24,9 @@ type DataContextType = {
   files: ProjectFile[];
   notifications: Notification[];
   timerSessions: TimerSession[];
+  chats: Chat[];
+  getOrCreateChat: (partnerId: string) => Promise<string | null>;
+  sendMessage: (chatId: string, messageText: string, mediaUrl?: string) => void;
   addProject: (project: Omit<Project, 'id' | 'coverImage' >) => void;
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks' | 'dueDate'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
@@ -83,7 +86,16 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     return query(collection(firestore, 'notifications'), where('recipients', 'array-contains', currentUser.id));
   }, [firestore, currentUser]));
   
-  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading;
+  const { data: chatsData, isLoading: chatsLoading } = useCollection<Chat>(useMemoFirebase(() => {
+    if (!firestore || !currentUser) return null;
+    return query(
+      collection(firestore, 'chats'),
+      where('participants', 'array-contains', currentUser.id),
+      orderBy('lastMessageAt', 'desc')
+    );
+  }, [firestore, currentUser]));
+
+  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading || chatsLoading;
   
   const teamEditorMapping = useMemo(() => {
     if (!usersData) return new Map<string, string>();
@@ -167,7 +179,70 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }, [tasksData, projects, currentUser, anonymizeUser, teamEditorMapping]);
     
   const notifications = notificationsData;
+  const chats = chatsData || [];
   const scrumUpdates = scrumUpdatesData ? [...scrumUpdatesData].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : [];
+
+  const getOrCreateChat = useCallback(async (partnerId: string): Promise<string | null> => {
+    if (!firestore || !currentUser) return null;
+
+    const sortedIds = [currentUser.id, partnerId].sort();
+    const chatId = sortedIds.join('_');
+    const chatDocRef = doc(firestore, 'chats', chatId);
+
+    const docSnap = await getDoc(chatDocRef);
+    if (docSnap.exists()) {
+      return chatId;
+    } else {
+      try {
+        await setDoc(chatDocRef, {
+          id: chatId,
+          type: 'direct',
+          participants: sortedIds,
+          createdBy: currentUser.id,
+          createdAt: serverTimestamp(),
+          lastMessage: null,
+          lastMessageAt: serverTimestamp(),
+        });
+        return chatId;
+      } catch (error) {
+        console.error("Error creating chat:", error);
+        toast({ title: 'Chat Error', description: 'Could not create a new chat.', variant: 'destructive' });
+        return null;
+      }
+    }
+  }, [firestore, currentUser, toast]);
+
+  const sendMessage = useCallback((chatId: string, messageText: string, mediaUrl?: string) => {
+    if (!currentUser || !firestore || (!messageText.trim() && !mediaUrl)) return;
+    
+    const messagesColRef = collection(firestore, 'chats', chatId, 'messages');
+    const chatDocRef = doc(firestore, 'chats', chatId);
+
+    const messagePayload: Omit<ChatMessage, 'id' | 'timestamp'> = {
+      senderId: currentUser.id,
+      senderName: currentUser.name,
+      senderRole: currentUser.role,
+      type: mediaUrl ? 'media' : 'text',
+      text: messageText,
+      mediaURL: mediaUrl || null,
+      readBy: [currentUser.id],
+      deleted: false,
+    };
+    
+    addDoc(messagesColRef, { ...messagePayload, timestamp: serverTimestamp() });
+    
+    updateDoc(chatDocRef, {
+      lastMessage: {
+        text: messageText,
+        senderId: currentUser.id,
+        senderName: currentUser.name,
+        type: mediaUrl ? 'media' : 'text',
+        timestamp: serverTimestamp(),
+      },
+      lastMessageAt: serverTimestamp(),
+    });
+
+  }, [currentUser, firestore]);
 
   const addProject = async (projectData: Omit<Project, 'id' | 'coverImage'>) => {
     if (!firestore || !currentUser || !usersData) return;
@@ -496,6 +571,9 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         scrumUpdates,
         files,
         notifications,
+        chats,
+        getOrCreateChat,
+        sendMessage,
         timerSessions: timerSessions || [],
         addProject, 
         addTask, 

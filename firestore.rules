@@ -1,41 +1,106 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ── HELPER FUNCTIONS ──────────────────────────────────────
     function isSignedIn() {
       return request.auth != null;
     }
-
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
     function isAdmin() {
-      return isSignedIn() && 
+      return isSignedIn() &&
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             getUserData(request.auth.uid).role == 'admin';
+             getUserData().role == 'admin';
     }
 
-    function isOwner(userId) {
-      return request.auth.uid == userId;
+    function isParticipant(chatId) {
+      return isSignedIn() &&
+             request.auth.uid in
+             get(/databases/$(database)/documents/chats/$(chatId))
+                 .data.participants;
     }
 
-    /* USERS */
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ── USERS COLLECTION ──────────────────────────────────────
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
-      allow write: if isOwner(userId) || isAdmin();
+      // Anyone signed in can read user profiles (for name/photo display)
+      allow read: if isSignedIn();
+      // Only the user themselves can create/update their own profile
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      // Nobody can delete user profiles from the client
+      allow delete: if false;
     }
-
-    /* CLIENTS */
+    
+    // ── CLIENTS COLLECTION ───────────────────────────────────
     match /clients/{clientId} {
       allow get: if isAdmin() || isOwner(clientId);
       allow list: if isAdmin();
       allow write: if isAdmin();
     }
 
-    /* PROJECTS */
+    // ── CHATS COLLECTION ──────────────────────────────────────
+    match /chats/{chatId} {
+      // Only participants can read the chat document
+      allow read: if isParticipant(chatId);
+      // Anyone can query their own chats
+      allow list: if isSignedIn() && request.query.where.participants.hasAny([request.auth.uid]);
+      // Only admins can create new chats
+      allow create: if isAdmin() &&
+                       request.resource.data.createdBy == request.auth.uid &&
+                       request.auth.uid in request.resource.data.participants;
+      // Participants can update lastMessage, lastMessageAt, etc.
+      // Only admin can update participants list (add/remove group members)
+      allow update: if isParticipant(chatId) &&
+                       (
+                         // Allow updating message preview fields
+                         !('participants' in request.resource.data) ||
+                         isAdmin()
+                       );
+      allow delete: if isAdmin();
+
+      // ── MESSAGES SUBCOLLECTION ──────────────────────────────
+      match /messages/{messageId} {
+        // Only participants can read messages
+        allow read, list: if isParticipant(chatId);
+        // Any participant can send a message
+        allow create: if isParticipant(chatId) &&
+                         request.resource.data.senderId == request.auth.uid;
+        
+        // Sender can soft-delete (set deleted=true) their own messages
+        // Any participant can update readBy (mark as read)
+        allow update: if isParticipant(chatId) &&
+                         (
+                          (
+                            request.resource.data.senderId == request.auth.uid &&
+                            request.resource.data.diff(resource.data).affectedKeys()
+                                .hasOnly(['deleted', 'readBy'])
+                           ) || 
+                           (
+                             request.resource.data.diff(resource.data).affectedKeys()
+                                .hasOnly(['readBy'])
+                           )
+                         );
+        allow delete: if false; // Use soft delete only
+      }
+
+      // ── READ RECEIPTS SUBCOLLECTION ─────────────────────────
+      match /readReceipts/{userId} {
+        allow read: if isParticipant(chatId);
+        // Only the user themselves can write their own read receipt
+        allow write: if isParticipant(chatId) && isOwner(userId);
+      }
+    }
+
+
+    // ── PROJECTS COLLECTION ───────────────────────────────────
     match /projects/{projectId} {
       allow list: if isSignedIn();
       allow get: if isSignedIn() &&
@@ -55,22 +120,23 @@ service cloud.firestore {
                       request.auth.uid in resource.data.team_ids
                     );
       allow delete: if isAdmin();
+
+      // ── PROJECT CHAT MESSAGES SUBCOLLECTION ──────────────
+      match /chat/messages/{messageId} {
+          function isProjectParticipant() {
+              let projectData = get(/databases/$(database)/documents/projects/$(projectId)).data;
+              return isAdmin() || 
+                     request.auth.uid in projectData.team_ids || 
+                     request.auth.uid == projectData.client.id;
+          }
+
+          allow read, write: if isSignedIn() && isProjectParticipant();
+          allow create: if request.resource.data.senderId == request.auth.uid;
+      }
     }
 
-    /* PROJECT CHAT */
-    match /projects/{projectId}/chat/messages/{messageId} {
-        function isProjectParticipant() {
-            let projectData = get(/databases/$(database)/documents/projects/$(projectId)).data;
-            return isAdmin() || 
-                   request.auth.uid in projectData.team_ids || 
-                   request.auth.uid == projectData.client.id;
-        }
 
-        allow read, write: if isSignedIn() && isProjectParticipant();
-        allow create: if request.resource.data.senderId == request.auth.uid;
-    }
-
-    /* TASKS */
+    // ── OTHER COLLECTIONS ───────────────────────────────────
     match /tasks/{taskId} {
       allow read, write: if isSignedIn() &&
                          (
@@ -80,7 +146,6 @@ service cloud.firestore {
                          );
     }
 
-    /* FILES */
     match /files/{fileId} {
       allow list: if isAdmin();
       allow get, write: if isSignedIn() &&
@@ -90,19 +155,17 @@ service cloud.firestore {
                            request.auth.uid in get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.team_ids
                          );
     }
-    
-    /* SCRUM UPDATES */
+
     match /scrum-updates/{updateId} {
       allow read, list: if isAdmin();
       allow create: if isSignedIn() &&
                     request.resource.data.userId == request.auth.uid;
     }
 
-    /* NOTIFICATIONS */
     match /notifications/{notificationId} {
       allow create: if isSignedIn();
       allow read, update: if isSignedIn() &&
                           request.auth.uid in resource.data.recipients;
     }
-  }
-}
+  } // end match /databases
+} // end service

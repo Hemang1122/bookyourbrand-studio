@@ -13,6 +13,7 @@ import {
   CalendarDays,
   LifeBuoy,
   BarChart,
+  MessageSquare,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -31,6 +32,7 @@ const navItems = [
   { href: '/projects', icon: FolderKanban, label: 'Projects', roles: ['admin', 'team', 'client'] },
   { href: '/clients', icon: Briefcase, label: 'Clients', roles: ['admin'] },
   { href: '/team', icon: Users, label: 'Team', roles: ['admin'] },
+  { href: '/support', icon: MessageSquare, label: 'Support', roles: ['admin', 'client', 'team'] },
   { href: '/scrum', icon: GitCommit, label: 'Scrum', roles: ['admin', 'team'] },
   { href: '/schedule', icon: CalendarDays, label: 'Schedule', roles: ['admin'] },
   { href: '/reports', icon: BarChart, label: 'Reports', roles: ['admin'] },
@@ -40,18 +42,12 @@ const navItems = [
 export function MainNav({ userRole }: { userRole: UserRole }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { notifications } = useData();
+  const { chats } = useData();
 
   const unreadSupportCount = useMemo(() => {
-    if (!user || !notifications) return 0;
-    const unreadChatIds = new Set<string>();
-    notifications.forEach(n => {
-        if (n.type === 'chat' && !n.readBy.includes(user.id) && n.chatId) {
-            unreadChatIds.add(n.chatId);
-        }
-    });
-    return unreadChatIds.size;
-  }, [notifications, user]);
+    if (!user || !chats) return 0;
+    return chats.reduce((acc, chat) => acc + (chat.unreadCount || 0), 0);
+  }, [chats, user]);
 
   const visibleItems = navItems.filter(item => item.roles.includes(userRole));
   const { isMobile } = useSidebar();
@@ -68,9 +64,12 @@ export function MainNav({ userRole }: { userRole: UserRole }) {
               >
                 <item.icon className="h-5 w-5" />
                  {isMobile && <span>{item.label}</span>}
+                 {item.href === '/support' && unreadSupportCount > 0 && isMobile && (
+                    <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">{unreadSupportCount}</Badge>
+                 )}
               </SidebarMenuButton>
               {item.href === '/support' && unreadSupportCount > 0 && !isMobile && (
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 justify-center p-0">{unreadSupportCount}</Badge>
+                <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 justify-center p-0">{unreadSupportCount}</Badge>
               )}
             </Link>
           </SidebarMenuItem>

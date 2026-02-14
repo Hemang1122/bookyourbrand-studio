@@ -13,6 +13,8 @@ export type User = {
   panUrl?: string;
   joiningLetterUrl?: string;
   fcmTokens?: string[];
+  isOnline?: boolean;
+  lastSeen?: Timestamp;
 };
 
 export type PackageName = 'Bronze' | 'Silver' | 'Gold' | 'Advanced Editing' | 'Podcast';
@@ -152,24 +154,41 @@ export interface TimerSession {
   date: string; // YYYY-MM-DD
 }
 
-export type MessageType = 'text' | 'voice' | 'media';
+export type MessageType = 'text' | 'image' | 'video' | 'voice' | 'file';
 
-export interface Chat {
-    id: string;
-    participants: string[];
-    lastActivity: Timestamp;
-    lastMessage?: string;
-    lastSenderId?: string;
-    createdAt: Timestamp;
+export type ChatLastMessage = {
+  text: string;
+  senderId: string;
+  senderName: string;
+  type: MessageType;
+  timestamp: Timestamp;
 }
+
+export type Chat = {
+  id: string;
+  type: 'direct' | 'group';
+  participants: string[];
+  createdBy: string;
+  createdAt: Timestamp;
+  groupName?: string | null;
+  groupPhoto?: string | null;
+  lastMessage?: ChatLastMessage | null;
+  lastMessageAt: Timestamp;
+  // This is a client-side only property
+  unreadCount?: number;
+};
 
 export type ChatMessage = {
   id: string;
   senderId: string;
   senderName: string;
   senderRole: UserRole;
-  messageText: string;
-  messageType: MessageType;
+  type: MessageType;
+  text?: string | null;
+  mediaURL?: string | null;
+  mediaPath?: string | null;
+  duration?: number | null;
   timestamp: Timestamp;
-  mediaUrl?: string | null;
+  readBy: string[];
+  deleted?: boolean;
 };
