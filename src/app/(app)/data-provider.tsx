@@ -5,7 +5,7 @@ import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile,
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking, useFirebaseServices } from '@/firebase';
+import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking, useFirebaseServices, FirestorePermissionError, errorEmitter } from '@/firebase';
 import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp, arrayUnion, runTransaction, getDocs, updateDoc, addDoc, getDoc, orderBy, setDoc } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { uploadFile } from '@/lib/storage';
@@ -214,26 +214,33 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const chatId = sortedIds.join('_');
     const chatDocRef = doc(firestore, 'chats', chatId);
 
-    const docSnap = await getDoc(chatDocRef);
-    if (docSnap.exists()) {
-      return chatId;
-    } else {
-      try {
-        await setDoc(chatDocRef, {
-          id: chatId,
-          type: 'direct',
-          participants: sortedIds,
-          createdBy: authUid,
-          createdAt: serverTimestamp(),
-          lastMessage: null,
-          lastMessageAt: serverTimestamp(),
+    try {
+        const docSnap = await getDoc(chatDocRef);
+        if (docSnap.exists()) {
+          return chatId;
+        } else {
+          const newChatData = {
+            id: chatId,
+            type: 'direct',
+            participants: sortedIds,
+            createdBy: authUid,
+            createdAt: serverTimestamp(),
+            lastMessage: null,
+            lastMessageAt: serverTimestamp(),
+          };
+          await setDoc(chatDocRef, newChatData);
+          return chatId;
+        }
+    } catch (serverError: any) {
+        // This is a generic catch, but the most likely permission errors are on get() or create()
+        const permissionError = new FirestorePermissionError({
+            path: chatDocRef.path,
+            operation: 'write', // Assume write, as get is less likely to fail if list works
+            requestResourceData: 'data' in serverError ? serverError.data : undefined,
         });
-        return chatId;
-      } catch (error) {
-        console.error("Error creating chat:", error);
-        toast({ title: 'Chat Error', description: 'Could not create a new chat.', variant: 'destructive' });
+        errorEmitter.emit('permission-error', permissionError);
+        toast({ title: 'Chat Error', description: 'Could not create or access the chat.', variant: 'destructive' });
         return null;
-      }
     }
   }, [firestore, currentUser, authUid, toast]);
 
@@ -254,11 +261,9 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       deleted: false,
     };
     
-    // The onDocumentCreated Cloud Function will trigger from this action to send a push notification.
-    addDoc(messagesColRef, { ...messagePayload, timestamp: serverTimestamp() });
+    addDocumentNonBlocking(messagesColRef, { ...messagePayload, timestamp: serverTimestamp() });
     
-    // This updates the chat list preview.
-    updateDoc(chatDocRef, {
+    const chatUpdatePayload = {
       lastMessage: {
         text: messageText,
         senderId: authUid,
@@ -267,7 +272,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         timestamp: serverTimestamp(),
       },
       lastMessageAt: serverTimestamp(),
-    });
+    };
+    updateDocumentNonBlocking(chatDocRef, chatUpdatePayload);
 
   }, [currentUser, firestore, authUid, usersData]);
 
