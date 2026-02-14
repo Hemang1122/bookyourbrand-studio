@@ -220,13 +220,13 @@ exports.onProjectMessageCreated = functions.firestore
             return;
         }
         const project = projectSnap.data();
-        if (!project || !project.name) {
-            functions.logger.error(`Project document ${projectId} is incomplete or missing a name.`);
+        if (!project || !project.name || !((_a = project.client) === null || _a === void 0 ? void 0 : _a.id)) {
+            functions.logger.error(`Project document ${projectId} is incomplete or missing required fields (name, client.id).`);
             return;
         }
         const allRecipients = [
             ...(project.team_ids || []),
-            (_a = project.client) === null || _a === void 0 ? void 0 : _a.id,
+            project.client.id,
         ].filter(Boolean);
         // Ensure no duplicates and filter out the sender
         const recipients = [...new Set(allRecipients)].filter(uid => uid !== message.senderId);
