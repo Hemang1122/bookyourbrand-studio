@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Bell, Check } from 'lucide-react';

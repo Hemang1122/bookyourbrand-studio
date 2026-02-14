@@ -139,7 +139,10 @@ exports.metaOAuthCallback = functions.https.onRequest(async (req, res) => {
 });
 // --- Cloud Functions for Push Notifications ---
 const MAX_MESSAGE_LENGTH = 100;
-exports.onSupportMessageCreated = functions.firestore
+exports.onSupportMessageCreated = functions
+    .region('us-central1')
+    .runWith({ memory: '256MB', timeoutSeconds: 60 })
+    .firestore
     .document('chats/{chatId}/messages/{messageId}')
     .onCreate(async (snap, context) => {
     try {
@@ -203,7 +206,10 @@ exports.onSupportMessageCreated = functions.firestore
         functions.logger.error('onSupportMessageCreated error:', err);
     }
 });
-exports.onProjectMessageCreated = functions.firestore
+exports.onProjectMessageCreated = functions
+    .region('us-central1')
+    .runWith({ memory: '256MB', timeoutSeconds: 60 })
+    .firestore
     .document('projects/{projectId}/chat/messages/{messageId}')
     .onCreate(async (snap, context) => {
     var _a;

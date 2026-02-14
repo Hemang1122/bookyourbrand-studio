@@ -255,30 +255,40 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         if (docSnap.exists()) {
           return chatId;
         } else {
-          const newChatData = {
+          const partnerUser = usersData?.find(u => u.id === partnerId);
+          const newChatData: Partial<Chat> = {
             id: chatId,
             type: 'direct',
             participants: sortedIds,
             createdBy: authUid,
-            createdAt: serverTimestamp(),
+            createdAt: Timestamp.now(),
             lastMessage: null,
-            lastMessageAt: serverTimestamp(),
+            lastMessageAt: Timestamp.now(),
           };
           await setDoc(chatDocRef, newChatData);
+          
+          // Notify the other participant
+          addNotification(
+            `You have a new chat with ${currentUser.name}.`,
+            `/support?chatId=${chatId}`,
+            [partnerId],
+            'chat',
+            chatId
+          );
+          
           return chatId;
         }
     } catch (serverError: any) {
-        // This is a generic catch, but the most likely permission errors are on get() or create()
         const permissionError = new FirestorePermissionError({
             path: chatDocRef.path,
-            operation: 'write', // Assume write, as get is less likely to fail if list works
+            operation: 'write', 
             requestResourceData: 'data' in serverError ? serverError.data : undefined,
         });
         errorEmitter.emit('permission-error', permissionError);
         toast({ title: 'Chat Error', description: 'Could not create or access the chat.', variant: 'destructive' });
         return null;
     }
-  }, [firestore, currentUser, authUid, toast]);
+  }, [firestore, currentUser, authUid, toast, usersData, addNotification]);
 
   const sendMessage = useCallback(async (chatId: string, messageText: string, mediaUrl?: string) => {
     if (!currentUser || !firestore || (!messageText.trim() && !mediaUrl) || !authUid || !usersData) return;
@@ -310,8 +320,24 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       lastMessageAt: serverTimestamp(),
     };
     updateDocumentNonBlocking(chatDocRef, chatUpdatePayload);
+    
+    // Send notifications
+    const chat = chats.find(c => c.id === chatId);
+    if (chat) {
+        const recipients = chat.participants.filter(pId => pId !== authUid);
+        if (recipients.length > 0) {
+            addNotification(
+                `New message from ${currentUser.name}`,
+                `/support?chatId=${chatId}`,
+                recipients,
+                'chat',
+                chatId
+            );
+        }
+    }
 
-  }, [currentUser, firestore, authUid, usersData]);
+
+  }, [currentUser, firestore, authUid, usersData, addNotification, chats]);
 
   const addProject = async (projectData: Omit<Project, 'id' | 'coverImage'>) => {
     if (!firestore || !currentUser || !usersData || !authUid) return;
