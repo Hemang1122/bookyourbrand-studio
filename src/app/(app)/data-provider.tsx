@@ -79,7 +79,12 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
   const { data: files, isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? query(collection(firestore, 'files')) : null, [firestore]));
   const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
-  const { data: scrumUpdatesData, isLoading: scrumUpdatesLoading } = useCollection<ScrumUpdate>(useMemoFirebase(() => firestore ? collection(firestore, 'scrum-updates') : null, [firestore]));
+  
+  const { data: scrumUpdatesData, isLoading: scrumUpdatesLoading } = useCollection<ScrumUpdate>(useMemoFirebase(() => {
+    if (!firestore || !currentUser) return null;
+    if (currentUser.role === 'client') return null; // No need to fetch for clients
+    return collection(firestore, 'scrum-updates');
+  }, [firestore, currentUser]));
 
   const timerSessionsQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser || !authUid) return null;
@@ -626,4 +631,3 @@ export function useData() {
   }
   return context;
 }
-    
