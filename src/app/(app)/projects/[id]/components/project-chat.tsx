@@ -66,22 +66,8 @@ export function ProjectChat({ project }: ProjectChatProps) {
       readBy: [currentUser.id]
     };
     
+    // The onDocumentCreated Cloud Function will trigger from this to send notifications
     addDoc(messagesColRef, messagePayload);
-
-    // In-app notification
-    const adminIds = users.filter(u => u.role === 'admin').map(u => u.id);
-    const recipientIds = Array.from(new Set([project.client.id, ...project.team_ids, ...adminIds]));
-    const finalRecipientIds = recipientIds.filter(id => id !== currentUser.id);
-
-    if (finalRecipientIds.length > 0) {
-        addNotification(
-            `New message in '${project.name}': "${messageText.substring(0, 30)}..."`,
-            `/projects/${project.id}?tab=chat`,
-            finalRecipientIds,
-            'chat',
-            `project_${project.id}`
-        );
-    }
     
     setNewMessage('');
   }

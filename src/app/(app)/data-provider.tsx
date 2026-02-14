@@ -254,8 +254,10 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       deleted: false,
     };
     
+    // The onDocumentCreated Cloud Function will trigger from this action to send a push notification.
     addDoc(messagesColRef, { ...messagePayload, timestamp: serverTimestamp() });
     
+    // This updates the chat list preview.
     updateDoc(chatDocRef, {
       lastMessage: {
         text: messageText,
@@ -266,30 +268,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       },
       lastMessageAt: serverTimestamp(),
     });
-    
-    // In-app notification logic
-    try {
-      const chatSnap = await getDoc(chatDocRef);
-      if (!chatSnap.exists()) return;
 
-      const chatData = chatSnap.data() as Chat;
-      const recipients = chatData.participants.filter(p => p !== authUid);
-      
-      if (recipients.length > 0) {
-        addNotification(
-            `New message from ${currentUser.name}`,
-            `/support`,
-            recipients,
-            'chat',
-            `support_${chatId}`
-        );
-      }
-    } catch (error) {
-      console.error("Error creating in-app notification:", error);
-    }
-
-
-  }, [currentUser, firestore, authUid, usersData, addNotification]);
+  }, [currentUser, firestore, authUid, usersData]);
 
   const addProject = async (projectData: Omit<Project, 'id' | 'coverImage'>) => {
     if (!firestore || !currentUser || !usersData || !authUid) return;
