@@ -48,10 +48,13 @@ service cloud.firestore {
 
     // ── CHATS COLLECTION ──────────────────────────────────────
     match /chats/{chatId} {
-      // Only participants can read a specific chat document
+      // LIST: user must be querying only chats they're a participant of
+      // This validates the query has array-contains on participants
+      allow list: if isSignedIn() && request.auth.uid in request.query.where.participants;
+
+      // GET single doc: only if they're a participant
       allow get: if isParticipant(chatId);
-      // A user can list chats they are a participant in
-      allow list: if isSignedIn() && request.query.where.participants.hasAny([request.auth.uid]);
+
       // Only admins can create new chats
       allow create: if isAdmin() &&
                        request.resource.data.createdBy == request.auth.uid &&
@@ -79,7 +82,7 @@ service cloud.firestore {
         allow update: if isParticipant(chatId) &&
                          (
                           (
-                            request.resource.data.senderId == request.auth.uid &&
+                            resource.data.senderId == request.auth.uid &&
                             request.resource.data.diff(resource.data).affectedKeys()
                                 .hasOnly(['deleted', 'readBy'])
                            ) || 
