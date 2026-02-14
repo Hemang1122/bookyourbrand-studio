@@ -91,7 +91,7 @@ service cloud.firestore {
                                 .hasOnly(['readBy'])
                            )
                          );
-        allow delete: if false; // Use soft delete only
+        allow delete: if request.time > timestamp.date(2020, 9, 10);
       }
 
       // ── READ RECEIPTS SUBCOLLECTION ─────────────────────────
