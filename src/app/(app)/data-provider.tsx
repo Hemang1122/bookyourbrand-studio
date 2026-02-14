@@ -155,21 +155,30 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const mapping = new Map<string, string>();
     let editorCount = 1;
     usersData
-      .filter(u => u.role === 'team' || u.role === 'admin')
+      .filter(u => u.role === 'team')
       .forEach(u => {
-        const name = `Editor ${'\'\'\'editorCount++\'\'\''}`;
+        const name = `Editor ${editorCount++}`;
         mapping.set(u.id, name);
       });
     return mapping;
   }, [usersData]);
 
   const anonymizeUser = useCallback((userToAnonymize: User) => {
-    if (currentUser?.role === 'client' && userToAnonymize && (userToAnonymize.role === 'team' || userToAnonymize.role === 'admin')) {
-      return {
-        ...userToAnonymize,
-        name: teamEditorMapping.get(userToAnonymize.id) || 'Editor',
-        avatar: 'avatar-generic'
-      };
+    if (currentUser?.role === 'client' && userToAnonymize) {
+      if (userToAnonymize.role === 'admin') {
+        return {
+          ...userToAnonymize,
+          name: 'Admin',
+          avatar: 'avatar-generic',
+        };
+      }
+      if (userToAnonymize.role === 'team') {
+        return {
+          ...userToAnonymize,
+          name: teamEditorMapping.get(userToAnonymize.id) || 'Editor',
+          avatar: 'avatar-generic',
+        };
+      }
     }
     return userToAnonymize;
   }, [currentUser?.role, teamEditorMapping]);
@@ -221,15 +230,19 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
       if (currentUser?.role === 'client') {
           anonymizedTask.assignedTo = anonymizeUser(t.assignedTo);
-          anonymizedTask.remarks = (t.remarks || []).map(r => ({
-              ...r,
-              userName: teamEditorMapping.get(r.userId) || 'Editor',
-          }));
+          anonymizedTask.remarks = (t.remarks || []).map(r => {
+            const remarkUser = usersData?.find(u => u.id === r.userId);
+            const anonymizedRemarkUser = remarkUser ? anonymizeUser(remarkUser) : null;
+            return {
+                ...r,
+                userName: anonymizedRemarkUser?.name || r.userName,
+            };
+          });
       }
 
       return anonymizedTask;
     });
-  }, [tasksData, projects, currentUser, anonymizeUser, teamEditorMapping]);
+  }, [tasksData, projects, currentUser, usersData, anonymizeUser]);
     
   const notifications = notificationsData;
 
@@ -378,11 +391,11 @@ export function DataProvider({ children, user: currentUser }: { children: React.
             ];
             
             if (notificationRecipients.length > 0) {
-                addNotification(`New project '${'\'\'\'newProject.name\'\'\''}' was created by ${'\'\'\'currentUser.name\'\'\''}.`, `/projects/${'\'\'\'newProject.id\'\'\''}`, notificationRecipients, 'system');
+                addNotification(`New project '${newProject.name}' was created by ${currentUser.name}.`, `/projects/${newProject.id}`, notificationRecipients, 'system');
             }
             
             if (projectData.team_ids.length > 0) {
-                addNotification(`You have been assigned to the new project: '${'\'\'\'newProject.name\'\'\''}'.`, `/projects/${'\'\'\'newProject.id\'\'\''}`, projectData.team_ids, 'system');
+                addNotification(`You have been assigned to the new project: '${newProject.name}'.`, `/projects/${newProject.id}`, projectData.team_ids, 'system');
             }
             router.push(`/projects/${newProject.id}`);
         });
@@ -423,7 +436,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
     const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...adminIds]));
     const finalRecipients = recipients.filter(id => id !== authUid);
-    addNotification(`New task '${'\'\'\'newTask.title\'\'\''}' added to project '${'\'\'\'project.name\'\'\''}'.`, `/projects/${'\'\'\'project.id\'\'\''}`, finalRecipients, 'system');
+    addNotification(`New task '${newTask.title}' added to project '${project.name}'.`, `/projects/${project.id}`, finalRecipients, 'system');
   }
 
   const updateProjectTeam = (projectId: string, teamMemberIds: string[]) => {
@@ -434,11 +447,11 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const projectRef = doc(firestore, 'projects', projectId);
     updateDocumentNonBlocking(projectRef, { team_ids: teamMemberIds });
     
-    toast({ title: 'Team Updated', description: `The team for "${'\'\'\'project.name\'\'\''}" has been updated.` });
+    toast({ title: 'Team Updated', description: `The team for "${project.name}" has been updated.` });
     
     const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
     const recipients = Array.from(new Set([...teamMemberIds, project.client.id, ...adminIds]));
-    addNotification(`The team for project '${'\'\'\'project.name\'\'\''}' has been updated.`, `/projects/${projectId}`, recipients.filter(id => id !== authUid), 'system');
+    addNotification(`The team for project '${project.name}' has been updated.`, `/projects/${projectId}`, recipients.filter(id => id !== authUid), 'system');
   };
 
   const updateTaskStatus = (taskId: string, status: TaskStatus, remark: string) => {
@@ -480,8 +493,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
     if (finalRecipients.length > 0) {
       addNotification(
-          `Task '${'\'\'\'task.title\'\'\''}' in project '${'\'\'\'project.name\'\'\''}' was updated to '${status}'.`, 
-          `/projects/${'\'\'\'project.id\'\'\''}`, 
+          `Task '${task.title}' in project '${project.name}' was updated to '${status}'.`, 
+          `/projects/${project.id}`, 
           finalRecipients,
           'system'
       );
@@ -510,7 +523,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
         if (client && admins.length > 0) {
             addNotification(
-                `${'\'\'\'client.name\'\'\''}'s plan has been upgraded to ${'\'\'\'clientData.packageName\'\'\''}.`,
+                `${client.name}'s plan has been upgraded to ${clientData.packageName}.`,
                 `/settings/billing`,
                 admins.map(a => a.id),
                 'system'
@@ -538,7 +551,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const admins = usersData.filter(u => u.role === 'admin');
     if (admins.length > 0) {
       const adminIds = admins.map(a => a.id).filter(id => id !== authUid);
-      addNotification(`${'\'\'\'currentUser.name\'\'\''}'s daily scrum update has been submitted.`, `/scrum`, adminIds, 'system');
+      addNotification(`${currentUser.name}'s daily scrum update has been submitted.`, `/scrum`, adminIds, 'system');
     }
   };
 
@@ -552,7 +565,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     if (admins.length > 0) {
         const adminIds = admins.map(a => a.id).filter(id => id !== authUid);
         const action = session.endTime ? 'stopped' : 'started';
-        addNotification(`${'\'\'\'currentUser.name\'\'\''}'s work timer has been ${action} for session: "${'\'\'\'session.name\'\'\''}".`, `/team`, adminIds, 'system');
+        addNotification(`${currentUser.name}'s work timer has been ${action} for session: "${session.name}".`, `/team`, adminIds, 'system');
     }
   };
 
@@ -577,14 +590,14 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         const teamRecipients = project.team_ids.filter(id => id !== authUid);
 
         addNotification(
-            `Project '${'\'\'\'project.name\'\'\''}' status has been updated to '${'\'\'\'projectData.status\'\'\''}' by ${'\'\'\'currentUser.name\'\'\''}.`,
+            `Project '${project.name}' status has been updated to '${projectData.status}' by ${currentUser.name}.`,
             `/projects/${projectId}`,
             [...clientRecipients, ...teamRecipients],
             'system'
         );
     }
 
-    toast({ title: 'Project Updated', description: `Project "${'\'\'\'project.name\'\'\''}" has been updated.`});
+    toast({ title: 'Project Updated', description: `Project "${project.name}" has been updated.`});
   };
 
   const addFile = (fileData: Omit<ProjectFile, 'id'>) => {

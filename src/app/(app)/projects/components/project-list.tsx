@@ -77,18 +77,6 @@ export function ProjectList({ statusFilter, searchQuery }: ProjectListProps) {
 
   }, [projects, user, statusFilter, searchQuery]);
 
-  const teamEditorMapping = useMemo(() => {
-    if (!users) return new Map<string, string>();
-    const mapping = new Map<string, string>();
-    let editorCount = 1;
-    users
-      .filter(u => u.role === 'team' || u.role === 'admin')
-      .forEach(u => {
-        mapping.set(u.id, `Editor ${editorCount++}`);
-      });
-    return mapping;
-  }, [users]);
-
   if (isLoading) {
     return (
          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -104,17 +92,7 @@ export function ProjectList({ statusFilter, searchQuery }: ProjectListProps) {
       {filteredProjects.map((project) => {
         const coverImage = PlaceHolderImages.find(img => img.id === project.coverImage);
         
-        let teamMembers: (User | {id: string, name: string})[] = users.filter(u => project.team_ids && project.team_ids.includes(u.id));
-
-        if (user?.role === 'client') {
-            teamMembers = (project.team_ids || [])
-                .map(id => {
-                    const member = users.find(u => u.id === id);
-                    if (!member) return null;
-                    return { id, name: teamEditorMapping.get(id) || 'Editor' };
-                })
-                .filter(Boolean) as (User | {id: string, name: string})[];
-        }
+        const teamMembers: Partial<User>[] = users.filter(u => project.team_ids && project.team_ids.includes(u.id));
 
         return (
           <Link href={`/projects/${project.id}`} key={project.id}>
