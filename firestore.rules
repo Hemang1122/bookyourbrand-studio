@@ -167,11 +167,8 @@ service cloud.firestore {
     
     // ── TIMER SESSIONS ────────────────────────────────────────
     match /timer-sessions/{sessionId} {
-      // LIST: validate the query itself filters by userId
-      allow list:   if isAdmin() || 
-                       (isSignedIn() && request.query.where.userId == request.auth.uid);
+      allow list:   if isSignedIn();
       
-      // GET single doc: now resource.data exists, safe to check
       allow get:    if isSignedIn() && 
                        (isAdmin() || resource.data.userId == request.auth.uid);
       
