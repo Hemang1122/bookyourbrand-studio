@@ -1,8 +1,6 @@
-
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import axios from "axios";
-import { onDocumentCreated } from "firebase-functions/v2/firestore";
 
 // Initialize Firebase Admin SDK
 if (!admin.apps.length) {
@@ -119,20 +117,21 @@ export const metaOAuthCallback = functions.https.onRequest(async (req, res) => {
 // --- Cloud Functions for Push Notifications ---
 const MAX_MESSAGE_LENGTH = 100;
 
-export const onSupportMessageCreated = onDocumentCreated(
-  'chats/{chatId}/messages/{messageId}',
-  async (event) => {
+export const onSupportMessageCreated = functions.firestore
+  .document('chats/{chatId}/messages/{messageId}')
+  .onCreate(async (snap, context) => {
     try {
-      const message = event.data?.data();
+      const message = snap.data();
       if (!message) {
         functions.logger.log("No data associated with the event");
         return;
       }
+      const chatId = context.params.chatId;
 
-      const chatSnap = await admin.firestore().doc(`chats/${event.params.chatId}`).get();
+      const chatSnap = await admin.firestore().doc(`chats/${chatId}`).get();
       const chat = chatSnap.data();
       if (!chat) {
-        functions.logger.error(`Chat document ${event.params.chatId} not found`);
+        functions.logger.error(`Chat document ${chatId} not found`);
         return;
       }
       
@@ -152,7 +151,7 @@ export const onSupportMessageCreated = onDocumentCreated(
                 body: (message.text || 'Sent an attachment').substring(0, MAX_MESSAGE_LENGTH),
             },
             data: {
-                chatId: event.params.chatId,
+                chatId: chatId,
                 type: 'support',
                 url: '/support',
             },
@@ -160,7 +159,7 @@ export const onSupportMessageCreated = onDocumentCreated(
                 fcmOptions: { link: '/support' },
             },
         };
-
+        
         const tokensToRemove: string[] = [];
         const sendToTokens = fcmTokens.map(async (token: string) => {
            try {
@@ -187,23 +186,23 @@ export const onSupportMessageCreated = onDocumentCreated(
     } catch (err) {
       functions.logger.error('onSupportMessageCreated error:', err);
     }
-  }
-);
+});
  
-export const onProjectMessageCreated = onDocumentCreated(
-  'projects/{projectId}/chat/messages/{messageId}',
-  async (event) => {
+export const onProjectMessageCreated = functions.firestore
+  .document('projects/{projectId}/chat/messages/{messageId}')
+  .onCreate(async (snap, context) => {
     try {
-      const message = event.data?.data();
+      const message = snap.data();
       if (!message) {
          functions.logger.log("No data associated with the event");
         return;
       }
+      const projectId = context.params.projectId;
 
-      const projectSnap = await admin.firestore().doc(`projects/${event.params.projectId}`).get();
+      const projectSnap = await admin.firestore().doc(`projects/${projectId}`).get();
       const project = projectSnap.data();
       if (!project) {
-        functions.logger.error(`Project document ${event.params.projectId} not found`);
+        functions.logger.error(`Project document ${projectId} not found`);
         return;
       }
 
@@ -212,7 +211,7 @@ export const onProjectMessageCreated = onDocumentCreated(
 
       if (recipients.length === 0) return;
       
-      const url = `/projects/${event.params.projectId}?tab=chat`;
+      const url = `/projects/${projectId}?tab=chat`;
       const sends = recipients.map(async (uid: string) => {
         const userSnap = await admin.firestore().doc(`users/${uid}`).get();
         const fcmTokens = userSnap.data()?.fcmTokens;
@@ -225,7 +224,7 @@ export const onProjectMessageCreated = onDocumentCreated(
                 body: (message.text || 'Sent an attachment').substring(0, MAX_MESSAGE_LENGTH),
             },
             data: {
-                projectId: event.params.projectId,
+                projectId: projectId,
                 type: 'project',
                 url: url,
             },
@@ -260,5 +259,4 @@ export const onProjectMessageCreated = onDocumentCreated(
     } catch (err) {
       functions.logger.error('onProjectMessageCreated error:', err);
     }
-  }
-);
+});

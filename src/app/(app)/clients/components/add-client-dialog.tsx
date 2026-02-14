@@ -16,10 +16,16 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Upload } from 'lucide-react';
 import { uploadFile } from '@/lib/storage';
-import type { Client } from '@/lib/types';
 
 type AddClientDialogProps = {
-  onClientAdd: (clientData: Omit<Client, 'id' | 'avatar'>) => void;
+  onClientAdd: (clientData: {
+    name: string;
+    company: string;
+    email: string;
+    founderDetails: string;
+    agreementUrl?: string;
+    idCardUrl?: string;
+  }) => void;
   children: React.ReactNode;
 };
 
@@ -59,7 +65,7 @@ export function AddClientDialog({ onClientAdd, children }: AddClientDialogProps)
         idCardUrl = await uploadFile(idCardFile, `documents/clients/${name}`);
       }
 
-      onClientAdd({ name, company, email, founderDetails, agreementUrl, idCardUrl, social: { instagram: { connected: false }, facebook: { connected: false } } });
+      onClientAdd({ name, company, email, founderDetails, agreementUrl, idCardUrl });
       toast({ title: 'Client Added', description: `"${name}" has been added.` });
       setOpen(false);
       // Reset fields
