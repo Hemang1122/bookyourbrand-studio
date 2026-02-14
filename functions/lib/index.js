@@ -16,19 +16,21 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
     o["default"] = v;
 });
 var __importStar = (this && this.__importStar) || (function () {
-    var mod = {
-        __esModule: true,
-        "default": null
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
     };
-    if (mod) {
-        return mod;
-    }
-    var result = {};
-    if (mod != null) {
-        for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    }
-    __setModuleDefault(result, mod);
-    return result;
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
 })();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
@@ -203,7 +205,7 @@ exports.onSupportMessageCreated = functions.firestore
 exports.onProjectMessageCreated = functions.firestore
     .document('projects/{projectId}/chat/messages/{messageId}')
     .onCreate(async (snap, context) => {
-    var _a, _b;
+    var _a;
     try {
         const message = snap.data();
         if (!message) {

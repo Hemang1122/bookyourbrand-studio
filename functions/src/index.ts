@@ -1,3 +1,4 @@
+'use client';
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import axios from "axios";
@@ -189,76 +190,89 @@ export const onSupportMessageCreated = functions.firestore
 });
  
 export const onProjectMessageCreated = functions.firestore
-  .document('projects/{projectId}/chat/messages/{messageId}')
-  .onCreate(async (snap, context) => {
+    .document('projects/{projectId}/chat/messages/{messageId}')
+    .onCreate(async (snap, context) => {
     try {
-      const message = snap.data();
-      if (!message) {
-         functions.logger.log("No data associated with the event");
-        return;
-      }
-      const projectId = context.params.projectId;
+        const message = snap.data();
+        if (!message) {
+            functions.logger.log("No data associated with the event");
+            return;
+        }
 
-      const projectSnap = await admin.firestore().doc(`projects/${projectId}`).get();
-      const project = projectSnap.data();
+        const projectId = context.params.projectId;
+        const projectSnap = await admin.firestore().doc(`projects/${projectId}`).get();
 
-      if (!project || !project.name || !project.client?.id) {
-        functions.logger.error(`Project document ${projectId} is incomplete or not found`);
-        return;
-      }
-      
-      const teamIds: string[] = project.team_ids || [];
-      const allRecipients = [...teamIds, project.client.id];
-      const recipients = allRecipients.filter((uid: string) => uid !== message.senderId && uid);
+        if (!projectSnap.exists) {
+            functions.logger.error(`Project document ${projectId} does not exist.`);
+            return;
+        }
 
-      if (recipients.length === 0) return;
-      
-      const url = `/projects/${projectId}?tab=chat`;
-      const sends = recipients.map(async (uid: string) => {
-        const userSnap = await admin.firestore().doc(`users/${uid}`).get();
-        const fcmTokens = userSnap.data()?.fcmTokens;
+        const project = projectSnap.data();
+
+        if (!project || !project.name) {
+            functions.logger.error(`Project document ${projectId} is incomplete or missing a name.`);
+            return;
+        }
         
-        if (!fcmTokens || !Array.isArray(fcmTokens) || fcmTokens.length === 0) return;
+        const teamIds: string[] = project.team_ids || [];
+        const clientId: string | undefined = project.client?.id;
         
-        const payload = {
-             notification: {
-                title: `${message.senderName} in ${project.name}`,
-                body: (message.text || 'Sent an attachment').substring(0, MAX_MESSAGE_LENGTH),
-            },
-            data: {
-                projectId: projectId,
-                type: 'project',
-                url: url,
-            },
-            webpush: {
-                fcmOptions: { link: url },
-            },
-        };
+        let allPotentialRecipients: string[] = [...teamIds];
+        if (clientId) {
+            allPotentialRecipients.push(clientId);
+        }
+
+        // Ensure no duplicates and filter out the sender
+        const recipients = [...new Set(allPotentialRecipients)].filter(uid => uid !== message.senderId);
+
+        if (recipients.length === 0) return;
         
-        const tokensToRemove: string[] = [];
-        const sendToTokens = fcmTokens.map(async (token: string) => {
-           try {
-             await admin.messaging().send({ ...payload, token });
-           } catch (err: any) {
-              functions.logger.error(`Error sending to token ${token} for user ${uid}`, err);
-              if (err.code === 'messaging/registration-token-not-registered' || err.code === 'messaging/invalid-registration-token') {
-                tokensToRemove.push(token);
-              }
-           }
+        const url = `/projects/${projectId}?tab=chat`;
+        const sends = recipients.map(async (uid: string) => {
+            const userSnap = await admin.firestore().doc(`users/${uid}`).get();
+            const fcmTokens = userSnap.data()?.fcmTokens;
+            
+            if (!fcmTokens || !Array.isArray(fcmTokens) || fcmTokens.length === 0) return;
+            
+            const payload = {
+                notification: {
+                    title: `${message.senderName} in ${project.name}`,
+                    body: (message.text || 'Sent an attachment').substring(0, MAX_MESSAGE_LENGTH),
+                },
+                data: {
+                    projectId: projectId,
+                    type: 'project',
+                    url: url,
+                },
+                webpush: {
+                    fcmOptions: { link: url },
+                },
+            };
+            
+            const tokensToRemove: string[] = [];
+            const sendToTokens = fcmTokens.map(async (token: string) => {
+            try {
+                await admin.messaging().send({ ...payload, token });
+            } catch (err: any) {
+                functions.logger.error(`Error sending to token ${token} for user ${uid}`, err);
+                if (err.code === 'messaging/registration-token-not-registered' || err.code === 'messaging/invalid-registration-token') {
+                    tokensToRemove.push(token);
+                }
+            }
+            });
+
+            await Promise.all(sendToTokens);
+            
+            if (tokensToRemove.length > 0) {
+                await userSnap.ref.update({
+                    fcmTokens: admin.firestore.FieldValue.arrayRemove(...tokensToRemove)
+                });
+            }
         });
 
-        await Promise.all(sendToTokens);
-        
-        if (tokensToRemove.length > 0) {
-            await userSnap.ref.update({
-                fcmTokens: admin.firestore.FieldValue.arrayRemove(...tokensToRemove)
-            });
-        }
-      });
-
-      await Promise.allSettled(sends);
+        await Promise.allSettled(sends);
 
     } catch (err) {
-      functions.logger.error('onProjectMessageCreated error:', err);
+        functions.logger.error('onProjectMessageCreated error:', err);
     }
 });
