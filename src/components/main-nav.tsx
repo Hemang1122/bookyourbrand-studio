@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -65,11 +64,11 @@ export function MainNav({ userRole }: { userRole: UserRole }) {
                 <item.icon className="h-5 w-5" />
                  {isMobile && <span>{item.label}</span>}
                  {item.href === '/support' && unreadSupportCount > 0 && isMobile && (
-                    <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">{unreadSupportCount}</Badge>
+                    <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">{unreadSupportCount > 99 ? '99+' : unreadSupportCount}</Badge>
                  )}
               </SidebarMenuButton>
               {item.href === '/support' && unreadSupportCount > 0 && !isMobile && (
-                <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 justify-center p-0">{unreadSupportCount}</Badge>
+                <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 justify-center p-0">{unreadSupportCount > 99 ? '99+' : unreadSupportCount}</Badge>
               )}
             </Link>
           </SidebarMenuItem>

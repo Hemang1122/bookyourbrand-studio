@@ -1,12 +1,12 @@
 'use client';
 
-import { createContext, useContext, useState, useMemo, useCallback } from 'react';
+import { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus, TimerSession, Chat, ChatMessage } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking, useFirebaseServices, FirestorePermissionError, errorEmitter } from '@/firebase';
-import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp, arrayUnion, runTransaction, getDocs, updateDoc, addDoc, getDoc, orderBy, setDoc } from 'firebase/firestore';
+import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp, arrayUnion, runTransaction, getDocs, updateDoc, addDoc, getDoc, orderBy, setDoc, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -120,6 +120,34 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   
   const { data: chatsData, isLoading: chatsLoading } = useCollection<Chat>(chatsQuery);
 
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!chatsData || !firestore || !authUid) return;
+    
+    const unsubscribes = chatsData.map(chat => {
+      const messagesQuery = query(collection(firestore, 'chats', chat.id, 'messages'));
+      
+      const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+        let count = 0;
+        snapshot.forEach(doc => {
+          const message = doc.data() as ChatMessage;
+          if (message.senderId !== authUid && !message.readBy.includes(authUid)) {
+            count++;
+          }
+        });
+        setUnreadCounts(prev => ({ ...prev, [chat.id]: count }));
+      });
+      
+      return unsubscribe;
+    });
+
+    return () => {
+      unsubscribes.forEach(unsub => unsub());
+    };
+  }, [chatsData, firestore, authUid]);
+
+
   const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading || chatsLoading;
   
   const teamEditorMapping = useMemo(() => {
@@ -204,7 +232,15 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }, [tasksData, projects, currentUser, anonymizeUser, teamEditorMapping]);
     
   const notifications = notificationsData;
-  const chats = chatsData || [];
+
+  const chats = useMemo(() => {
+    if (!chatsData) return [];
+    return chatsData.map(chat => ({
+        ...chat,
+        unreadCount: unreadCounts[chat.id] || 0
+    }));
+  }, [chatsData, unreadCounts]);
+
   const scrumUpdates = scrumUpdatesData ? [...scrumUpdatesData].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : [];
 
   const getOrCreateChat = useCallback(async (partnerId: string): Promise<string | null> => {

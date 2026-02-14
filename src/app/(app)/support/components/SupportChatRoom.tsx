@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import type { ChatMessage, User } from '@/lib/types';
@@ -10,7 +9,7 @@ import { useAuth } from '@/firebase/provider';
 import { AddChatAttachmentDialog } from '../../projects/[id]/components/add-chat-attachment-dialog';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useCollection, useFirebaseServices, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, Timestamp, doc } from 'firebase/firestore';
+import { collection, query, orderBy, Timestamp, doc, writeBatch, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -24,7 +23,7 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
   const { firestore } = useFirebaseServices();
-  const { getOrCreateChat, sendMessage } = useData();
+  const { getOrCreateChat, sendMessage, markChatNotificationsAsRead } = useData();
   const [chatId, setChatId] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
@@ -42,6 +41,36 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
 
   const { data: messages, isLoading: messagesLoading } = useCollection<ChatMessage>(messagesQuery);
   
+  // Mark messages as read when the chat room is opened or new messages arrive
+  useEffect(() => {
+    if (!chatId || !firestore || !currentUser || !messages || messages.length === 0) return;
+
+    const unreadMessages = messages.filter(msg => 
+        msg.senderId !== currentUser.id && !msg.readBy.includes(currentUser.id)
+    );
+
+    if (unreadMessages.length > 0) {
+        const batch = writeBatch(firestore);
+        unreadMessages.forEach(msg => {
+            const msgRef = doc(firestore, 'chats', chatId, 'messages', msg.id);
+            batch.update(msgRef, {
+                readBy: arrayUnion(currentUser.id)
+            });
+        });
+
+        // Also update the read receipt for the user
+        const receiptRef = doc(firestore, 'chats', chatId, 'readReceipts', currentUser.id);
+        batch.set(receiptRef, { lastReadAt: serverTimestamp() }, { merge: true });
+
+        batch.commit().catch(err => console.error("Failed to mark messages as read:", err));
+    }
+     
+    // Also mark related notifications as read
+    markChatNotificationsAsRead(chatId);
+
+  }, [messages, chatId, firestore, currentUser, markChatNotificationsAsRead]);
+
+
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
         const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
