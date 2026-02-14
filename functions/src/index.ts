@@ -214,16 +214,13 @@ export const onProjectMessageCreated = functions.firestore
             return;
         }
         
-        const teamIds: string[] = project.team_ids || [];
-        const clientId: string | undefined = project.client?.id;
-        
-        let allPotentialRecipients: string[] = [...teamIds];
-        if (clientId) {
-            allPotentialRecipients.push(clientId);
-        }
+        const allRecipients: string[] = [
+            ...(project.team_ids || []),
+            project.client?.id,
+        ].filter(Boolean);
 
         // Ensure no duplicates and filter out the sender
-        const recipients = [...new Set(allPotentialRecipients)].filter(uid => uid !== message.senderId);
+        const recipients = [...new Set(allRecipients)].filter(uid => uid !== message.senderId);
 
         if (recipients.length === 0) return;
         
