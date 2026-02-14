@@ -12,6 +12,7 @@ import { useCollection, useFirebaseServices, useMemoFirebase } from '@/firebase'
 import { collection, query, orderBy, serverTimestamp, addDoc, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../../data-provider';
+import { sendPushNotificationFlow } from '@/ai/flows/send-push-notification';
 
 type ProjectChatProps = {
   project: Project;
@@ -48,7 +49,7 @@ export function ProjectChat({ project }: ProjectChatProps) {
   }, [messages]);
 
 
-  const sendMessage = (messageText: string, mediaUrl?: string) => {
+  const sendMessage = async (messageText: string, mediaUrl?: string) => {
      if (!currentUser || !firestore || (!messageText.trim() && !mediaUrl)) return;
      
      const messageType = mediaUrl ? 'media' : 'text';
@@ -70,17 +71,34 @@ export function ProjectChat({ project }: ProjectChatProps) {
 
     // Send notification
     const adminIds = users.filter(u => u.role === 'admin').map(u => u.id);
-    const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...adminIds]));
-    const finalRecipients = recipients.filter(id => id !== currentUser.id);
+    const recipientIds = Array.from(new Set([project.client.id, ...project.team_ids, ...adminIds]));
+    const finalRecipientIds = recipientIds.filter(id => id !== currentUser.id);
 
-    if (finalRecipients.length > 0) {
+    if (finalRecipientIds.length > 0) {
         addNotification(
             `New message in '${project.name}': "${messageText.substring(0, 30)}..."`,
             `/projects/${project.id}?tab=chat`,
-            finalRecipients,
+            finalRecipientIds,
             'chat',
             `project_${project.id}`
         );
+        
+        try {
+            const recipientUsers = users.filter(u => finalRecipientIds.includes(u.id));
+            const allTokens = recipientUsers.flatMap(u => u.fcmTokens || []);
+            const uniqueTokens = [...new Set(allTokens)];
+
+            if (uniqueTokens.length > 0) {
+                await sendPushNotificationFlow({
+                  tokens: uniqueTokens,
+                  title: `New message in ${project.name}`,
+                  body: `${currentUser.name}: ${messageText}`,
+                  url: `/projects/${project.id}?tab=chat`
+                });
+            }
+        } catch (error) {
+            console.error("Error sending project chat push notification:", error);
+        }
     }
     
     setNewMessage('');

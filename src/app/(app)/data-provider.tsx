@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { FirebaseApp } from 'firebase/app';
 import { packages as subscriptionPackages } from './settings/billing/packages-data';
 import { format, addWeeks } from 'date-fns';
+import { sendPushNotificationFlow } from '@/ai/flows/send-push-notification';
 
 type DataContextType = {
   projects: Project[];
@@ -237,8 +238,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     }
   }, [firestore, currentUser, authUid, toast]);
 
-  const sendMessage = useCallback((chatId: string, messageText: string, mediaUrl?: string) => {
-    if (!currentUser || !firestore || (!messageText.trim() && !mediaUrl) || !authUid) return;
+  const sendMessage = useCallback(async (chatId: string, messageText: string, mediaUrl?: string) => {
+    if (!currentUser || !firestore || (!messageText.trim() && !mediaUrl) || !authUid || !usersData) return;
     
     const messagesColRef = collection(firestore, 'chats', chatId, 'messages');
     const chatDocRef = doc(firestore, 'chats', chatId);
@@ -266,8 +267,35 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       },
       lastMessageAt: serverTimestamp(),
     });
+    
+    try {
+      const chatSnap = await getDoc(chatDocRef);
+      if (!chatSnap.exists()) return;
 
-  }, [currentUser, firestore, authUid]);
+      const chatData = chatSnap.data() as Chat;
+      const recipients = chatData.participants.filter(p => p !== authUid);
+      
+      if (recipients.length === 0) return;
+
+      const recipientUsers = usersData.filter(u => recipients.includes(u.id));
+      const allTokens = recipientUsers.flatMap(u => u.fcmTokens || []);
+      const uniqueTokens = [...new Set(allTokens)];
+
+      if (uniqueTokens.length > 0) {
+        await sendPushNotificationFlow({
+          tokens: uniqueTokens,
+          title: `New message from ${currentUser.name}`,
+          body: messageText,
+          url: `/support` 
+        });
+      }
+
+    } catch (error) {
+      console.error("Error sending push notification:", error);
+    }
+
+
+  }, [currentUser, firestore, authUid, usersData]);
 
   const addProject = async (projectData: Omit<Project, 'id' | 'coverImage'>) => {
     if (!firestore || !currentUser || !usersData || !authUid) return;

@@ -23,8 +23,26 @@ export function PushNotificationProvider({ children }: { children: React.ReactNo
       if (permission === 'granted') {
         console.log('Notification permission granted.');
 
+        // IMPORTANT: You need to generate this VAPID key in your Firebase project settings
+        // (Project Settings > Cloud Messaging > Web configuration) and add it to your 
+        // environment variables as NEXT_PUBLIC_FCM_VAPID_KEY
+        const vapidKey = process.env.NEXT_PUBLIC_FCM_VAPID_KEY;
+
+        if (!vapidKey || vapidKey === 'YOUR_VAPID_KEY_FROM_FIREBASE_CONSOLE') {
+            console.error("FCM VAPID key is not configured. Push notifications will not work.");
+            if (process.env.NODE_ENV === 'development') {
+                 toast({
+                    title: "FCM Not Configured",
+                    description: "Add NEXT_PUBLIC_FCM_VAPID_KEY to your .env file to enable push notifications.",
+                    variant: 'destructive',
+                    duration: 10000,
+                });
+            }
+            return;
+        }
+
         // 2. Get Token
-        getToken(messaging, { vapidKey: 'YOUR_VAPID_KEY' }) // You need to generate this in Firebase Console
+        getToken(messaging, { vapidKey: vapidKey })
           .then((currentToken) => {
             if (currentToken) {
               // 3. Save Token to Firestore
