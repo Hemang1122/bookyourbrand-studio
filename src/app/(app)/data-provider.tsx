@@ -76,10 +76,27 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   
   const { data: projectsData, isLoading: projectsLoading } = useCollection<Project>(useMemoFirebase(() => firestore ? collection(firestore, 'projects') : null, [firestore]));
   const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
-  const { data: files, isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? collection(firestore, 'files') : null, [firestore]));
+  const { data: files, isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? query(collection(firestore, 'files')) : null, [firestore]));
   const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
   const { data: scrumUpdatesData, isLoading: scrumUpdatesLoading } = useCollection<ScrumUpdate>(useMemoFirebase(() => firestore ? collection(firestore, 'scrum-updates') : null, [firestore]));
-  const { data: timerSessions, isLoading: timerSessionsLoading } = useCollection<TimerSession>(useMemoFirebase(() => firestore ? collection(firestore, 'timer-sessions') : null, [firestore]));
+
+  const timerSessionsQuery = useMemoFirebase(() => {
+    if (!firestore || !currentUser) return null;
+    
+    if (currentUser.role === 'admin') {
+      // Admins see all sessions, ordered by date
+      return query(collection(firestore, 'timer-sessions'), orderBy('startTime', 'desc'));
+    }
+    
+    // Non-admins only see their own sessions
+    return query(
+      collection(firestore, 'timer-sessions'), 
+      where('userId', '==', currentUser.id),
+      orderBy('startTime', 'desc')
+    );
+  }, [firestore, currentUser]);
+  
+  const { data: timerSessions, isLoading: timerSessionsLoading } = useCollection<TimerSession>(timerSessionsQuery);
   
   const { data: notificationsData = [], isLoading: notificationsLoading } = useCollection<Notification>(useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
