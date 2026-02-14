@@ -146,7 +146,7 @@ export const onSupportMessageCreated = onDocumentCreated(
         
         if (!fcmTokens || !Array.isArray(fcmTokens) || fcmTokens.length === 0) return;
 
-        const payload: admin.messaging.MessagingPayload = {
+        const payload = {
             notification: {
                 title: message.senderName || 'New Message',
                 body: (message.text || 'Sent an attachment').substring(0, MAX_MESSAGE_LENGTH),
@@ -219,7 +219,7 @@ export const onProjectMessageCreated = onDocumentCreated(
         
         if (!fcmTokens || !Array.isArray(fcmTokens) || fcmTokens.length === 0) return;
         
-        const payload: admin.messaging.MessagingPayload = {
+        const payload = {
              notification: {
                 title: `${message.senderName} in ${project.name}`,
                 body: (message.text || 'Sent an attachment').substring(0, MAX_MESSAGE_LENGTH),
