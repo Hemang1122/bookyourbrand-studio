@@ -46,7 +46,7 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
     if (!chatId || !firestore || !currentUser || !messages || messages.length === 0) return;
 
     const unreadMessages = messages.filter(msg => 
-        msg.senderId !== currentUser.id && !msg.readBy.includes(currentUser.id)
+        msg.senderId !== currentUser.id && !(msg.readBy || []).includes(currentUser.id)
     );
 
     if (unreadMessages.length > 0) {

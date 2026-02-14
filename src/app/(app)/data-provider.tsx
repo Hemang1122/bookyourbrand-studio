@@ -132,7 +132,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         let count = 0;
         snapshot.forEach(doc => {
           const message = doc.data() as ChatMessage;
-          if (message.senderId !== authUid && !message.readBy.includes(authUid)) {
+          if (message.senderId !== authUid && !(message.readBy || []).includes(authUid)) {
             count++;
           }
         });
@@ -616,7 +616,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const batch = writeBatch(firestore);
     querySnapshot.docs.forEach(document => {
       const notif = document.data() as Notification;
-      if (!notif.readBy.includes(authUid)) {
+      if (!(notif.readBy || []).includes(authUid)) {
         const notifRef = doc(firestore, 'notifications', document.id);
         batch.update(notifRef, {
           readBy: arrayUnion(authUid)
