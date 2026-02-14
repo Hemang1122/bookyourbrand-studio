@@ -48,9 +48,9 @@ service cloud.firestore {
 
     // ── CHATS COLLECTION ──────────────────────────────────────
     match /chats/{chatId} {
-      // Only participants can read the chat document
-      allow read: if isParticipant(chatId);
-      // Anyone can query their own chats
+      // Only participants can read a specific chat document
+      allow get: if isParticipant(chatId);
+      // A user can list chats they are a participant in
       allow list: if isSignedIn() && request.query.where.participants.hasAny([request.auth.uid]);
       // Only admins can create new chats
       allow create: if isAdmin() &&
