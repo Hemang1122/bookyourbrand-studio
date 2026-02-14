@@ -117,165 +117,148 @@ export const metaOAuthCallback = functions.https.onRequest(async (req, res) => {
 
 
 // --- Cloud Functions for Push Notifications ---
-
 const MAX_MESSAGE_LENGTH = 100;
 
-/**
- * Fetches FCM tokens for a list of user IDs.
- */
-async function getFcmTokens(userIds: string[]): Promise<{ [userId: string]: string[] }> {
-  const tokensMap: { [userId: string]: string[] } = {};
-  if (userIds.length === 0) return tokensMap;
-  
-  const userDocs = await db.collection('users').where(admin.firestore.FieldPath.documentId(), 'in', userIds).get();
-
-  userDocs.forEach(doc => {
-    const userData = doc.data();
-    if (userData.fcmTokens && Array.isArray(userData.fcmTokens) && userData.fcmTokens.length > 0) {
-      tokensMap[doc.id] = userData.fcmTokens;
-    }
-  });
-
-  return tokensMap;
-}
-
-/**
- * Handles sending notifications and cleaning up invalid tokens.
- */
-async function sendNotifications(tokensMap: { [userId: string]: string[] }, payload: admin.messaging.MessagingPayload) {
-  const tokensToRemove: { [userId: string]: string[] } = {};
-  const allTokens: string[] = Object.values(tokensMap).flat();
-  
-  if (allTokens.length === 0) return;
-
-  const response = await admin.messaging().sendEach(
-      allTokens.map(token => ({ ...payload, token }))
-  );
-
-  response.responses.forEach((result, index) => {
-    const token = allTokens[index];
-    if (!result.success) {
-      functions.logger.error(`Failed to send message to token: ${token}`, result.error);
-      
-      const errorCode = result.error.code;
-      if (
-        errorCode === 'messaging/registration-token-not-registered' ||
-        errorCode === 'messaging/invalid-registration-token'
-      ) {
-        // Find which user this token belongs to and queue it for removal
-        for (const userId in tokensMap) {
-          if (tokensMap[userId].includes(token)) {
-            if (!tokensToRemove[userId]) {
-              tokensToRemove[userId] = [];
-            }
-            tokensToRemove[userId].push(token);
-            break;
-          }
-        }
+export const onSupportMessageCreated = onDocumentCreated(
+  'chats/{chatId}/messages/{messageId}',
+  async (event) => {
+    try {
+      const message = event.data?.data();
+      if (!message) {
+        functions.logger.log("No data associated with the event");
+        return;
       }
-    }
-  });
 
-  // Clean up invalid tokens from Firestore
-  const cleanupPromises = Object.entries(tokensToRemove).map(([userId, tokens]) => {
-    return db.collection('users').doc(userId).update({
-      fcmTokens: admin.firestore.FieldValue.arrayRemove(...tokens)
-    });
-  });
+      const chatSnap = await admin.firestore().doc(`chats/${event.params.chatId}`).get();
+      const chat = chatSnap.data();
+      if (!chat) {
+        functions.logger.error(`Chat document ${event.params.chatId} not found`);
+        return;
+      }
+      
+      const recipients: string[] = (chat.participants || []).filter((uid: string) => uid !== message.senderId);
 
-  await Promise.allSettled(cleanupPromises);
-}
+      if (recipients.length === 0) return;
 
-
-export const onSupportMessageCreate = onDocumentCreated('chats/{chatId}/messages/{messageId}', async (event) => {
-    try {
-        const snap = event.data;
-        if (!snap) {
-            functions.logger.log("No data associated with the event");
-            return;
-        }
-        const message = snap.data();
-        const { chatId } = event.params;
-
-        const chatDoc = await db.collection('chats').doc(chatId).get();
-        if (!chatDoc.exists) {
-            functions.logger.error(`Chat document ${chatId} not found`);
-            return;
-        }
-        const chatData = chatDoc.data()!;
-
-        const recipients = chatData.participants.filter((pId: string) => pId !== message.senderId);
-        if (recipients.length === 0) return;
+      const sends = recipients.map(async (uid: string) => {
+        const userSnap = await admin.firestore().doc(`users/${uid}`).get();
+        const fcmTokens = userSnap.data()?.fcmTokens;
         
-        const tokensMap = await getFcmTokens(recipients);
-        
-        const payload = {
+        if (!fcmTokens || !Array.isArray(fcmTokens) || fcmTokens.length === 0) return;
+
+        const payload: admin.messaging.MessagingPayload = {
             notification: {
-                title: message.senderName,
-                body: message.text?.substring(0, MAX_MESSAGE_LENGTH) || 'Sent a file.',
-            },
-            webpush: {
-                fcmOptions: { link: '/support' }
+                title: message.senderName || 'New Message',
+                body: (message.text || 'Sent an attachment').substring(0, MAX_MESSAGE_LENGTH),
             },
             data: {
-                chatId: chatId,
+                chatId: event.params.chatId,
                 type: 'support',
-                url: '/support'
-            }
-        };
-
-        await sendNotifications(tokensMap, payload);
-
-    } catch (error) {
-        functions.logger.error("Error in onSupportMessageCreate:", error);
-    }
-});
-
-
-export const onProjectMessageCreate = onDocumentCreated('projects/{projectId}/chat/messages/{messageId}', async (event) => {
-    try {
-        const snap = event.data;
-        if (!snap) {
-            functions.logger.log("No data associated with the event");
-            return;
-        }
-        const message = snap.data();
-        const { projectId } = event.params;
-
-        const projectDoc = await db.collection('projects').doc(projectId).get();
-        if (!projectDoc.exists) {
-            functions.logger.error(`Project document ${projectId} not found`);
-            return;
-        }
-        const projectData = projectDoc.data()!;
-
-        const allParticipantIds = [...(projectData.team_ids || []), projectData.client.id];
-        const recipients = allParticipantIds.filter((pId: string) => pId !== message.senderId);
-
-        if (recipients.length === 0) return;
-
-        const tokensMap = await getFcmTokens(recipients);
-        
-        const url = `/projects/${projectId}?tab=chat`;
-
-        const payload = {
-            notification: {
-                title: `${message.senderName} in ${projectData.name}`,
-                body: message.text?.substring(0, MAX_MESSAGE_LENGTH) || 'Sent a file.',
+                url: '/support',
             },
             webpush: {
-                fcmOptions: { link: url }
+                fcmOptions: { link: '/support' },
             },
-            data: {
-                projectId: projectId,
-                type: 'project',
-                url: url
-            }
         };
 
-        await sendNotifications(tokensMap, payload);
+        const tokensToRemove: string[] = [];
+        const sendToTokens = fcmTokens.map(async (token: string) => {
+           try {
+             await admin.messaging().send({ ...payload, token });
+           } catch (err: any) {
+              functions.logger.error(`Error sending to token ${token} for user ${uid}`, err);
+              if (err.code === 'messaging/registration-token-not-registered' || err.code === 'messaging/invalid-registration-token') {
+                tokensToRemove.push(token);
+              }
+           }
+        });
+        
+        await Promise.all(sendToTokens);
 
-    } catch (error) {
-        functions.logger.error("Error in onProjectMessageCreate:", error);
+        if (tokensToRemove.length > 0) {
+            await userSnap.ref.update({
+                fcmTokens: admin.firestore.FieldValue.arrayRemove(...tokensToRemove)
+            });
+        }
+      });
+
+      await Promise.allSettled(sends);
+
+    } catch (err) {
+      functions.logger.error('onSupportMessageCreated error:', err);
     }
-});
+  }
+);
+ 
+export const onProjectMessageCreated = onDocumentCreated(
+  'projects/{projectId}/chat/messages/{messageId}',
+  async (event) => {
+    try {
+      const message = event.data?.data();
+      if (!message) {
+         functions.logger.log("No data associated with the event");
+        return;
+      }
+
+      const projectSnap = await admin.firestore().doc(`projects/${event.params.projectId}`).get();
+      const project = projectSnap.data();
+      if (!project) {
+        functions.logger.error(`Project document ${event.params.projectId} not found`);
+        return;
+      }
+
+      const allRecipients: string[] = [...(project.team_ids || []), project.client?.id].filter(Boolean);
+      const recipients = allRecipients.filter((uid: string) => uid !== message.senderId);
+
+      if (recipients.length === 0) return;
+      
+      const url = `/projects/${event.params.projectId}?tab=chat`;
+      const sends = recipients.map(async (uid: string) => {
+        const userSnap = await admin.firestore().doc(`users/${uid}`).get();
+        const fcmTokens = userSnap.data()?.fcmTokens;
+        
+        if (!fcmTokens || !Array.isArray(fcmTokens) || fcmTokens.length === 0) return;
+        
+        const payload: admin.messaging.MessagingPayload = {
+             notification: {
+                title: `${message.senderName} in ${project.name}`,
+                body: (message.text || 'Sent an attachment').substring(0, MAX_MESSAGE_LENGTH),
+            },
+            data: {
+                projectId: event.params.projectId,
+                type: 'project',
+                url: url,
+            },
+            webpush: {
+                fcmOptions: { link: url },
+            },
+        };
+        
+        const tokensToRemove: string[] = [];
+        const sendToTokens = fcmTokens.map(async (token: string) => {
+           try {
+             await admin.messaging().send({ ...payload, token });
+           } catch (err: any) {
+              functions.logger.error(`Error sending to token ${token} for user ${uid}`, err);
+              if (err.code === 'messaging/registration-token-not-registered' || err.code === 'messaging/invalid-registration-token') {
+                tokensToRemove.push(token);
+              }
+           }
+        });
+
+        await Promise.all(sendToTokens);
+        
+        if (tokensToRemove.length > 0) {
+            await userSnap.ref.update({
+                fcmTokens: admin.firestore.FieldValue.arrayRemove(...tokensToRemove)
+            });
+        }
+      });
+
+      await Promise.allSettled(sends);
+
+    } catch (err) {
+      functions.logger.error('onProjectMessageCreated error:', err);
+    }
+  }
+);
