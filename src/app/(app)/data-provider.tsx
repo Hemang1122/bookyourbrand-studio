@@ -56,6 +56,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { toast } = useToast();
   const router = useRouter();
   const { firestore, auth, firebaseApp } = useFirebaseServices();
+  const authUid = auth?.currentUser?.uid ?? null;
   
   const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
 
@@ -81,7 +82,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: scrumUpdatesData, isLoading: scrumUpdatesLoading } = useCollection<ScrumUpdate>(useMemoFirebase(() => firestore ? collection(firestore, 'scrum-updates') : null, [firestore]));
 
   const timerSessionsQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUser) return null;
+    if (!firestore || !currentUser || !authUid) return null;
     
     if (currentUser.role === 'admin') {
       // Admins see all sessions, ordered by date
@@ -91,26 +92,26 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     // Non-admins only see their own sessions
     return query(
       collection(firestore, 'timer-sessions'), 
-      where('userId', '==', currentUser.id),
+      where('userId', '==', authUid),
       orderBy('startTime', 'desc')
     );
-  }, [firestore, currentUser]);
+  }, [firestore, currentUser, authUid]);
   
   const { data: timerSessions, isLoading: timerSessionsLoading } = useCollection<TimerSession>(timerSessionsQuery);
   
   const { data: notificationsData = [], isLoading: notificationsLoading } = useCollection<Notification>(useMemoFirebase(() => {
-    if (!firestore || !currentUser || !auth?.currentUser) return null;
-    return query(collection(firestore, 'notifications'), where('recipients', 'array-contains', auth.currentUser.uid));
-  }, [firestore, currentUser, auth]));
+    if (!firestore || !authUid) return null;
+    return query(collection(firestore, 'notifications'), where('recipients', 'array-contains', authUid));
+  }, [firestore, authUid]));
   
   const chatsQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUser || !auth?.currentUser) return null;
+    if (!firestore || !authUid) return null;
     return query(
       collection(firestore, 'chats'),
-      where('participants', 'array-contains', auth.currentUser.uid),
+      where('participants', 'array-contains', authUid),
       orderBy('lastMessageAt', 'desc')
     );
-  }, [firestore, currentUser, auth]);
+  }, [firestore, authUid]);
   
   const { data: chatsData, isLoading: chatsLoading } = useCollection<Chat>(chatsQuery);
 
@@ -202,9 +203,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const scrumUpdates = scrumUpdatesData ? [...scrumUpdatesData].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : [];
 
   const getOrCreateChat = useCallback(async (partnerId: string): Promise<string | null> => {
-    if (!firestore || !currentUser || !auth?.currentUser) return null;
+    if (!firestore || !currentUser || !authUid) return null;
 
-    const authUid = auth.currentUser.uid;
     const sortedIds = [authUid, partnerId].sort();
     const chatId = sortedIds.join('_');
     const chatDocRef = doc(firestore, 'chats', chatId);
@@ -230,12 +230,11 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         return null;
       }
     }
-  }, [firestore, currentUser, auth, toast]);
+  }, [firestore, currentUser, authUid, toast]);
 
   const sendMessage = useCallback((chatId: string, messageText: string, mediaUrl?: string) => {
-    if (!currentUser || !firestore || (!messageText.trim() && !mediaUrl) || !auth?.currentUser) return;
+    if (!currentUser || !firestore || (!messageText.trim() && !mediaUrl) || !authUid) return;
     
-    const authUid = auth.currentUser.uid;
     const messagesColRef = collection(firestore, 'chats', chatId, 'messages');
     const chatDocRef = doc(firestore, 'chats', chatId);
 
@@ -263,10 +262,10 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       lastMessageAt: serverTimestamp(),
     });
 
-  }, [currentUser, firestore, auth]);
+  }, [currentUser, firestore, authUid]);
 
   const addProject = async (projectData: Omit<Project, 'id' | 'coverImage'>) => {
-    if (!firestore || !currentUser || !usersData) return;
+    if (!firestore || !currentUser || !usersData || !authUid) return;
     
     const clientRef = doc(firestore, 'clients', projectData.client.id);
 
@@ -297,7 +296,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
             transaction.update(clientRef, { reelsCreated: reelsCreated + 1 });
             
             const admins = usersData.filter(u => u.role === 'admin');
-            const adminIds = admins.map(a => a.id).filter(id => id !== currentUser.id);
+            const adminIds = admins.map(a => a.id).filter(id => id !== authUid);
 
             const notificationRecipients = [
                 ...(projectData.team_ids || []),
@@ -325,11 +324,11 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   };
 
   const addTask = (taskData: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks' | 'dueDate'>) => {
-    if (!firestore || !projects || !currentUser || !usersData) return;
+    if (!firestore || !projects || !currentUser || !usersData || !authUid) return;
     const project = projects.find(p => p.id === taskData.projectId);
     if (!project) return;
     
-    const assignedToId = project.team_ids[0] || (teamMembers.find(tm => tm.id !== currentUser.id))?.id || currentUser.id;
+    const assignedToId = project.team_ids[0] || (teamMembers.find(tm => tm.id !== authUid))?.id || authUid;
     const assignedTo = usersData?.find(u => u.id === assignedToId);
 
     if (!assignedTo) {
@@ -349,12 +348,12 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
     const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
     const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...adminIds]));
-    const finalRecipients = recipients.filter(id => id !== currentUser.id);
+    const finalRecipients = recipients.filter(id => id !== authUid);
     addNotification(`New task '${'\'\'\'newTask.title\'\'\''}' added to project '${'\'\'\'project.name\'\'\''}'.`, `/projects/${'\'\'\'project.id\'\'\''}`, finalRecipients, 'system');
   }
 
   const updateProjectTeam = (projectId: string, teamMemberIds: string[]) => {
-    if (!projectsData || !firestore || !currentUser || !usersData) return;
+    if (!projectsData || !firestore || !currentUser || !usersData || !authUid) return;
     const project = projectsData.find(p => p.id === projectId);
     if (!project) return;
     
@@ -365,11 +364,11 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
     const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
     const recipients = Array.from(new Set([...teamMemberIds, project.client.id, ...adminIds]));
-    addNotification(`The team for project '${'\'\'\'project.name\'\'\''}' has been updated.`, `/projects/${projectId}`, recipients.filter(id => id !== currentUser.id), 'system');
+    addNotification(`The team for project '${'\'\'\'project.name\'\'\''}' has been updated.`, `/projects/${projectId}`, recipients.filter(id => id !== authUid), 'system');
   };
 
   const updateTaskStatus = (taskId: string, status: TaskStatus, remark: string) => {
-    if (!currentUser || !firestore || !tasksData || !projectsData || !usersData) return;
+    if (!currentUser || !firestore || !tasksData || !projectsData || !usersData || !authUid) return;
 
     const task = tasksData?.find(t => t.id === taskId);
     if (!task) return;
@@ -377,7 +376,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     if(!project) return;
 
     const newRemark: TaskRemark = {
-      userId: currentUser.id,
+      userId: authUid,
       userName: currentUser.name,
       remark,
       timestamp: new Date().toISOString(),
@@ -403,7 +402,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     } else { // client
       recipients = [...project.team_ids, ...adminIds];
     }
-    const finalRecipients = Array.from(new Set(recipients)).filter(id => id !== currentUser.id);
+    const finalRecipients = Array.from(new Set(recipients)).filter(id => id !== authUid);
 
     if (finalRecipients.length > 0) {
       addNotification(
@@ -458,26 +457,26 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }
 
   const addScrumUpdate = (update: Omit<ScrumUpdate, 'id' | 'timestamp'>) => {
-    if (!firestore || !currentUser || !usersData) return;
+    if (!firestore || !currentUser || !usersData || !authUid) return;
     const newUpdate: Omit<ScrumUpdate, 'id'> = { ...update, timestamp: new Date().toISOString() };
     addDocumentNonBlocking(collection(firestore, 'scrum-updates'), newUpdate);
 
     const admins = usersData.filter(u => u.role === 'admin');
     if (admins.length > 0) {
-      const adminIds = admins.map(a => a.id).filter(id => id !== currentUser.id);
+      const adminIds = admins.map(a => a.id).filter(id => id !== authUid);
       addNotification(`${'\'\'\'currentUser.name\'\'\''}'s daily scrum update has been submitted.`, `/scrum`, adminIds, 'system');
     }
   };
 
   const addTimerSession = (session: Omit<TimerSession, 'id'>) => {
-    if (!firestore || !currentUser || !usersData) return;
+    if (!firestore || !currentUser || !usersData || !authUid) return;
     const newSessionId = doc(collection(firestore, 'timer-sessions')).id;
     const newSession: TimerSession = { id: newSessionId, ...session };
     setDocumentNonBlocking(doc(firestore, 'timer-sessions', newSession.id), newSession, {});
     
     const admins = usersData.filter(u => u.role === 'admin');
     if (admins.length > 0) {
-        const adminIds = admins.map(a => a.id).filter(id => id !== currentUser.id);
+        const adminIds = admins.map(a => a.id).filter(id => id !== authUid);
         const action = session.endTime ? 'stopped' : 'started';
         addNotification(`${'\'\'\'currentUser.name\'\'\''}'s work timer has been ${action} for session: "${'\'\'\'session.name\'\'\''}".`, `/team`, adminIds, 'system');
     }
@@ -492,7 +491,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   };
 
   const updateProject = (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => {
-    if (!firestore || !projects || !currentUser || !usersData) return;
+    if (!firestore || !projects || !currentUser || !usersData || !authUid) return;
     const projectRef = doc(firestore, 'projects', projectId);
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
@@ -501,7 +500,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
     if (projectData.status && project.status !== projectData.status) {
         const clientRecipients = [project.client.id];
-        const teamRecipients = project.team_ids.filter(id => id !== currentUser.id);
+        const teamRecipients = project.team_ids.filter(id => id !== authUid);
 
         addNotification(
             `Project '${'\'\'\'project.name\'\'\''}' status has been updated to '${'\'\'\'projectData.status\'\'\''}' by ${'\'\'\'currentUser.name\'\'\''}.`,
@@ -532,10 +531,10 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   };
   
   const markNotificationsAsRead = useCallback(async (type?: 'system' | 'chat') => {
-    if (!firestore || !notifications || notifications.length === 0 || !currentUser) return;
+    if (!firestore || !notifications || notifications.length === 0 || !authUid) return;
 
     const unreadNotifications = notifications.filter(n => 
-        !(n.readBy || []).includes(currentUser.id) &&
+        !(n.readBy || []).includes(authUid) &&
         (!type || n.type === type)
     );
     if (unreadNotifications.length === 0) return;
@@ -544,22 +543,22 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     unreadNotifications.forEach(notification => {
       const notifRef = doc(firestore, 'notifications', notification.id);
       batch.update(notifRef, { 
-        readBy: arrayUnion(currentUser.id) 
+        readBy: arrayUnion(authUid) 
       });
     });
 
     await batch.commit().catch(err => {
       console.error("Failed to mark notifications as read:", err);
     });
-  }, [firestore, notifications, currentUser]);
+  }, [firestore, notifications, authUid]);
 
   const markChatNotificationsAsRead = useCallback(async (chatId: string) => {
-    if (!firestore || !currentUser) return;
+    if (!firestore || !authUid) return;
     
     const q = query(
       collection(firestore, 'notifications'),
       where('chatId', '==', chatId),
-      where('recipients', 'array-contains', currentUser.id)
+      where('recipients', 'array-contains', authUid)
     );
     
     const querySnapshot = await getDocs(q);
@@ -568,10 +567,10 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const batch = writeBatch(firestore);
     querySnapshot.docs.forEach(document => {
       const notif = document.data() as Notification;
-      if (!notif.readBy.includes(currentUser.id)) {
+      if (!notif.readBy.includes(authUid)) {
         const notifRef = doc(firestore, 'notifications', document.id);
         batch.update(notifRef, {
-          readBy: arrayUnion(currentUser.id)
+          readBy: arrayUnion(authUid)
         });
       }
     });
@@ -579,7 +578,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     await batch.commit().catch(err => {
       console.error(`Failed to mark chat ${chatId} as read:`, err);
     });
-  }, [firestore, currentUser]);
+  }, [firestore, authUid]);
 
 
   return (
