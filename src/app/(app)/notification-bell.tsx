@@ -32,19 +32,19 @@ export function NotificationBell() {
   const [playSound, setPlaySound] = useState(false);
 
   // Memoize notifications to prevent re-renders, handle null safety
-  const systemNotifications = useMemo(() => {
+  const allNotifications = useMemo(() => {
     if (!Array.isArray(notifications)) return [];
-    return notifications.filter(n => n.type === 'system');
+    return notifications;
   }, [notifications]);
 
   // Sort notifications once
   const sortedNotifications = useMemo(() => {
-    return systemNotifications.sort((a, b) => {
+    return allNotifications.sort((a, b) => {
         const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp || 0);
         const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp || 0);
         return compareDesc(dateA, dateB);
     });
-  }, [systemNotifications]);
+  }, [allNotifications]);
 
 
   const unreadCount = useMemo(() => {

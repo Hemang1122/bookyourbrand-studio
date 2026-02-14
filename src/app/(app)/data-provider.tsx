@@ -321,7 +321,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     };
     updateDocumentNonBlocking(chatDocRef, chatUpdatePayload);
     
-    // Send notifications
     const chat = chats.find(c => c.id === chatId);
     if (chat) {
         const recipients = chat.participants.filter(pId => pId !== authUid);

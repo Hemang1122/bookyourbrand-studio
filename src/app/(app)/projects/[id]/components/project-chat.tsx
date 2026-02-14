@@ -21,7 +21,7 @@ export function ProjectChat({ project }: ProjectChatProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
   const { firestore } = useFirebaseServices();
-  const { addNotification, users } = useData();
+  const { addNotification, markChatNotificationsAsRead } = useData();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const messagesQuery = useMemoFirebase(() => {
@@ -30,6 +30,13 @@ export function ProjectChat({ project }: ProjectChatProps) {
   }, [firestore, project.id]);
 
   const { data: messages, isLoading: messagesLoading } = useCollection<ChatMessage>(messagesQuery);
+  
+  useEffect(() => {
+    // Mark project chat notifications as read when component mounts
+    if (project.id) {
+        markChatNotificationsAsRead(project.id);
+    }
+  }, [project.id, markChatNotificationsAsRead]);
   
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
@@ -66,8 +73,22 @@ export function ProjectChat({ project }: ProjectChatProps) {
       readBy: [currentUser.id]
     };
     
-    // The onDocumentCreated Cloud Function will trigger from this to send notifications
     addDoc(messagesColRef, messagePayload);
+
+    const recipients = [
+        ...(project.team_ids || []),
+        project.client.id
+    ].filter(id => id !== currentUser.id);
+
+    if (recipients.length > 0) {
+        addNotification(
+            `New message from ${currentUser.name} in project '${project.name}'`,
+            `/projects/${project.id}?tab=chat`,
+            recipients,
+            'chat',
+            project.id
+        );
+    }
     
     setNewMessage('');
   }
