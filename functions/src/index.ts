@@ -209,14 +209,14 @@ export const onProjectMessageCreated = functions.firestore
 
         const project = projectSnap.data();
 
-        if (!project || !project.name) {
-            functions.logger.error(`Project document ${projectId} is incomplete or missing a name.`);
+        if (!project || !project.name || !project.client?.id) {
+            functions.logger.error(`Project document ${projectId} is incomplete or missing required fields (name, client.id).`);
             return;
         }
         
         const allRecipients: string[] = [
             ...(project.team_ids || []),
-            project.client?.id,
+            project.client.id,
         ].filter(Boolean);
 
         // Ensure no duplicates and filter out the sender

@@ -1,4 +1,5 @@
 "use strict";
+'use client';
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -214,14 +215,21 @@ exports.onProjectMessageCreated = functions.firestore
         }
         const projectId = context.params.projectId;
         const projectSnap = await admin.firestore().doc(`projects/${projectId}`).get();
-        const project = projectSnap.data();
-        if (!project || !project.name || !((_a = project.client) === null || _a === void 0 ? void 0 : _a.id)) {
-            functions.logger.error(`Project document ${projectId} is incomplete or not found`);
+        if (!projectSnap.exists) {
+            functions.logger.error(`Project document ${projectId} does not exist.`);
             return;
         }
-        const teamIds = project.team_ids || [];
-        const allRecipients = [...teamIds, project.client.id];
-        const recipients = allRecipients.filter((uid) => uid !== message.senderId && uid);
+        const project = projectSnap.data();
+        if (!project || !project.name) {
+            functions.logger.error(`Project document ${projectId} is incomplete or missing a name.`);
+            return;
+        }
+        const allRecipients = [
+            ...(project.team_ids || []),
+            (_a = project.client) === null || _a === void 0 ? void 0 : _a.id,
+        ].filter(Boolean);
+        // Ensure no duplicates and filter out the sender
+        const recipients = [...new Set(allRecipients)].filter(uid => uid !== message.senderId);
         if (recipients.length === 0)
             return;
         const url = `/projects/${projectId}?tab=chat`;
