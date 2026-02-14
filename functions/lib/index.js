@@ -16,21 +16,19 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
     o["default"] = v;
 });
 var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
+    var mod = {
+        __esModule: true,
+        "default": null
     };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
+    if (mod) {
+        return mod;
+    }
+    var result = {};
+    if (mod != null) {
+        for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    }
+    __setModuleDefault(result, mod);
+    return result;
 })();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
@@ -41,7 +39,6 @@ exports.onProjectMessageCreated = exports.onSupportMessageCreated = exports.meta
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const axios_1 = __importDefault(require("axios"));
-const firestore_1 = require("firebase-functions/v2/firestore");
 // Initialize Firebase Admin SDK
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -139,18 +136,20 @@ exports.metaOAuthCallback = functions.https.onRequest(async (req, res) => {
 });
 // --- Cloud Functions for Push Notifications ---
 const MAX_MESSAGE_LENGTH = 100;
-exports.onSupportMessageCreated = (0, firestore_1.onDocumentCreated)('chats/{chatId}/messages/{messageId}', async (event) => {
-    var _a;
+exports.onSupportMessageCreated = functions.firestore
+    .document('chats/{chatId}/messages/{messageId}')
+    .onCreate(async (snap, context) => {
     try {
-        const message = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
+        const message = snap.data();
         if (!message) {
             functions.logger.log("No data associated with the event");
             return;
         }
-        const chatSnap = await admin.firestore().doc(`chats/${event.params.chatId}`).get();
+        const chatId = context.params.chatId;
+        const chatSnap = await admin.firestore().doc(`chats/${chatId}`).get();
         const chat = chatSnap.data();
         if (!chat) {
-            functions.logger.error(`Chat document ${event.params.chatId} not found`);
+            functions.logger.error(`Chat document ${chatId} not found`);
             return;
         }
         const recipients = (chat.participants || []).filter((uid) => uid !== message.senderId);
@@ -168,7 +167,7 @@ exports.onSupportMessageCreated = (0, firestore_1.onDocumentCreated)('chats/{cha
                     body: (message.text || 'Sent an attachment').substring(0, MAX_MESSAGE_LENGTH),
                 },
                 data: {
-                    chatId: event.params.chatId,
+                    chatId: chatId,
                     type: 'support',
                     url: '/support',
                 },
@@ -201,25 +200,29 @@ exports.onSupportMessageCreated = (0, firestore_1.onDocumentCreated)('chats/{cha
         functions.logger.error('onSupportMessageCreated error:', err);
     }
 });
-exports.onProjectMessageCreated = (0, firestore_1.onDocumentCreated)('projects/{projectId}/chat/messages/{messageId}', async (event) => {
+exports.onProjectMessageCreated = functions.firestore
+    .document('projects/{projectId}/chat/messages/{messageId}')
+    .onCreate(async (snap, context) => {
     var _a, _b;
     try {
-        const message = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
+        const message = snap.data();
         if (!message) {
             functions.logger.log("No data associated with the event");
             return;
         }
-        const projectSnap = await admin.firestore().doc(`projects/${event.params.projectId}`).get();
+        const projectId = context.params.projectId;
+        const projectSnap = await admin.firestore().doc(`projects/${projectId}`).get();
         const project = projectSnap.data();
-        if (!project) {
-            functions.logger.error(`Project document ${event.params.projectId} not found`);
+        if (!project || !project.name || !((_a = project.client) === null || _a === void 0 ? void 0 : _a.id)) {
+            functions.logger.error(`Project document ${projectId} is incomplete or not found`);
             return;
         }
-        const allRecipients = [...(project.team_ids || []), (_b = project.client) === null || _b === void 0 ? void 0 : _b.id].filter(Boolean);
-        const recipients = allRecipients.filter((uid) => uid !== message.senderId);
+        const teamIds = project.team_ids || [];
+        const allRecipients = [...teamIds, project.client.id];
+        const recipients = allRecipients.filter((uid) => uid !== message.senderId && uid);
         if (recipients.length === 0)
             return;
-        const url = `/projects/${event.params.projectId}?tab=chat`;
+        const url = `/projects/${projectId}?tab=chat`;
         const sends = recipients.map(async (uid) => {
             var _a;
             const userSnap = await admin.firestore().doc(`users/${uid}`).get();
@@ -232,7 +235,7 @@ exports.onProjectMessageCreated = (0, firestore_1.onDocumentCreated)('projects/{
                     body: (message.text || 'Sent an attachment').substring(0, MAX_MESSAGE_LENGTH),
                 },
                 data: {
-                    projectId: event.params.projectId,
+                    projectId: projectId,
                     type: 'project',
                     url: url,
                 },

@@ -201,13 +201,15 @@ export const onProjectMessageCreated = functions.firestore
 
       const projectSnap = await admin.firestore().doc(`projects/${projectId}`).get();
       const project = projectSnap.data();
-      if (!project) {
-        functions.logger.error(`Project document ${projectId} not found`);
+
+      if (!project || !project.name || !project.client?.id) {
+        functions.logger.error(`Project document ${projectId} is incomplete or not found`);
         return;
       }
-
-      const allRecipients: string[] = [...(project.team_ids || []), project.client?.id].filter(Boolean);
-      const recipients = allRecipients.filter((uid: string) => uid !== message.senderId);
+      
+      const teamIds: string[] = project.team_ids || [];
+      const allRecipients = [...teamIds, project.client.id];
+      const recipients = allRecipients.filter((uid: string) => uid !== message.senderId && uid);
 
       if (recipients.length === 0) return;
       
