@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { FirebaseApp } from 'firebase/app';
 import { packages as subscriptionPackages } from './settings/billing/packages-data';
 import { format, addWeeks } from 'date-fns';
+import { httpsCallable } from 'firebase/functions';
 
 type DataContextType = {
   projects: Project[];
@@ -31,12 +32,9 @@ type DataContextType = {
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks' | 'dueDate'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
   updateTaskStatus: (taskId: string, status: TaskStatus, remark: string) => void;
-  addClient: (clientData: Omit<Client, 'id' | 'avatar'>) => void;
+  createUser: (userData: { name: string; role: 'client' | 'team'; }) => Promise<any>;
+  deleteUser: (userId: string) => Promise<any>;
   updateClient: (clientId: string, clientData: Partial<Client>) => Promise<void>;
-  addTeamMember: (memberData: {
-    name: string;
-    email: string;
-  }) => void;
   updateTeamMember: (userId: string, memberData: Partial<User>) => void;
   addScrumUpdate: (update: Omit<ScrumUpdate, 'id' | 'timestamp'>) => void;
   addTimerSession: (session: Omit<TimerSession, 'id'>) => void;
@@ -55,7 +53,7 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export function DataProvider({ children, user: currentUser }: { children: React.ReactNode, user:User }) {
   const { toast } = useToast();
   const router = useRouter();
-  const { firestore, auth, firebaseApp } = useFirebaseServices();
+  const { firestore, auth, functions } = useFirebaseServices();
   const authUid = auth?.currentUser?.uid ?? null;
   
   const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
@@ -351,6 +349,39 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   }, [currentUser, firestore, authUid, usersData, addNotification, chats]);
 
+  const createUser = useCallback(async (userData: { name: string; role: 'client' | 'team'; }) => {
+    if (!functions) {
+      toast({ title: "Error", description: "Functions service not available.", variant: "destructive" });
+      return Promise.reject("Functions service not available.");
+    }
+    const createUserFn = httpsCallable(functions, 'createUser');
+    try {
+      const result = await createUserFn(userData);
+      return result.data;
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      toast({ title: "User Creation Failed", description: error.message, variant: "destructive" });
+      throw error;
+    }
+  }, [functions, toast]);
+
+  const deleteUser = useCallback(async (userId: string) => {
+    if (!functions) {
+      toast({ title: "Error", description: "Functions service not available.", variant: "destructive" });
+      return Promise.reject("Functions service not available.");
+    }
+    const deleteUserFn = httpsCallable(functions, 'deleteUser');
+    try {
+      const result = await deleteUserFn({ userId });
+      toast({ title: "Success", description: "User deleted successfully." });
+      return result.data;
+    } catch (error: any) {
+      console.error("Error deleting user:", error);
+      toast({ title: "User Deletion Failed", description: error.message, variant: "destructive" });
+      throw error;
+    }
+  }, [functions, toast]);
+
   const addProject = async (projectData: Omit<Project, 'id' | 'coverImage'>) => {
     if (!firestore || !currentUser || !usersData || !authUid) return;
     
@@ -501,17 +532,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     }
   }
 
-  const addClient = (clientData: Omit<Client, 'id' | 'avatar'>) => {
-    if (!firestore) return;
-    const newClientId = doc(collection(firestore, 'clients')).id;
-    const newClient: Client = {
-      id: newClientId,
-      ...clientData,
-      avatar: `avatar-${Math.floor(Math.random() * 3) + 2}`,
-    };
-    setDocumentNonBlocking(doc(firestore, 'clients', newClient.id), newClient, {});
-  }
-  
   const updateClient = async (clientId: string, clientData: Partial<Client>) => {
     if (!firestore || !usersData || !clients) return;
     const clientRef = doc(firestore, 'clients', clientId);
@@ -530,11 +550,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
             );
         }
     }
-  }
-
-  const addTeamMember = (memberData: { name: string, email: string }) => {
-    if (!firestore) return;
-     console.log("Adding new team member (placeholder):", memberData);
   }
 
   const updateTeamMember = (userId: string, memberData: Partial<User>) => {
@@ -686,9 +701,9 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         addTask, 
         updateProjectTeam, 
         updateTaskStatus,
-        addClient,
+        createUser,
+        deleteUser,
         updateClient,
-        addTeamMember,
         updateTeamMember,
         addScrumUpdate,
         addTimerSession,

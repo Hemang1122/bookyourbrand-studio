@@ -20,6 +20,7 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
       auth={firebaseServices.auth}
       firestore={firebaseServices.firestore}
       database={firebaseServices.database}
+      functions={firebaseServices.functions}
     >
       {children}
     </FirebaseProvider>

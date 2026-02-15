@@ -7,11 +7,11 @@ import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { useData } from '../data-provider';
-import { AddTeamMemberDialog } from './components/add-team-member-dialog';
+import { AddUserDialog } from './components/add-user-dialog';
 
 export default function TeamPage() {
   const { user } = useAuth();
-  const { teamMembers, addTeamMember } = useData();
+  const { teamMembers, createUser } = useData();
 
   if (user?.role !== 'admin') {
     // Non-admins should not see this page.
@@ -25,17 +25,17 @@ export default function TeamPage() {
     <div className="container mx-auto py-10">
        <div className="flex items-center justify-between space-y-2 mb-6">
             <div>
-                <h2 className="text-3xl font-bold tracking-tight">Team Management</h2>
+                <h2 className="text-3xl font-bold tracking-tight">Team & User Management</h2>
                 <p className="text-muted-foreground">
-                View and manage all team members in the system.
+                Add, view, and manage all user accounts in the system.
                 </p>
             </div>
             {user?.role === 'admin' && (
-              <AddTeamMemberDialog onTeamMemberAdd={addTeamMember as any}>
+              <AddUserDialog>
                 <Button>
-                    <Plus className="mr-2 h-4 w-4" /> Add Team Member
+                    <Plus className="mr-2 h-4 w-4" /> Add User
                 </Button>
-              </AddTeamMemberDialog>
+              </AddUserDialog>
             )}
         </div>
       <DataTable columns={columns} data={teamMembers} />

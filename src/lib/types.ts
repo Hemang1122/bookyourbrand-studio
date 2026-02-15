@@ -4,6 +4,7 @@ export type UserRole = 'admin' | 'team' | 'client';
 
 export type User = {
   id: string;
+  uid: string;
   name: string;
   email: string;
   avatar: string; // Corresponds to id in placeholder-images.json
@@ -15,6 +16,7 @@ export type User = {
   fcmTokens?: string[];
   isOnline?: boolean;
   lastSeen?: number | object;
+  createdAt?: Timestamp;
 };
 
 export type PackageName = 'Bronze' | 'Silver' | 'Gold' | 'Advanced Editing' | 'Podcast';

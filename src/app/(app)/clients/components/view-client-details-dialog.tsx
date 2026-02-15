@@ -11,12 +11,13 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import type { Client, PackageName } from '@/lib/types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useData } from '../../data-provider';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { packages as subscriptionPackages } from '../../settings/billing/packages-data';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 
 type ViewClientDetailsDialogProps = {
@@ -27,7 +28,7 @@ type ViewClientDetailsDialogProps = {
 export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsDialogProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
-  const { updateClient } = useData();
+  const { updateClient, deleteUser } = useData();
   const [selectedPackage, setSelectedPackage] = useState<PackageName | undefined>(client.packageName);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -61,6 +62,11 @@ export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsD
     }
     
     setIsSaving(false);
+    setOpen(false);
+  };
+
+  const handleDeleteConfirmed = async () => {
+    await deleteUser(client.id);
     setOpen(false);
   };
 
@@ -105,6 +111,26 @@ export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsD
                 {client.founderDetails || "No details provided."}
             </p>
           </div>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="w-full mt-4">
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete Client Account
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will permanently delete {client.name}'s account and all associated data from authentication and Firestore. This action cannot be undone.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteConfirmed} className="bg-destructive hover:bg-destructive/90">Delete Account</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
           
         </div>
       </DialogContent>

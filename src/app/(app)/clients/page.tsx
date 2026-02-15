@@ -5,14 +5,13 @@ import { columns } from './components/columns';
 import { DataTable } from './components/data-table';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
-import { AddClientDialog } from './components/add-client-dialog';
 import { useData } from '../data-provider';
 import { useAuth } from '@/firebase/provider';
 import { redirect } from 'next/navigation';
 
 export default function ClientsPage() {
   const { user } = useAuth();
-  const { clients, addClient } = useData();
+  const { clients } = useData();
 
   if (user?.role !== 'admin') {
     // Non-admins should not see this page.
@@ -31,13 +30,6 @@ export default function ClientsPage() {
             View and manage all client accounts in the system.
             </p>
         </div>
-        {user?.role === 'admin' && (
-            <AddClientDialog onClientAdd={addClient}>
-                <Button>
-                    <Plus className="mr-2 h-4 w-4" /> Add Client
-                </Button>
-            </AddClientDialog>
-        )}
       </div>
       <DataTable columns={columns} data={clients} />
     </div>

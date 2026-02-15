@@ -11,11 +11,12 @@ import {
 } from '@/components/ui/dialog';
 import type { User, TimerSession } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
-import { Download } from 'lucide-react';
+import { Download, Trash2 } from 'lucide-react';
 import { ReportDialog } from '../../dashboard/components/report-dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { useData } from '../../data-provider';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 
 type ViewTeamMemberDetailsDialogProps = {
@@ -27,7 +28,7 @@ export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMe
   const [open, setOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const { timerSessions } = useData();
+  const { timerSessions, deleteUser } = useData();
   
   const sessionsForSelectedDate = useMemo(() => {
     if (!selectedDate) return [];
@@ -38,6 +39,11 @@ export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMe
   const totalTimeForSelectedDate = sessionsForSelectedDate.reduce((total, session) => {
     return total + (session.endTime ? session.endTime - session.startTime : 0);
   }, 0);
+
+  const handleDeleteConfirmed = async () => {
+    await deleteUser(teamMember.id);
+    setOpen(false);
+  };
 
 
   return (
@@ -80,6 +86,25 @@ export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMe
                     <Download className="mr-2 h-4 w-4" /> Download Report for {selectedDate ? format(selectedDate, 'PPP') : '...'}
                 </Button>
             </div>
+             <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="w-full">
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete User
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently delete {teamMember.name}'s account and all associated data. This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteConfirmed} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
           </div>
         </DialogContent>
       </Dialog>
