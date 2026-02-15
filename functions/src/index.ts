@@ -1,4 +1,3 @@
-import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 
@@ -6,12 +5,6 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 if (admin.apps.length === 0) {
     admin.initializeApp();
 }
-const db = admin.firestore();
-
-// The URL of your deployed Next.js application.
-// IMPORTANT: You will need to set this in your function's environment variables.
-const APP_URL = functions.config().app?.url || "http://localhost:9002";
-
 
 export const createUser = onCall(async (request) => {
   // Verify caller is authenticated

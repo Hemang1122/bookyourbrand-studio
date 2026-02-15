@@ -1,5 +1,4 @@
 "use strict";
-'use client';
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -16,272 +15,134 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in Object.keys(mod)) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
 };
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onProjectMessageCreated = exports.onSupportMessageCreated = exports.metaOAuthCallback = void 0;
-const functions = __importStar(require("firebase-functions"));
+exports.deleteUser = exports.createUser = void 0;
 const admin = __importStar(require("firebase-admin"));
-const axios_1 = __importDefault(require("axios"));
+const https_1 = require("firebase-functions/v2/https");
 // Initialize Firebase Admin SDK
-if (!admin.apps.length) {
+if (admin.apps.length === 0) {
     admin.initializeApp();
 }
-const db = admin.firestore();
-// The URL of your deployed Next.js application.
-// IMPORTANT: You will need to set this in your function's environment variables.
-const APP_URL = ((_a = functions.config().app) === null || _a === void 0 ? void 0 : _a.url) || "http://localhost:9002";
-/**
- * This function handles the OAuth callback from Meta (Facebook/Instagram).
- * It exchanges the authorization code for an access token, fetches the necessary
- * page and Instagram account IDs, and stores them securely in Firestore.
- */
-exports.metaOAuthCallback = functions.https.onRequest(async (req, res) => {
-    var _a, _b;
-    functions.logger.info("metaOAuthCallback received a request.", {
-        url: req.originalUrl,
-        query: req.query,
-        headers: req.headers,
-    });
-    const code = req.query.code;
-    const clientId = req.query.state;
-    // --- Step 1: Validate the incoming request ---
-    if (!code || !clientId) {
-        functions.logger.error("Missing 'code' or 'state' (clientId) in request.", { query: req.query });
-        res.redirect(`${APP_URL}/settings?error=invalid_request&error_description=Missing required parameters.`);
-        return;
+exports.createUser = (0, https_1.onCall)(async (request) => {
+    var _a;
+    // Verify caller is authenticated
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'Must be logged in');
     }
-    // --- Step 2: Get Meta App credentials from environment variables ---
-    // IMPORTANT: Set these using the Firebase CLI before deploying.
-    const { app_id: appId, app_secret: appSecret } = functions.config().meta || {};
-    if (!appId || !appSecret) {
-        functions.logger.error("Meta App ID or App Secret is not configured in environment variables.");
-        res.redirect(`${APP_URL}/settings?error=config_error&error_description=Server configuration is incomplete.`);
-        return;
+    // Verify caller is an admin by checking Firestore
+    const callerDoc = await admin.firestore()
+        .doc('users/' + request.auth.uid).get();
+    if (!callerDoc.exists || ((_a = callerDoc.data()) === null || _a === void 0 ? void 0 : _a.role) !== 'admin') {
+        throw new https_1.HttpsError('permission-denied', 'Must be an admin');
     }
-    const redirectUri = `https://${process.env.GCLOUD_PROJECT}.cloudfunctions.net/metaOAuthCallback`;
+    const { name, role } = request.data;
+    if (!name || !role) {
+        throw new https_1.HttpsError('invalid-argument', 'Name and role required');
+    }
+    // Generate email and password from name
+    const cleanName = name.toLowerCase().replace(/\s+/g, '');
+    const domain = role === 'client' ? 'creative.co' : 'example.com';
+    const email = cleanName + '@' + domain;
+    const password = cleanName + '@1234';
     try {
-        // --- Step 3: Exchange the authorization code for a User Access Token ---
-        const tokenResponse = await axios_1.default.get("https://graph.facebook.com/v18.0/oauth/access_token", {
-            params: {
-                "client_id": appId,
-                "redirect_uri": redirectUri,
-                "client_secret": appSecret,
-                "code": code,
-            },
+        // Step 1: Create Firebase Auth user
+        const userRecord = await admin.auth().createUser({
+            email,
+            password,
+            displayName: name,
         });
-        const userAccessToken = tokenResponse.data.access_token;
-        if (!userAccessToken) {
-            throw new Error("Failed to retrieve user access token.");
+        // Step 2: Create Firestore user document
+        await admin.firestore().doc('users/' + userRecord.uid).set({
+            id: userRecord.uid,
+            uid: userRecord.uid,
+            name: name,
+            email: email,
+            role: role === 'client' ? 'client' : 'team',
+            avatar: 'avatar-' + (Math.floor(Math.random() * 3) + 1),
+            isOnline: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        // Step 3: If client, create client document too
+        if (role === 'client') {
+            const clientRef = admin.firestore()
+                .collection('clients').doc(userRecord.uid);
+            await clientRef.set({
+                id: userRecord.uid,
+                name: name,
+                email: email,
+                avatar: 'avatar-' + (Math.floor(Math.random() * 3) + 2),
+                reelsCreated: 0,
+                reelsLimit: 3,
+                packageName: 'Starter',
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
         }
-        // --- Step 4: Use the User Access Token to get a list of the user's Facebook Pages ---
-        const accountsResponse = await axios_1.default.get("https://graph.facebook.com/v18.0/me/accounts", {
-            params: { access_token: userAccessToken },
-        });
-        const pages = accountsResponse.data.data;
-        if (!pages || pages.length === 0) {
-            res.redirect(`${APP_URL}/settings?error=no_pages_found&error_description=No Facebook Pages are associated with this account.`);
-            return;
-        }
-        // --- Step 5: Use the first page and its token to get the linked Instagram Account ---
-        const firstPage = pages[0];
-        const pageAccessToken = firstPage.access_token;
-        const pageId = firstPage.id;
-        const pageName = firstPage.name;
-        const igAccountResponse = await axios_1.default.get(`https://graph.facebook.com/v18.0/${pageId}`, {
-            params: {
-                fields: "instagram_business_account",
-                access_token: pageAccessToken,
-            },
-        });
-        const igBusinessAccountId = (_a = igAccountResponse.data.instagram_business_account) === null || _a === void 0 ? void 0 : _a.id;
-        if (!igBusinessAccountId) {
-            res.redirect(`${APP_URL}/settings?error=no_ig_account&error_description=The selected Facebook Page is not linked to an Instagram Business Account.`);
-            return;
-        }
-        // --- Step 6: Store the credentials securely in Firestore ---
-        const clientRef = db.collection("clients").doc(clientId);
-        await clientRef.update({
-            "social.instagram.connected": true,
-            "social.instagram.pageId": pageId,
-            "social.instagram.pageName": pageName,
-            "social.instagram.userId": igBusinessAccountId,
-            "social.instagram.accessToken": pageAccessToken, // You should encrypt this in a real production app
-            "social.instagram.connectedAt": admin.firestore.FieldValue.serverTimestamp(),
-        });
-        functions.logger.info(`Successfully connected Instagram for client: ${clientId}`);
-        // --- Step 7: Redirect the user back to the app with a success message ---
-        res.redirect(`${APP_URL}/settings?instagram=connected`);
+        return {
+            success: true,
+            uid: userRecord.uid,
+            email: email,
+            password: password,
+            message: name + ' created successfully',
+        };
     }
     catch (error) {
-        functions.logger.error("Error during Meta OAuth callback:", ((_b = error.response) === null || _b === void 0 ? void 0 : _b.data) || error.message);
-        res.redirect(`${APP_URL}/settings?error=token_exchange_failed&error_description=${error.message}`);
+        console.error('createUser failed:', JSON.stringify({
+            code: error.code,
+            message: error.message,
+            stack: error.stack,
+        }));
+        if (error.code === 'auth/email-already-exists') {
+            throw new https_1.HttpsError('already-exists', 'A user with this email already exists');
+        }
+        if (error.code === 'auth/invalid-password') {
+            throw new https_1.HttpsError('invalid-argument', 'Password must be at least 6 characters');
+        }
+        throw new https_1.HttpsError('internal', 'Failed to create user: ' + error.message);
     }
 });
-// --- Cloud Functions for Push Notifications ---
-const MAX_MESSAGE_LENGTH = 100;
-exports.onSupportMessageCreated = functions
-    .region('us-central1')
-    .runWith({ memory: '256MB', timeoutSeconds: 60 })
-    .firestore
-    .document('chats/{chatId}/messages/{messageId}')
-    .onCreate(async (snap, context) => {
-    try {
-        const message = snap.data();
-        if (!message) {
-            functions.logger.log("No data associated with the event");
-            return;
-        }
-        const chatId = context.params.chatId;
-        const chatSnap = await admin.firestore().doc(`chats/${chatId}`).get();
-        const chat = chatSnap.data();
-        if (!chat) {
-            functions.logger.error(`Chat document ${chatId} not found`);
-            return;
-        }
-        const recipients = (chat.participants || []).filter((uid) => uid !== message.senderId);
-        if (recipients.length === 0)
-            return;
-        const sends = recipients.map(async (uid) => {
-            var _a;
-            const userSnap = await admin.firestore().doc(`users/${uid}`).get();
-            const fcmTokens = (_a = userSnap.data()) === null || _a === void 0 ? void 0 : _a.fcmTokens;
-            if (!fcmTokens || !Array.isArray(fcmTokens) || fcmTokens.length === 0)
-                return;
-            const payload = {
-                notification: {
-                    title: message.senderName || 'New Message',
-                    body: (message.text || 'Sent an attachment').substring(0, MAX_MESSAGE_LENGTH),
-                },
-                data: {
-                    chatId: chatId,
-                    type: 'support',
-                    url: '/support',
-                },
-                webpush: {
-                    fcmOptions: { link: '/support' },
-                },
-            };
-            const tokensToRemove = [];
-            const sendToTokens = fcmTokens.map(async (token) => {
-                try {
-                    await admin.messaging().send(Object.assign(Object.assign({}, payload), { token }));
-                }
-                catch (err) {
-                    functions.logger.error(`Error sending to token ${token} for user ${uid}`, err);
-                    if (err.code === 'messaging/registration-token-not-registered' || err.code === 'messaging/invalid-registration-token') {
-                        tokensToRemove.push(token);
-                    }
-                }
-            });
-            await Promise.all(sendToTokens);
-            if (tokensToRemove.length > 0) {
-                await userSnap.ref.update({
-                    fcmTokens: admin.firestore.FieldValue.arrayRemove(...tokensToRemove)
-                });
-            }
-        });
-        await Promise.allSettled(sends);
-    }
-    catch (err) {
-        functions.logger.error('onSupportMessageCreated error:', err);
-    }
-});
-exports.onProjectMessageCreated = functions
-    .region('us-central1')
-    .runWith({ memory: '256MB', timeoutSeconds: 60 })
-    .firestore
-    .document('projects/{projectId}/chat/messages/{messageId}')
-    .onCreate(async (snap, context) => {
+exports.deleteUser = (0, https_1.onCall)(async (request) => {
     var _a;
-    try {
-        const message = snap.data();
-        if (!message) {
-            functions.logger.log("No data associated with the event");
-            return;
-        }
-        const projectId = context.params.projectId;
-        const projectSnap = await admin.firestore().doc(`projects/${projectId}`).get();
-        if (!projectSnap.exists) {
-            functions.logger.error(`Project document ${projectId} does not exist.`);
-            return;
-        }
-        const project = projectSnap.data();
-        if (!project || !project.name || !((_a = project.client) === null || _a === void 0 ? void 0 : _a.id)) {
-            functions.logger.error(`Project document ${projectId} is incomplete or missing required fields (name, client.id).`);
-            return;
-        }
-        const allRecipients = [
-            ...(project.team_ids || []),
-            project.client.id,
-        ].filter(Boolean);
-        // Ensure no duplicates and filter out the sender
-        const recipients = [...new Set(allRecipients)].filter(uid => uid !== message.senderId);
-        if (recipients.length === 0)
-            return;
-        const url = `/projects/${projectId}?tab=chat`;
-        const sends = recipients.map(async (uid) => {
-            var _a;
-            const userSnap = await admin.firestore().doc(`users/${uid}`).get();
-            const fcmTokens = (_a = userSnap.data()) === null || _a === void 0 ? void 0 : _a.fcmTokens;
-            if (!fcmTokens || !Array.isArray(fcmTokens) || fcmTokens.length === 0)
-                return;
-            const payload = {
-                notification: {
-                    title: `${message.senderName} in ${project.name}`,
-                    body: (message.text || 'Sent an attachment').substring(0, MAX_MESSAGE_LENGTH),
-                },
-                data: {
-                    projectId: projectId,
-                    type: 'project',
-                    url: url,
-                },
-                webpush: {
-                    fcmOptions: { link: url },
-                },
-            };
-            const tokensToRemove = [];
-            const sendToTokens = fcmTokens.map(async (token) => {
-                try {
-                    await admin.messaging().send(Object.assign(Object.assign({}, payload), { token }));
-                }
-                catch (err) {
-                    functions.logger.error(`Error sending to token ${token} for user ${uid}`, err);
-                    if (err.code === 'messaging/registration-token-not-registered' || err.code === 'messaging/invalid-registration-token') {
-                        tokensToRemove.push(token);
-                    }
-                }
-            });
-            await Promise.all(sendToTokens);
-            if (tokensToRemove.length > 0) {
-                await userSnap.ref.update({
-                    fcmTokens: admin.firestore.FieldValue.arrayRemove(...tokensToRemove)
-                });
-            }
-        });
-        await Promise.allSettled(sends);
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'Must be logged in');
     }
-    catch (err) {
-        functions.logger.error('onProjectMessageCreated error:', err);
+    const callerDoc = await admin.firestore()
+        .doc('users/' + request.auth.uid).get();
+    if (!callerDoc.exists || ((_a = callerDoc.data()) === null || _a === void 0 ? void 0 : _a.role) !== 'admin') {
+        throw new https_1.HttpsError('permission-denied', 'Must be an admin');
+    }
+    const { userId } = request.data;
+    if (!userId) {
+        throw new https_1.HttpsError('invalid-argument', 'userId required');
+    }
+    try {
+        // Get user data before deleting
+        const userDoc = await admin.firestore()
+            .doc('users/' + userId).get();
+        const userData = userDoc.data();
+        // Delete from Firebase Auth
+        await admin.auth().deleteUser(userId);
+        // Delete from Firestore users collection
+        await admin.firestore().doc('users/' + userId).delete();
+        // If client, delete from clients collection too
+        if ((userData === null || userData === void 0 ? void 0 : userData.role) === 'client') {
+            await admin.firestore().doc('clients/' + userId).delete();
+        }
+        return { success: true, message: 'User deleted successfully' };
+    }
+    catch (error) {
+        console.error('deleteUser failed:', JSON.stringify({
+            code: error.code,
+            message: error.message,
+            stack: error.stack,
+        }));
+        throw new https_1.HttpsError('internal', 'Failed to delete user: ' + error.message);
     }
 });
 //# sourceMappingURL=index.js.map
