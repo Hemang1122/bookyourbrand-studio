@@ -11,7 +11,7 @@ import { useData } from '../data-provider';
 import { useAuth } from '@/firebase/provider';
 import { useUserStatus } from '@/firebase';
 import { redirect } from 'next/navigation';
-import { AddClientDialog } from '../team/components/add-user-dialog';
+import { AddUserDialog } from '../team/components/add-user-dialog';
 import { ViewClientDetailsDialog } from './components/view-client-details-dialog';
 import type { Client } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
