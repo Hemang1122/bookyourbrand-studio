@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Download, Plus, Trash2, ClipboardList, Users, CheckCircle, AlertCircle, ChevronDown } from 'lucide-react';
 import { ScrumExportDialog } from './components/scrum-export-dialog';
 import { Calendar } from '@/components/ui/calendar';
-import type { ScrumUpdate as ScrumUpdateType } from '@/lib/types';
+import type { ScrumUpdate as ScrumUpdateType, User } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -29,21 +29,21 @@ type ReelUpdate = {
 };
 
 // Component for a single scrum update card (for admin view)
-const ScrumUpdateCard = ({ update, user, isExpanded, onToggleExpand }: { update: ScrumUpdateType, user: any, isExpanded: boolean, onToggleExpand: () => void }) => {
+function ScrumUpdateCard({ update, user, isExpanded, onToggleExpand }: { update: ScrumUpdateType, user: User, isExpanded: boolean, onToggleExpand: () => void }) {
   return (
     <Collapsible open={isExpanded} onOpenChange={onToggleExpand}>
-      <div className="rounded-2xl mb-4 overflow-hidden" style={{ background: '#13131F', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="rounded-2xl mb-4 overflow-hidden bg-[#13131F] border border-white/5">
         <CollapsibleTrigger asChild>
-          <div className="flex items-center gap-3 p-5 pb-4 cursor-pointer" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-            <div className="w-1 h-8 rounded-full flex-shrink-0" style={{ background: 'linear-gradient(180deg, #7C3AED, #EC4899)' }} />
+          <div className="flex items-center gap-3 p-5 pb-4 cursor-pointer border-b border-white/5">
+            <div className="w-1 h-8 rounded-full flex-shrink-0 bg-gradient-to-b from-purple-500 to-pink-500" />
             <Avatar className="h-9 w-9">
-              <AvatarFallback style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.3), rgba(236,72,153,0.3))', color: '#E9D5FF' }}>
+              <AvatarFallback className="bg-gradient-to-br from-purple-500/30 to-pink-500/30 text-purple-200">
                 {user?.name.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div>
               <h3 className="font-semibold text-white">{user?.name}</h3>
-              <p className="text-xs" style={{ color: '#6B7280' }}>Submitted at {format(new Date(update.timestamp), 'p')}</p>
+              <p className="text-xs text-gray-400">Submitted at {format(new Date(update.timestamp), 'p')}</p>
             </div>
             <div className="ml-auto text-muted-foreground hover:text-white transition-transform">
               <ChevronDown className={cn("h-5 w-5 transition-transform", isExpanded && "rotate-180")} />
@@ -55,49 +55,49 @@ const ScrumUpdateCard = ({ update, user, isExpanded, onToggleExpand }: { update:
             {(update.yesterday || update.today) && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {update.yesterday && (
-                  <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div className="rounded-xl p-4 bg-black/20 border border-white/5">
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="w-2 h-2 rounded-full" style={{ background: '#F59E0B' }} />
-                      <span className="text-xs font-medium uppercase tracking-wider" style={{ color: '#F59E0B' }}>Yesterday</span>
+                      <div className="w-2 h-2 rounded-full bg-amber-400" />
+                      <span className="text-xs font-medium uppercase tracking-wider text-amber-400">Yesterday</span>
                     </div>
-                    <p className="text-sm leading-relaxed" style={{ color: '#D1D5DB' }}>{update.yesterday}</p>
+                    <p className="text-sm leading-relaxed text-gray-300">{update.yesterday}</p>
                   </div>
                 )}
                 {update.today && (
-                  <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div className="rounded-xl p-4 bg-black/20 border border-white/5">
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="w-2 h-2 rounded-full" style={{ background: '#10B981' }} />
-                      <span className="text-xs font-medium uppercase tracking-wider" style={{ color: '#10B981' }}>Today's Plan</span>
+                      <div className="w-2 h-2 rounded-full bg-green-400" />
+                      <span className="text-xs font-medium uppercase tracking-wider text-green-400">Today's Plan</span>
                     </div>
-                    <p className="text-sm leading-relaxed" style={{ color: '#D1D5DB' }}>{update.today}</p>
+                    <p className="text-sm leading-relaxed text-gray-300">{update.today}</p>
                   </div>
                 )}
               </div>
             )}
 
             {update.reels && update.reels.length > 0 && (
-               <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-                <div className="grid grid-cols-4 gap-4 px-4 py-3" style={{ background: 'rgba(124,58,237,0.1)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+               <div className="rounded-xl overflow-hidden border border-white/5">
+                <div className="grid grid-cols-4 gap-4 px-4 py-3 bg-purple-900/10 border-b border-white/5">
                   {['Reel Name', 'Duration', 'Issues', 'Remarks'].map(col => (
-                    <span key={col} className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#A78BFA' }}>{col}</span>
+                    <span key={col} className="text-xs font-semibold uppercase tracking-wider text-purple-300">{col}</span>
                   ))}
                 </div>
                 
                 {update.reels.map((reel, i) => (
                   <div key={i} className="grid grid-cols-4 gap-4 px-4 py-3 items-center transition-colors hover:bg-white/[0.02]" style={{ borderBottom: i < update.reels.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
                     <span className="text-sm text-white font-medium">{reel.reelName}</span>
-                    <span className="text-sm" style={{ color: '#9CA3AF' }}>{reel.duration}</span>
-                    <span className="text-sm" style={{ color: reel.issues && reel.issues.toLowerCase() !== 'no' && reel.issues !== '' ? '#EF4444' : '#6B7280' }}>{reel.issues || '—'}</span>
+                    <span className="text-sm text-gray-400">{reel.duration}</span>
+                    <span className={cn("text-sm", reel.issues && reel.issues.toLowerCase() !== 'no' && reel.issues !== '' ? 'text-red-400' : 'text-gray-500')}>{reel.issues || '—'}</span>
                     <span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: reel.remarks?.toLowerCase().includes('complete') ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', color: reel.remarks?.toLowerCase().includes('complete') ? '#10B981' : '#F59E0B' }}>
+                      <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium", reel.remarks?.toLowerCase().includes('complete') ? 'bg-green-500/15 text-green-400' : 'bg-yellow-500/15 text-yellow-400' )}>
                         {reel.remarks || 'Pending'}
                       </span>
                     </span>
                   </div>
                 ))}
-                 <div className="px-4 py-2 flex items-center gap-2" style={{ background: 'rgba(255,255,255,0.02)' }}>
-                  <span className="text-xs" style={{ color: '#6B7280' }}>{update.reels.length} reels submitted</span>
-                  <span className="text-xs" style={{ color: '#10B981' }}>· {update.reels.filter(r => r.remarks?.toLowerCase().includes('complete')).length} completed</span>
+                 <div className="px-4 py-2 flex items-center gap-2 bg-black/10">
+                  <span className="text-xs text-gray-500">{update.reels.length} reels submitted</span>
+                  <span className="text-xs text-green-400">· {update.reels.filter(r => r.remarks?.toLowerCase().includes('complete')).length} completed</span>
                 </div>
               </div>
             )}
@@ -107,7 +107,6 @@ const ScrumUpdateCard = ({ update, user, isExpanded, onToggleExpand }: { update:
     </Collapsible>
   );
 }
-
 
 export default function ScrumPage() {
   const { user } = useAuth();
@@ -119,7 +118,6 @@ export default function ScrumPage() {
   const [today, setToday] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
 
   const handleAddRow = () => {
@@ -221,12 +219,12 @@ export default function ScrumPage() {
 
   return (
     <div className="container mx-auto py-10">
-        <div className="relative overflow-hidden rounded-2xl p-8 mb-8" style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.15) 0%, rgba(236,72,153,0.15) 100%)', border: '1px solid rgba(124,58,237,0.2)' }}>
-          <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-10 blur-3xl" style={{ background: 'radial-gradient(circle, #7C3AED, transparent)' }} />
+        <div className="relative overflow-hidden rounded-2xl p-8 mb-8 bg-gradient-to-r from-purple-900/20 to-pink-900/20 border border-purple-500/20">
+          <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-10 blur-3xl bg-gradient-to-br from-purple-500 to-pink-500" />
           <div className="relative z-10 flex items-center justify-between">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-xl" style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}>
+                <div className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500">
                   <ClipboardList className="h-6 w-6 text-white" />
                 </div>
                 <h1 className="text-3xl font-bold text-white">Daily Scrum Sheet</h1>
@@ -235,7 +233,7 @@ export default function ScrumPage() {
             </div>
             {user?.role === 'admin' && (
                 <ScrumExportDialog updates={scrumUpdates} users={users || []}>
-                    <Button style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }} className="text-white border-0 shadow-lg">
+                    <Button className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0 shadow-lg">
                         <Download className="h-4 w-4 mr-2" />
                         Export as PDF
                     </Button>
@@ -245,7 +243,7 @@ export default function ScrumPage() {
         </div>
 
         {user?.role !== 'admin' && (
-             <Card style={{ background: '#13131F', border: '1px solid rgba(255,255,255,0.06)' }}>
+             <Card className="bg-[#13131F] border border-white/5">
             <CardHeader>
                 <CardTitle className="text-white">My Daily Update for {format(new Date(), 'PPP')}</CardTitle>
                 <CardDescription>Fill out your progress. Your update will be visible to the admin.</CardDescription>
@@ -270,7 +268,7 @@ export default function ScrumPage() {
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
-                        <TableRow className="border-b-white/10">
+                        <TableRow className="border-b-white/10 hover:bg-transparent">
                           <TableHead className="min-w-[200px] text-gray-400">Reel Name</TableHead>
                           <TableHead className="text-gray-400">Reel duration (min:sec)</TableHead>
                           <TableHead className="text-gray-400">Issues (if any)</TableHead>
@@ -286,7 +284,7 @@ export default function ScrumPage() {
                             <TableCell><Input value={update.issues} onChange={(e) => handleInputChange(update.id, 'issues', e.target.value)} disabled={isLoading || hasSubmittedToday} className="bg-black/20 border-white/10 text-white" /></TableCell>
                             <TableCell><Input value={update.remarks} onChange={(e) => handleInputChange(update.id, 'remarks', e.target.value)} disabled={isLoading || hasSubmittedToday} className="bg-black/20 border-white/10 text-white" /></TableCell>
                             <TableCell>
-                              <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveRow(update.id)} disabled={isLoading || reelUpdates.length <= 1 || hasSubmittedToday}>
+                              <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveRow(update.id)} disabled={isLoading || reelUpdates.length <= 1 || hasSubmittedToday} className="hover:bg-red-500/20 text-red-500 hover:text-red-400">
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </TableCell>
@@ -299,7 +297,7 @@ export default function ScrumPage() {
                     <Button type="button" variant="outline" onClick={handleAddRow} disabled={isLoading || hasSubmittedToday}>
                       <Plus className="mr-2 h-4 w-4" /> Add Row
                     </Button>
-                    <Button type="submit" disabled={isLoading || hasSubmittedToday} size="lg" style={!hasSubmittedToday ? {background: 'linear-gradient(135deg, #7C3AED, #EC4899)'} : {}} className="text-white border-0 shadow-lg">
+                    <Button type="submit" disabled={isLoading || hasSubmittedToday} size="lg" className={cn("text-white border-0 shadow-lg", !hasSubmittedToday && "bg-gradient-to-r from-purple-600 to-pink-500")}>
                         {isLoading ? 'Submitting...' : hasSubmittedToday ? 'Submitted Today ✓' : 'Submit Update'}
                     </Button>
                   </div>
@@ -316,22 +314,22 @@ export default function ScrumPage() {
                     { label: 'Reels Completed', value: stats.totalCompletedReels, color: '#10B981', icon: CheckCircle },
                     { label: 'Pending Issues', value: stats.totalIssues, color: '#EF4444', icon: AlertCircle },
                 ].map(stat => (
-                    <div key={stat.label} className="rounded-xl p-4 flex items-center gap-4" style={{ background: '#13131F', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div className="p-2 rounded-lg" style={{ background: stat.color + '20' }}>
-                        <stat.icon className="h-5 w-5" style={{ color: stat.color }} />
-                    </div>
-                    <div>
-                        <p className="text-2xl font-bold text-white">{stat.value}</p>
-                        <p className="text-xs" style={{ color: '#6B7280' }}>{stat.label}</p>
-                    </div>
+                    <div key={stat.label} className="rounded-xl p-4 flex items-center gap-4 bg-[#13131F] border border-white/5">
+                      <div className="p-2 rounded-lg" style={{background: stat.color + '20'}}>
+                          <stat.icon className="h-5 w-5" style={{ color: stat.color }} />
+                      </div>
+                      <div>
+                          <p className="text-2xl font-bold text-white">{stat.value}</p>
+                          <p className="text-xs text-gray-500">{stat.label}</p>
+                      </div>
                     </div>
                 ))}
             </div>
 
              <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-8">
-                <div className="rounded-2xl p-6" style={{ background: '#13131F', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="rounded-2xl p-6 bg-[#13131F] border border-white/5">
                     <h3 className="text-white font-semibold mb-1">Select Date</h3>
-                    <p className="text-sm mb-4" style={{ color: '#9CA3AF' }}>Pick a day to review updates</p>
+                    <p className="text-sm mb-4 text-gray-400">Pick a day to review updates</p>
                     <Calendar
                         mode="single"
                         selected={selectedDate}
@@ -349,7 +347,7 @@ export default function ScrumPage() {
                             caption_label: "text-white font-bold",
                             nav_button: "hover:bg-white/10 text-white",
                             head_cell: "text-muted-foreground uppercase text-xs",
-                            day: "hover:bg-primary/10 rounded-lg text-white",
+                            day: "hover:bg-purple-500/10 rounded-lg text-white",
                             day_outside: "text-white/30",
                         }}
                     />
@@ -358,14 +356,14 @@ export default function ScrumPage() {
                      <div className="flex items-center justify-between mb-6">
                         <div>
                             <h2 className="text-xl font-bold text-white">Updates for {selectedDate ? format(selectedDate, 'PPP') : '...'}</h2>
-                            <p style={{ color: '#9CA3AF' }} className="text-sm mt-1">{stats.updatesCount} team members submitted updates</p>
+                            <p className="text-gray-400 text-sm mt-1">{stats.updatesCount} team members submitted updates</p>
                         </div>
                         <div className="flex -space-x-2">
                             {updatesForSelectedDate.map(update => {
                                 const author = users.find(u => u.id === update.userId);
                                 return (
-                                <Avatar key={update.id} className="h-8 w-8 border-2" style={{ borderColor: '#0F0F1A' }}>
-                                    <AvatarFallback style={{ background: 'linear-gradient(135deg, #7C3AED, #EC4899)' }}>{author?.name.charAt(0)}</AvatarFallback>
+                                <Avatar key={update.id} className="h-8 w-8 border-2 border-[#0F0F1A]">
+                                    <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500">{author?.name.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 )
                             })}
@@ -387,12 +385,12 @@ export default function ScrumPage() {
                         )
                     })
                   ) : (
-                    <div className="flex flex-col items-center justify-center py-20 text-center rounded-2xl" style={{ background: '#13131F', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)' }}>
-                            <ClipboardList className="h-8 w-8" style={{ color: '#7C3AED' }} />
+                    <div className="flex flex-col items-center justify-center py-20 text-center rounded-2xl bg-[#13131F] border border-white/5">
+                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 bg-purple-500/10 border border-purple-500/20">
+                            <ClipboardList className="h-8 w-8 text-purple-400" />
                         </div>
                         <h3 className="text-white font-semibold text-lg mb-2">No updates for this date</h3>
-                        <p style={{ color: '#6B7280' }} className="text-sm">Team members haven't submitted their scrum updates yet</p>
+                        <p className="text-gray-500 text-sm">Team members haven't submitted their scrum updates yet</p>
                     </div>
                   )}
                 </div>
