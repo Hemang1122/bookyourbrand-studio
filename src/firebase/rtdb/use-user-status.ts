@@ -10,6 +10,7 @@ export function useUserStatus(userId: string): UserPresence | null {
 
   useEffect(() => {
     if (!database || !userId) {
+      setUserStatus(null);
       return;
     }
 

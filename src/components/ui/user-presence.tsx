@@ -24,8 +24,8 @@ export function UserPresence({ userId, showLastSeen = true, className }: UserPre
       <div className="text-xs text-muted-foreground">
         {userStatus?.isOnline ? (
           'Online'
-        ) : showLastSeen && userStatus?.lastSeen ? (
-          `Last seen ${formatDistanceToNow(new Date(userStatus.lastSeen), {
+        ) : showLastSeen && userStatus?.last_seen ? (
+          `Last seen ${formatDistanceToNow(new Date(userStatus.last_seen), {
             addSuffix: true,
           })}`
         ) : (

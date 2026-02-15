@@ -61,10 +61,6 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
             });
         });
 
-        // Also update the read receipt for the user
-        const receiptRef = doc(firestore, 'chats', chatId, 'readReceipts', currentUser.id);
-        batch.set(receiptRef, { lastReadAt: serverTimestamp() }, { merge: true });
-
         batch.commit().catch(err => console.error("Failed to mark messages as read:", err));
     }
      
@@ -214,8 +210,6 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
             </div>
         </ScrollArea>
         <TypingIndicator typingUserIds={typingUsers} />
-
-        {/* Input bar always visible */}
         <div className="border-t p-4 bg-background">
             <form
             onSubmit={handleSendTextMessage}

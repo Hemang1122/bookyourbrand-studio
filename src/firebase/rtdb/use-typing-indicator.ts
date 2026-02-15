@@ -1,5 +1,4 @@
 'use client';
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ref, onValue, set, onDisconnect } from 'firebase/database';
 import { useFirebaseServices } from '@/firebase/provider';
@@ -49,21 +48,17 @@ export function useTypingIndicator(chatId: string | null) {
     if (isTyping) {
       set(userTypingRef, true);
       
-      // Ensure the typing indicator is removed on disconnect
       onDisconnect(userTypingRef).remove();
       
-      // Clear previous timeout if it exists
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
 
-      // Set a new timeout to automatically clear the indicator
       timeoutRef.current = setTimeout(() => {
         set(userTypingRef, null);
       }, TYPING_TIMEOUT);
 
     } else {
-      // User has explicitly stopped typing (e.g., sent a message)
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
@@ -71,7 +66,6 @@ export function useTypingIndicator(chatId: string | null) {
     }
   }, [database, chatId, currentUser]);
   
-  // Clean up on unmount
   useEffect(() => {
     return () => {
         if (timeoutRef.current) {

@@ -195,5 +195,5 @@ export type ChatMessage = {
 
 export type UserPresence = {
   isOnline: boolean;
-  lastSeen: number;
+  last_seen: number;
 };
