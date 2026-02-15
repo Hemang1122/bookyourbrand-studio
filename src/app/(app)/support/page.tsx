@@ -1,5 +1,6 @@
+
 'use client';
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/firebase/provider';
 import { useData } from '../data-provider';

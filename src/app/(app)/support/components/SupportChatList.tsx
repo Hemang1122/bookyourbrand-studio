@@ -1,5 +1,6 @@
+
 'use client';
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -48,12 +49,14 @@ const ChatListItem = ({ contact, isSelected, onSelect, chats, currentUser }: { c
                  <div 
                     className={cn(
                         "absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#13131F]",
-                        userStatus?.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'
+                        userStatus?.isOnline ? 'bg-green-500' : 'bg-gray-500'
                     )} 
                     style={{
                         boxShadow: userStatus?.isOnline ? '0 0 8px rgba(34, 197, 94, 0.5)' : 'none'
                     }}
-                />
+                >
+                  {userStatus?.isOnline && <div className="absolute inset-0 rounded-full bg-green-400 animate-ping" />}
+                </div>
             </div>
             <div className="flex-1 overflow-hidden">
                 <div className="flex justify-between items-center">
@@ -138,13 +141,13 @@ export function SupportChatList({ contacts, selectedContact, onSelectContact }: 
             />
         </div>
          <div className="flex items-center gap-2">
-            <Button variant={filter === 'all' ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilter('all')} className={cn("rounded-full", filter === 'all' && 'bg-primary/20 text-primary')}>All</Button>
-            <Button variant={filter === 'client' ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilter('client')} className={cn("rounded-full", filter === 'client' && 'bg-primary/20 text-primary')}><Briefcase className="mr-2 h-4 w-4" />Clients</Button>
-            <Button variant={filter === 'team' ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilter('team')} className={cn("rounded-full", filter === 'team' && 'bg-primary/20 text-primary')}><Users className="mr-2 h-4 w-4" />Team</Button>
+            <Button variant={filter === 'all' ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilter('all')} className={cn("rounded-full", filter === 'all' ? 'bg-gradient-to-r from-primary to-pink-500 text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]' : 'bg-transparent text-gray-400')}>All</Button>
+            <Button variant={filter === 'client' ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilter('client')} className={cn("rounded-full", filter === 'client' ? 'bg-gradient-to-r from-primary to-pink-500 text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]' : 'bg-transparent text-gray-400')}><Briefcase className="mr-2 h-4 w-4" />Clients</Button>
+            <Button variant={filter === 'team' ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilter('team')} className={cn("rounded-full", filter === 'team' ? 'bg-gradient-to-r from-primary to-pink-500 text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]' : 'bg-transparent text-gray-400')}><Users className="mr-2 h-4 w-4" />Team</Button>
         </div>
       </div>
       <div className="w-full h-[1px] bg-gradient-to-r from-primary to-pink-500" />
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 custom-scrollbar">
         <div className="py-2">
             {filteredContacts.map((contact) => (
                 <ChatListItem 

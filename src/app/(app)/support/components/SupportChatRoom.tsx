@@ -1,9 +1,10 @@
+
 'use client';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { ChatMessage, User, Timestamp as FirebaseTimestamp } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Paperclip, FileText, Download, Loader2, Trash2, MoreVertical, Pencil, Smile, ArrowLeft, ArrowDown } from 'lucide-react';
+import { Send, Paperclip, FileText, Download, Loader2, Trash2, MoreVertical, Pencil, Smile, ArrowLeft, ArrowDown, Phone, Video } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -27,6 +28,7 @@ import {
 import { cn } from '@/lib/utils';
 import { format, isSameDay, isToday, isYesterday } from 'date-fns';
 import { Logo } from '@/components/logo';
+import { Badge } from '@/components/ui/badge';
 
 const EMOJI_OPTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -48,9 +50,13 @@ const MessageTicks = ({ msg, currentUserId, partnerId }: {
   
   const readBy = msg.readBy || [];
   const isRead = readBy.includes(partnerId);
+  const isDelivered = readBy.length > 1 || isRead;
 
   if (isRead) {
-    return <svg width="16" height="10" viewBox="0 0 16 10" className="text-blue-400" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 5l3 3 6-7 M6 5l3 3 6-7"/></svg>;
+    return <svg width="16" height="10" viewBox="0 0 16 10" className="text-blue-500" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 5l3 3 6-7 M6 5l3 3 6-7"/></svg>;
+  }
+   if (isDelivered) {
+    return <svg width="16" height="10" viewBox="0 0 16 10" className="text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 5l3 3 6-7 M6 5l3 3 6-7"/></svg>;
   }
   return <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-gray-500" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 5l3 3 5-7"/></svg>;
 };
@@ -104,14 +110,14 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
 
   const { data: messages, isLoading: messagesLoading } = useCollection<ChatMessage>(messagesQuery);
   
-  const scrollToBottom = (behavior: 'smooth' | 'auto' = 'auto') => {
+  const scrollToBottom = useCallback((behavior: 'smooth' | 'auto' = 'auto') => {
     const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
     if (viewport) {
       viewport.scrollTo({ top: viewport.scrollHeight, behavior });
       setShowScrollToBottom(false);
       setNewMessagesCount(0);
     }
-  };
+  }, []);
   
   useEffect(() => {
     const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
@@ -143,7 +149,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
       }
     }
 
-  }, [messages]);
+  }, [messages, scrollToBottom]);
 
   useEffect(() => {
     if (!chatId || !firestore || !currentUser || !messages || messages.length === 0) return;
@@ -270,6 +276,10 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
             <h3 className="font-bold text-base">{chatPartner.name}</h3>
             <p className="text-xs text-green-400">{userStatus?.isOnline ? 'Online' : 'Offline'}</p>
         </div>
+        <div className="ml-auto flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white hover:bg-white/10"><Phone /></Button>
+            <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white hover:bg-white/10"><Video /></Button>
+        </div>
       </header>
       
       {currentUser.role === 'client' && (
@@ -281,7 +291,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
         </div>
       )}
        <div className="flex-1 flex flex-col overflow-hidden relative">
-        <ScrollArea className="flex-1" ref={scrollAreaRef}>
+        <ScrollArea className="flex-1 custom-scrollbar" ref={scrollAreaRef}>
             <div className="p-6 space-y-3">
               {(messages || []).map((msg, index) => {
                 const prevMsg = messages?.[index - 1];
@@ -331,7 +341,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
                           </div>
                           
                           {!msg.deleted && (
-                            <div className="absolute top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" style={isCurrentUser ? {left: '-48px'} : {right: '-80px'}}>
+                            <div className={cn("absolute top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity", isCurrentUser ? 'left-[-80px]' : 'right-[-80px]')}>
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-[#1E1E2A] border border-white/10 shadow-md hover:bg-primary/20"><Smile className="h-4 w-4 text-gray-400" /></Button>
@@ -354,11 +364,12 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
                         </div>
 
                          {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1 justify-start">
+                            <div className={cn("flex flex-wrap gap-1 mt-1", isCurrentUser ? 'justify-end' : 'justify-start')}>
                                 {Object.entries(msg.reactions).map(([emoji, uids]) => {
                                     if ((uids as string[]).length === 0) return null;
+                                    const hasReacted = (uids as string[]).includes(currentUser.id);
                                     return (
-                                        <div key={emoji} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-[#1E1E2A] border border-white/10">
+                                        <div key={emoji} onClick={() => handleReaction(msg.id, emoji)} className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-xs cursor-pointer", hasReacted ? 'bg-primary/20 border border-primary/50' : 'bg-[#1E1E2A] border border-white/10 hover:border-primary/50')}>
                                             <span>{emoji}</span>
                                             <span className="text-gray-300">{(uids as string[]).length}</span>
                                         </div>
@@ -366,9 +377,9 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
                                 })}
                             </div>
                         )}
-                        <p className={cn("text-[10px] mt-1 flex items-center gap-1", isCurrentUser ? 'text-right' : 'text-left', 'text-gray-500')}>
+                        <p className={cn("text-[10px] mt-1 flex items-center gap-1", isCurrentUser ? 'justify-end' : 'text-left', 'text-gray-500')}>
                             {format(date, 'p')}
-                             {msg.edited && !msg.deleted && (<span className="italic text-gray-500">edited</span>)}
+                             {msg.edited && !msg.deleted && (<span className="italic text-gray-500">(edited)</span>)}
                             {isCurrentUser && <MessageTicks msg={msg} currentUserId={currentUser.id} partnerId={chatPartner.id} />}
                         </p>
                       </div>
@@ -411,7 +422,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
               {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5 text-gray-400 hover:text-primary transition-colors" />}
             </Button>
             <div className="relative flex-1">
-              <Input value={newMessage} onChange={handleInputChange} placeholder="Type a message..." autoComplete="off" className="bg-black/20 border-primary/20 rounded-full h-11 px-6 focus:ring-primary/50 focus:border-primary/50"/>
+              <Input value={newMessage} onChange={handleInputChange} placeholder="Type a message..." autoComplete="off" className="bg-black/20 border-primary/20 rounded-full h-11 px-6 focus:ring-primary/50 focus:border-primary/50 text-white placeholder:text-gray-500"/>
               <Popover>
                 <PopoverTrigger asChild>
                     <Button variant="ghost" size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full hover:bg-primary/20"><Smile className="text-gray-400" /></Button>

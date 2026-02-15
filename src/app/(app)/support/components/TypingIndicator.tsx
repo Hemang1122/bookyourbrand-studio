@@ -1,4 +1,6 @@
+
 'use client';
+import React from 'react';
 import { useData } from '../../data-provider';
 
 type TypingIndicatorProps = {
