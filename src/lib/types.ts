@@ -17,6 +17,7 @@ export type User = {
   isOnline?: boolean;
   lastSeen?: number | object;
   createdAt?: Timestamp;
+  photoURL?: string;
 };
 
 export type PackageName = 'Bronze' | 'Silver' | 'Gold' | 'Advanced Editing' | 'Podcast';
@@ -194,6 +195,9 @@ export type ChatMessage = {
   timestamp: Timestamp;
   readBy: string[];
   deleted?: boolean;
+  edited?: boolean;
+  editedAt?: Timestamp;
+  reactions?: { [emoji: string]: string[] };
 };
 
 export type UserPresence = {

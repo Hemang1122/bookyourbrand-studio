@@ -37,8 +37,10 @@ export function UserNavClient() {
   const displayName = appUser?.name || firebaseUser?.displayName || firebaseUser?.email?.split('@')[0] || 'User';
   const displayEmail = appUser?.email || firebaseUser?.email || 'No email';
   const displayAvatarId = appUser?.avatar || `avatar-${(user.uid.charCodeAt(0) % 3) + 2}`
-  const userAvatar = PlaceHolderImages.find(img => img.id === displayAvatarId);
+  const userAvatarPlaceholder = PlaceHolderImages.find(img => img.id === displayAvatarId);
 
+  // Prioritize the photoURL from the user object, fallback to placeholder
+  const photoUrl = (appUser as any)?.photoURL || userAvatarPlaceholder?.imageUrl;
 
   const handleLogout = async () => {
     try {
@@ -56,7 +58,7 @@ export function UserNavClient() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            {userAvatar && <AvatarImage src={userAvatar.imageUrl} alt={displayName} data-ai-hint={userAvatar?.imageHint} />}
+            <AvatarImage src={photoUrl} alt={displayName} />
             <AvatarFallback>{displayName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
           </Avatar>
         </Button>
@@ -73,7 +75,7 @@ export function UserNavClient() {
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
-            <Link href="/settings">
+            <Link href="/profile">
               <UserIcon className="mr-2 h-4 w-4" />
               <span>Profile</span>
             </Link>
