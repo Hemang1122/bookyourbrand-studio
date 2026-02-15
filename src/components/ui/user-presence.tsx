@@ -14,24 +14,20 @@ export function UserPresence({ userId, showLastSeen = true, className }: UserPre
   const userStatus = useUserStatus(userId);
 
   return (
-    <div className={cn('flex items-center gap-2', className)}>
-      <span
-        className={cn(
-          'h-2.5 w-2.5 rounded-full',
-          userStatus?.isOnline ? 'bg-green-500' : 'bg-gray-400'
-        )}
-      />
-      <div className="text-xs text-muted-foreground">
-        {userStatus?.isOnline ? (
-          'Online'
+    <div className={cn('flex items-center gap-2 text-xs', className)}>
+      {userStatus?.isOnline ? (
+          <div className="flex items-center gap-1.5">
+            <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+            <span className="text-green-400">Online</span>
+          </div>
         ) : showLastSeen && userStatus?.last_seen ? (
-          `Last seen ${formatDistanceToNow(new Date(userStatus.last_seen), {
-            addSuffix: true,
-          })}`
+          <span className="text-gray-400">{`Last seen ${formatDistanceToNow(new Date(userStatus.last_seen), { addSuffix: true })}`}</span>
         ) : (
-          'Offline'
+          <span className="text-gray-500">Offline</span>
         )}
-      </div>
     </div>
   );
 }
