@@ -3,12 +3,12 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import type { ChatMessage, User, Project } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Paperclip, Loader2, FileText, Download } from 'lucide-react';
+import { Send, Paperclip, Loader2, FileText, Download, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useCollection, useFirebaseServices, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, serverTimestamp, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, serverTimestamp, addDoc, Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../../data-provider';
@@ -61,6 +61,25 @@ export function ProjectChat({ project }: ProjectChatProps) {
     }
   }, [messages]);
 
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!firestore) return;
+    
+    const confirmed = window.confirm(
+      'Delete this message? This cannot be undone.'
+    );
+    if (!confirmed) return;
+    
+    const msgRef = doc(
+      firestore,
+      'projects', project.id, 'chat', 'messages', messageId
+    );
+    
+    await updateDoc(msgRef, {
+      deleted: true,
+      text: 'This message was deleted',
+      mediaURL: null,
+    });
+  };
 
   const sendMessage = async (messageText: string, mediaUrl?: string) => {
      if (!currentUser || !firestore || (!messageText.trim() && !mediaUrl)) return;
@@ -187,26 +206,41 @@ export function ProjectChat({ project }: ProjectChatProps) {
                 >
                     <div className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                         {!isCurrentUser && <span className="text-xs text-muted-foreground">{msg.senderName}</span>}
-                        <div className={`rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                            {msg.mediaURL && msg.mediaURL.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i) ? (
-                              <div className="space-y-2">
-                                <a href={msg.mediaURL} target="_blank" rel="noopener noreferrer">
-                                  <img 
-                                    src={msg.mediaURL} 
-                                    alt={msg.text || 'Image attachment'} 
-                                    className="max-w-[240px] max-h-[320px] rounded-lg object-cover cursor-pointer"
-                                  />
+                        <div className="group relative">
+                          <div className={`rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                              {msg.deleted ? (
+                                <p className="text-sm italic text-muted-foreground/70">
+                                  🚫 This message was deleted
+                                </p>
+                              ) : msg.mediaURL && msg.mediaURL.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i) ? (
+                                <div className="space-y-2">
+                                  <a href={msg.mediaURL} target="_blank" rel="noopener noreferrer">
+                                    <img 
+                                      src={msg.mediaURL} 
+                                      alt={msg.text || 'Image attachment'} 
+                                      className="max-w-[240px] max-h-[320px] rounded-lg object-cover cursor-pointer"
+                                    />
+                                  </a>
+                                  {msg.text && !msg.mediaURL.includes(msg.text) && <p className="text-sm">{msg.text}</p>}
+                                </div>
+                              ) : msg.mediaURL ? (
+                                <a href={msg.mediaURL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-lg bg-background/50 hover:bg-background text-sm font-medium">
+                                  <FileText className="h-4 w-4 shrink-0" />
+                                  <span className="truncate max-w-[180px]">{msg.text || 'Download file'}</span>
+                                  <Download className="h-4 w-4 shrink-0 ml-auto" />
                                 </a>
-                                {msg.text && !msg.mediaURL.includes(msg.text) && <p className="text-sm">{msg.text}</p>}
-                              </div>
-                            ) : msg.mediaURL ? (
-                              <a href={msg.mediaURL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-lg bg-background/50 hover:bg-background text-sm font-medium">
-                                <FileText className="h-4 w-4 shrink-0" />
-                                <span className="truncate max-w-[180px]">{msg.text || 'Download file'}</span>
-                                <Download className="h-4 w-4 shrink-0 ml-auto" />
-                              </a>
-                            ) : (
-                                <p className="text-sm">{msg.text}</p>
+                              ) : (
+                                  <p className="text-sm">{msg.text}</p>
+                              )}
+                          </div>
+                           {isCurrentUser && !msg.deleted && (
+                              <button
+                                className="absolute -top-2 -right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-background border rounded-full p-1 hover:bg-destructive hover:text-destructive-foreground"
+                                onClick={() => handleDeleteMessage(msg.id)}
+                                title="Delete message"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
                             )}
                         </div>
                         <p className={`text-xs mt-1 ${isCurrentUser ? 'text-right' : 'text-left'} text-muted-foreground/80`}>

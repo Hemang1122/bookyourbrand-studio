@@ -3,12 +3,12 @@ import { useState, useEffect, useRef } from 'react';
 import type { ChatMessage, User } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Paperclip, FileText, Download, Loader2 } from 'lucide-react';
+import { Send, Paperclip, FileText, Download, Loader2, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
 import { CardHeader, CardTitle } from '@/components/ui/card';
 import { useCollection, useFirebaseServices, useMemoFirebase, useTypingIndicator } from '@/firebase';
-import { collection, query, orderBy, Timestamp, doc, writeBatch, arrayUnion } from 'firebase/firestore';
+import { collection, query, orderBy, Timestamp, doc, writeBatch, arrayUnion, updateDoc } from 'firebase/firestore';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
@@ -92,6 +92,25 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
     }
   }, [messages]);
 
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!chatId || !firestore) return;
+    
+    const confirmed = window.confirm(
+      'Delete this message? This cannot be undone.'
+    );
+    if (!confirmed) return;
+    
+    const msgRef = doc(
+      firestore, 
+      'chats', chatId, 'messages', messageId
+    );
+    
+    await updateDoc(msgRef, {
+      deleted: true,
+      text: 'This message was deleted',
+      mediaURL: null,
+    });
+  };
 
   const handleSendTextMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -203,55 +222,49 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
                         isCurrentUser ? 'justify-end' : 'justify-start'
                     }`}
                     >
-                    <div
-                        className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${
-                        isCurrentUser ? 'items-end' : 'items-start'
-                        }`}
-                    >
-                        {!isCurrentUser && (
-                        <span className="text-xs text-muted-foreground">
-                            {msg.senderName}
-                        </span>
-                        )}
-                        <div
-                        className={`rounded-lg px-4 py-2 ${
-                            isCurrentUser
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted'
-                        }`}
-                        >
-                        {msg.mediaURL && msg.mediaURL.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i) ? (
-                          <div className="space-y-2">
-                            <a href={msg.mediaURL} target="_blank" rel="noopener noreferrer">
-                              <img 
-                                src={msg.mediaURL} 
-                                alt={msg.text || 'Image attachment'} 
-                                className="max-w-[240px] max-h-[320px] rounded-lg object-cover cursor-pointer"
-                              />
-                            </a>
-                            {msg.text && !msg.mediaURL.includes(msg.text) && <p className="text-sm">{msg.text}</p>}
+                      <div className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${ isCurrentUser ? 'items-end' : 'items-start'}`}>
+                        {!isCurrentUser && ( <span className="text-xs text-muted-foreground">{msg.senderName}</span> )}
+                        <div className="group relative">
+                          <div className={`rounded-lg px-4 py-2 ${ isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                            {msg.deleted ? (
+                              <p className="text-sm italic text-muted-foreground/70">
+                                🚫 This message was deleted
+                              </p>
+                            ) : msg.mediaURL && msg.mediaURL.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i) ? (
+                              <div className="space-y-2">
+                                <a href={msg.mediaURL} target="_blank" rel="noopener noreferrer">
+                                  <img 
+                                    src={msg.mediaURL} 
+                                    alt={msg.text || 'Image attachment'} 
+                                    className="max-w-[240px] max-h-[320px] rounded-lg object-cover cursor-pointer"
+                                  />
+                                </a>
+                                {msg.text && !msg.mediaURL.includes(msg.text) && <p className="text-sm">{msg.text}</p>}
+                              </div>
+                            ) : msg.mediaURL ? (
+                              <a href={msg.mediaURL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-lg bg-background/50 hover:bg-background text-sm font-medium">
+                                <FileText className="h-4 w-4 shrink-0" />
+                                <span className="truncate max-w-[180px]">{msg.text || 'Download file'}</span>
+                                <Download className="h-4 w-4 shrink-0 ml-auto" />
+                              </a>
+                            ) : (
+                                <p className="text-sm">{msg.text}</p>
+                            )}
                           </div>
-                        ) : msg.mediaURL ? (
-                          <a href={msg.mediaURL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-lg bg-background/50 hover:bg-background text-sm font-medium">
-                            <FileText className="h-4 w-4 shrink-0" />
-                            <span className="truncate max-w-[180px]">{msg.text || 'Download file'}</span>
-                            <Download className="h-4 w-4 shrink-0 ml-auto" />
-                          </a>
-                        ) : (
-                            <p className="text-sm">{msg.text}</p>
-                        )}
+                          {isCurrentUser && !msg.deleted && (
+                            <button
+                              className="absolute -top-2 -right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-background border rounded-full p-1 hover:bg-destructive hover:text-destructive-foreground"
+                              onClick={() => handleDeleteMessage(msg.id)}
+                              title="Delete message"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          )}
                         </div>
-                        <p
-                        className={`text-xs mt-1 ${
-                            isCurrentUser ? 'text-right' : 'text-left'
-                        } text-muted-foreground/80`}
-                        >
-                        {messageDate.toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                        })}
+                        <p className={`text-xs mt-1 ${ isCurrentUser ? 'text-right' : 'text-left'} text-muted-foreground/80`}>
+                          {messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
-                    </div>
+                      </div>
                     </div>
                 );
                 })}
