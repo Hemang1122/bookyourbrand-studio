@@ -121,6 +121,13 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
             <UserPresence userId={chatPartner.id} />
          </div>
       </CardHeader>
+      {currentUser.role === 'client' && (
+        <div className="p-3 text-center border-b bg-muted/50">
+          <p className="font-signature text-lg font-bold text-primary/90">
+            BookYourBrands support team will respond within 10 mins max.
+          </p>
+        </div>
+      )}
        <div className="flex-1 flex flex-col overflow-hidden">
         <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
             <div className="space-y-4">
