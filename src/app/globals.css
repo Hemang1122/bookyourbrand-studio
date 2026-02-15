@@ -119,3 +119,24 @@
     background: rgba(124, 58, 237, 0.6);
 }
 
+/* Custom Scrum Calendar Styles */
+.day-selected-gradient {
+    @apply text-white rounded-lg !important;
+    background: linear-gradient(135deg, #7C3AED, #EC4899);
+    box-shadow: 0 4px 15px rgba(124,58,237,0.4);
+}
+.day-today-border:not(.day-selected-gradient) {
+    @apply border border-primary/50 text-primary;
+    background-image: linear-gradient(135deg, #7C3AED, #EC4899);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent !important;
+}
+.day-has-updates {
+    @apply relative;
+}
+.day-has-updates:not(.day-selected-gradient) > .rdp-button:after {
+    content: '';
+    @apply absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full;
+    background: linear-gradient(135deg, #7C3AED, #EC4899);
+}
