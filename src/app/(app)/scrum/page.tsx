@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -107,7 +106,7 @@ const ScrumUpdateCard = ({ update, user, isExpanded, onToggleExpand }: { update:
       </div>
     </Collapsible>
   );
-};
+}
 
 
 export default function ScrumPage() {
