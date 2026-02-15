@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -101,7 +101,7 @@ export function SupportChatList({ contacts, selectedContact, onSelectContact }: 
     return chats.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0);
   }, [chats]);
 
-  const filteredContacts = contacts
+  const filteredContacts = useMemo(() => contacts
     .map(contact => ({
       ...contact,
       chat: chats.find(c => c.participants.includes(contact.id)),
@@ -117,7 +117,7 @@ export function SupportChatList({ contacts, selectedContact, onSelectContact }: 
         const aTime = a.chat?.lastMessageAt?.toDate() || new Date(0);
         const bTime = b.chat?.lastMessageAt?.toDate() || new Date(0);
         return bTime.getTime() - aTime.getTime();
-    });
+    }), [contacts, chats, searchQuery, filter]);
 
   return (
     <div className="w-full md:w-[340px] h-full flex flex-col bg-[#13131F] text-white">
