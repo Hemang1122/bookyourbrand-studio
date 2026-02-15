@@ -28,6 +28,7 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [role, setRole] = useState<Role>('client');
+  const [realEmail, setRealEmail] = useState('');
   const { toast } = useToast();
   const { createUser } = useData();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -50,15 +51,18 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
     
     setIsProcessing(true);
     try {
-      const result = await createUser({ name, role });
+      const result = await createUser({ name, role, realEmail: realEmail || undefined });
       toast({
         title: 'User Created Successfully!',
-        description: `Email: ${result.email} | Password: ${result.password}`,
+        description: realEmail 
+          ? `Login credentials sent to ${realEmail}`
+          : `Email: ${result.email} | Password: ${result.password}`,
         duration: 10000,
       });
       setOpen(false);
       setName('');
       setRole('client');
+      setRealEmail('');
     } catch (error) {
       // Error toast is handled in the data provider
     } finally {
@@ -93,12 +97,28 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
                 </SelectContent>
             </Select>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="realEmail">
+              Real Email Address
+              <span className="text-muted-foreground text-xs ml-1">
+                (optional — for sending credentials)
+              </span>
+            </Label>
+            <Input
+              id="realEmail"
+              type="email"
+              value={realEmail}
+              onChange={(e) => setRealEmail(e.target.value)}
+              placeholder="e.g. user@gmail.com"
+              disabled={isProcessing}
+            />
+          </div>
           {name && (
             <Alert>
-              <AlertTitle>Credentials Preview</AlertTitle>
+              <AlertTitle>Generated Credentials Preview</AlertTitle>
               <AlertDescription className="break-all">
-                <p><b>Email:</b> {email}</p>
-                <p><b>Password:</b> {password}</p>
+                <p><b>Login Email:</b> {email}</p>
+                <p><b>Initial Password:</b> {password}</p>
               </AlertDescription>
             </Alert>
           )}

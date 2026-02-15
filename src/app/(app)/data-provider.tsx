@@ -32,7 +32,7 @@ type DataContextType = {
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks' | 'dueDate'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
   updateTaskStatus: (taskId: string, status: TaskStatus, remark: string) => void;
-  createUser: (userData: { name: string; role: 'client' | 'team'; }) => Promise<any>;
+  createUser: (userData: { name: string; role: 'client' | 'team', realEmail?: string; }) => Promise<any>;
   deleteUser: (userId: string) => Promise<any>;
   updateClient: (clientId: string, clientData: Partial<Client>) => Promise<void>;
   updateTeamMember: (userId: string, memberData: Partial<User>) => void;
@@ -349,7 +349,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   }, [currentUser, firestore, authUid, usersData, addNotification, chats]);
 
-  const createUser = useCallback(async (userData: { name: string; role: 'client' | 'team'; }) => {
+  const createUser = useCallback(async (userData: { name: string; role: 'client' | 'team'; realEmail?: string; }) => {
     if (!functions) {
       toast({ title: "Error", description: "Functions service not available.", variant: "destructive" });
       return Promise.reject("Functions service not available.");
