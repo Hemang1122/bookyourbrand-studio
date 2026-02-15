@@ -71,7 +71,7 @@ export const createUser = onCall(async (request) => {
         avatar: 'avatar-' + (Math.floor(Math.random() * 3) + 2),
         reelsCreated: 0,
         reelsLimit: 3,
-        packageName: 'Gold',
+        packageName: 'Starter',
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     }
@@ -85,11 +85,22 @@ export const createUser = onCall(async (request) => {
     };
 
   } catch (error: any) {
-    if (error.code === 'auth/email-already-exists') {
-      throw new HttpsError('already-exists', 
-        'A user with email ' + email + ' already exists');
-    }
-    throw new HttpsError('internal', error.message);
+    console.error('createUser failed:', JSON.stringify({
+       code: error.code,
+       message: error.message,
+       stack: error.stack,
+     }));
+     
+     if (error.code === 'auth/email-already-exists') {
+       throw new HttpsError('already-exists',
+         'A user with this email already exists');
+     }
+     if (error.code === 'auth/invalid-password') {
+       throw new HttpsError('invalid-argument',
+         'Password must be at least 6 characters');
+     }
+     throw new HttpsError('internal', 
+       'Failed to create user: ' + error.message);
   }
 });
 
@@ -131,6 +142,11 @@ export const deleteUser = onCall(async (request) => {
     return { success: true, message: 'User deleted successfully' };
 
   } catch (error: any) {
-    throw new HttpsError('internal', error.message);
+    console.error('deleteUser failed:', JSON.stringify({
+       code: error.code,
+       message: error.message,
+       stack: error.stack,
+    }));
+    throw new HttpsError('internal', 'Failed to delete user: ' + error.message);
   }
 });
