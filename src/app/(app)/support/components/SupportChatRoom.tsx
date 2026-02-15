@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { ChatMessage, User, Timestamp as FirebaseTimestamp } from '@/lib/types';
@@ -30,14 +29,24 @@ import { format, isSameDay, isToday, isYesterday } from 'date-fns';
 import { Logo } from '@/components/logo';
 import { Badge } from '@/components/ui/badge';
 
+const getMessageDate = (timestamp: any): Date => {
+  if (!timestamp) return new Date();
+  if (typeof timestamp.toDate === 'function') {
+    return timestamp.toDate();
+  }
+  if (timestamp instanceof Date) return timestamp;
+  if (typeof timestamp === 'string' || typeof timestamp === 'number') {
+    return new Date(timestamp);
+  }
+  return new Date();
+};
+
 const EMOJI_OPTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 const isWithin15Minutes = (msg: ChatMessage): boolean => {
-  const timestamp = msg.timestamp as Timestamp;
-  if (!timestamp) return false;
-  const msgTime = timestamp.toDate().getTime();
+  const date = getMessageDate(msg.timestamp);
   const now = Date.now();
-  return now - msgTime < 15 * 60 * 1000;
+  return now - date.getTime() < 15 * 60 * 1000;
 };
 
 
@@ -143,7 +152,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
     if (isScrolledToBottom) {
       scrollToBottom();
     } else {
-      const newCount = (messages.filter(msg => (msg.timestamp as Timestamp)?.toDate() > new Date(Date.now() - 2000))).length;
+      const newCount = (messages.filter(msg => (getMessageDate(msg.timestamp)) > new Date(Date.now() - 2000))).length;
       if(newCount > 0) {
         setNewMessagesCount(prev => prev + newCount);
       }
@@ -227,6 +236,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
       const task = uploadBytesResumable(fileStorageRef, file);
       uploadTaskRef.current = task;
 
+
       task.on('state_changed',
         (snapshot) => {
           const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
@@ -244,6 +254,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
           const downloadURL = await getDownloadURL(task.snapshot.ref);
           sendMessage(chatId, file.name, downloadURL);
           setIsUploading(false);
+          setUploadProgress(0);
           uploadTaskRef.current = null;
         }
       );
@@ -295,8 +306,8 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
             <div className="p-6 space-y-3">
               {(messages || []).map((msg, index) => {
                 const prevMsg = messages?.[index - 1];
-                const showDateDivider = !prevMsg || !isSameDay((msg.timestamp as Timestamp).toDate(), (prevMsg.timestamp as Timestamp).toDate());
-                const date = (msg.timestamp as Timestamp).toDate();
+                const date = getMessageDate(msg.timestamp);
+                const showDateDivider = !prevMsg || !isSameDay(date, getMessageDate(prevMsg.timestamp));
 
                 const isCurrentUser = msg.senderId === currentUser.id;
 

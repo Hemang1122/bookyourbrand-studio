@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -15,21 +14,25 @@ import { formatDistanceToNow } from 'date-fns';
 import { useUserStatus } from '@/firebase';
 import { useAuth } from '@/firebase/provider';
 
-type SupportChatListProps = {
-  contacts: User[];
-  selectedContact: User | null;
-  onSelectContact: (user: User) => void;
+const getMessageDate = (timestamp: any): Date | null => {
+  if (!timestamp) return null;
+  if (typeof timestamp.toDate === 'function') {
+    return timestamp.toDate();
+  }
+  if (timestamp instanceof Date) return timestamp;
+  if (typeof timestamp === 'string' || typeof timestamp === 'number') {
+    return new Date(timestamp);
+  }
+  return null;
 };
 
-type Filter = 'all' | 'client' | 'team';
 
 const ChatListItem = ({ contact, isSelected, onSelect, chats, currentUser }: { contact: User, isSelected: boolean, onSelect: (user: User) => void, chats: Chat[], currentUser: User | null }) => {
     const userStatus = useUserStatus(contact.id);
     const chat = chats.find(c => c.participants.includes(contact.id));
     const lastMessage = chat?.lastMessage;
-    const lastMessageDate = chat?.lastMessageAt?.toDate();
+    const lastMessageDate = getMessageDate(chat?.lastMessageAt);
     const isSentByMe = lastMessage?.senderId === currentUser?.id;
-    const partnerHasRead = lastMessage?.readBy?.includes(contact.id);
     
     const unreadCount = chat?.unreadCount || 0;
     
@@ -71,7 +74,7 @@ const ChatListItem = ({ contact, isSelected, onSelect, chats, currentUser }: { c
                           <>
                            {isSentByMe && (
                               <span className="inline-flex items-center mr-1">
-                                {partnerHasRead ? (
+                                { (lastMessage.readBy?.length ?? 0) > 1 ? (
                                     <svg width="16" height="10" viewBox="0 0 16 10" className="text-blue-400" fill="currentColor"><path d="M1 5l3 3L10 1M6 5l3 3 5-7" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
                                 ) : (
                                     <svg width="10" height="10" viewBox="0 0 10 10" className="text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 5l3 3 5-7"/></svg>
