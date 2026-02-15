@@ -13,28 +13,56 @@ import {
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { useFirebaseServices } from '@/firebase';
 
 type AddTeamMemberDialogProps = {
-  onTeamMemberAdd: (memberData: {
-    name: string;
-    email: string;
-    password: string;
-  }) => Promise<void>;
   children: React.ReactNode;
 };
 
-export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMemberDialogProps) {
+export function AddTeamMemberDialog({ children }: AddTeamMemberDialogProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
+  const { functions } = useFirebaseServices();
+
 
   const handleAddMember = async () => {
-    toast({ title: 'Feature Unavailable', description: 'This feature is temporarily disabled.', variant: 'destructive' });
+    if (!name) {
+      toast({ title: 'Error', description: 'Name is required.', 
+              variant: 'destructive' });
+      return;
+    }
+    if (!functions) {
+      toast({ title: 'Error', description: 'Functions service not available.', variant: 'destructive' });
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const createUserFn = httpsCallable(functions, 'createUser');
+      const result: any = await createUserFn({ 
+        name, 
+        role: 'team'
+      });
+      toast({ 
+        title: 'Team Member Created!', 
+        description: `Email: ${result.data.email} | Password: ${result.data.password}`,
+        duration: 10000,
+      });
+      setOpen(false);
+      setName('');
+    } catch (error: any) {
+      toast({ 
+        title: 'Error creating member', 
+        description: error.message, 
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -43,45 +71,19 @@ export function AddTeamMemberDialog({ onTeamMemberAdd, children }: AddTeamMember
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Add New Team Member</DialogTitle>
-          <DialogDescription>Fill in the details for the new team member. This will create a new user account.</DialogDescription>
+          <DialogDescription>Fill in the name for the new team member. Credentials will be generated automatically.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., John Doe" disabled={true}/>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g., john.d@example.com" disabled={true}/>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Set Initial Password</Label>
-            <div className="relative">
-                <Input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Must be at least 6 characters"
-                disabled={true}
-                />
-                <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute inset-y-0 right-0 h-full px-3"
-                onClick={() => setShowPassword((prev) => !prev)}
-                disabled={true}
-                >
-                {showPassword ? <EyeOff /> : <Eye />}
-                </Button>
-            </div>
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., John Doe" disabled={isProcessing}/>
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isProcessing}>Cancel</Button>
-          <Button onClick={handleAddMember} disabled={true}>
-            Add Member
+          <Button onClick={handleAddMember} disabled={isProcessing}>
+            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isProcessing ? 'Adding Member...' : 'Add Member'}
           </Button>
         </DialogFooter>
       </DialogContent>
