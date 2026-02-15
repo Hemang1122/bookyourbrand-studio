@@ -1,59 +1,44 @@
 'use client';
 
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell } from 'recharts';
+import { useMemo } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import type { Task } from '@/lib/types';
-import {
-  ChartTooltipContent,
-  ChartContainer,
-} from '@/components/ui/chart';
 
+export function OverviewChart({ tasks }: { tasks: Task[] }) {
+    const safeTasks = tasks || [];
 
-type OverviewChartProps = {
-  tasks: Task[];
-};
+    const chartData = useMemo(() => [
+        { name: 'Pending', Tasks: safeTasks.filter(t => t.status === 'Pending').length },
+        { name: 'In Progress', Tasks: safeTasks.filter(t => t.status === 'In Progress').length },
+        { name: 'Rework', Tasks: safeTasks.filter(t => t.status === 'Rework').length },
+        { name: 'Completed', Tasks: safeTasks.filter(t => t.status === 'Completed').length },
+    ], [safeTasks]);
 
-export function OverviewChart({ tasks }: OverviewChartProps) {
-  const data = [
-    { name: 'Pending', total: tasks.filter(t => t.status === 'Pending').length, fill: '#6B7280' },
-    { name: 'In Progress', total: tasks.filter(t => t.status === 'In Progress').length, fill: '#7C3AED' },
-    { name: 'Rework', total: tasks.filter(t => t.status === 'Rework').length, fill: '#F59E0B' },
-    { name: 'Completed', total: tasks.filter(t => t.status === 'Completed').length, fill: '#10B981' },
-  ];
-
-  return (
-    <ChartContainer config={{
-        total: {
-          label: "Tasks",
-        },
-      }} className="min-h-[200px] w-full">
-      <ResponsiveContainer width="100%" height={256}>
-        <BarChart data={data}>
-          <XAxis
-            dataKey="name"
-            stroke="#888888"
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            stroke="#888888"
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-            tickFormatter={(value) => `${value}`}
-            allowDecimals={false}
-          />
-           <Tooltip
-            cursor={{ fill: 'hsl(var(--muted))' }}
-            content={<ChartTooltipContent />}
-          />
-          <Bar dataKey="total" radius={[4, 4, 0, 0]}>
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.fill} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </ChartContainer>
-  );
+    return (
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} barCategoryGap="30%">
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+            <XAxis dataKey="name" tick={{fill: '#6B7280', fontSize: 12}} axisLine={false} tickLine={false} />
+            <YAxis tick={{fill: '#6B7280', fontSize: 12}} axisLine={false} tickLine={false} allowDecimals={false} />
+            <Tooltip 
+              contentStyle={{
+                background: '#1a1a2e',
+                border: '1px solid rgba(124,58,237,0.3)',
+                borderRadius: '12px',
+                color: 'white'
+              }}
+              cursor={{ fill: 'rgba(124, 58, 237, 0.1)' }}
+            />
+            <Bar dataKey="Tasks" radius={[6,6,0,0]}>
+              {chartData.map((entry, index) => {
+                const color = entry.name === 'Pending' ? '#6B7280'
+                  : entry.name === 'In Progress' ? '#7C3AED'
+                  : entry.name === 'Rework' ? '#F59E0B'
+                  : '#10B981';
+                return <Cell key={`cell-${index}`} fill={color} />
+              })}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+    );
 }
