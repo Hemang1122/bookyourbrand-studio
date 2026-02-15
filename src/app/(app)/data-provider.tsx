@@ -327,6 +327,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         senderName: currentUser.name,
         type: mediaUrl ? 'media' : 'text',
         timestamp: serverTimestamp(),
+        readBy: [authUid],
       },
       lastMessageAt: serverTimestamp(),
     };

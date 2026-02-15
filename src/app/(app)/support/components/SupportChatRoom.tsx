@@ -18,6 +18,62 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { UserPresence } from '@/components/ui/user-presence';
 import { TypingIndicator } from './TypingIndicator';
 
+const MessageTicks = ({ msg, currentUserId, partnerId }: {
+  msg: ChatMessage;
+  currentUserId: string;
+  partnerId: string;
+}) => {
+  if (msg.senderId !== currentUserId) return null;
+  
+  const readBy = msg.readBy || [];
+  const isRead = readBy.includes(partnerId);
+  const isDelivered = readBy.length > 1 || isRead;
+
+  if (isRead) {
+    // Double blue ticks
+    return (
+      <span className="inline-flex items-center ml-1">
+        <svg width="16" height="10" viewBox="0 0 16 10" 
+             className="text-blue-500" fill="currentColor">
+          <path d="M1 5l3 3L10 1M6 5l3 3 5-7" 
+                stroke="currentColor" strokeWidth="1.5" 
+                fill="none" strokeLinecap="round" 
+                strokeLinejoin="round"/>
+        </svg>
+      </span>
+    );
+  }
+
+  if (isDelivered) {
+    // Double grey ticks
+    return (
+      <span className="inline-flex items-center ml-1 
+                       text-muted-foreground">
+        <svg width="16" height="10" viewBox="0 0 16 10"
+             fill="none" stroke="currentColor" 
+             strokeWidth="1.5" strokeLinecap="round" 
+             strokeLinejoin="round">
+          <path d="M1 5l3 3L10 1M6 5l3 3 5-7"/>
+        </svg>
+      </span>
+    );
+  }
+
+  // Single grey tick — sent
+  return (
+    <span className="inline-flex items-center ml-1 
+                     text-muted-foreground">
+      <svg width="10" height="10" viewBox="0 0 10 10"
+           fill="none" stroke="currentColor" 
+           strokeWidth="1.5" strokeLinecap="round" 
+           strokeLinejoin="round">
+        <path d="M1 5l3 3 5-7"/>
+      </svg>
+    </span>
+  );
+};
+
+
 type SupportChatRoomProps = {
   chatPartner: User;
 };
@@ -25,7 +81,7 @@ type SupportChatRoomProps = {
 export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
-  const { firestore, firebaseApp } = useFirebaseServices();
+  const { firestore, firebaseApp, auth } = useFirebaseServices();
   const { getOrCreateChat, sendMessage, markChatNotificationsAsRead } = useData();
   const [chatId, setChatId] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -54,9 +110,10 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
   // Mark messages as read when the chat room is opened or new messages arrive
   useEffect(() => {
     if (!chatId || !firestore || !currentUser || !messages || messages.length === 0) return;
+    const authUid = auth?.currentUser?.uid ?? currentUser.id;
 
     const unreadMessages = messages.filter(msg => 
-        msg.senderId !== currentUser.id && !(msg.readBy || []).includes(currentUser.id)
+        msg.senderId !== currentUser.id && !(msg.readBy || []).includes(authUid)
     );
 
     if (unreadMessages.length > 0) {
@@ -64,7 +121,7 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
         unreadMessages.forEach(msg => {
             const msgRef = doc(firestore, 'chats', chatId, 'messages', msg.id);
             batch.update(msgRef, {
-                readBy: arrayUnion(currentUser.id)
+                readBy: arrayUnion(authUid)
             });
         });
 
@@ -74,7 +131,7 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
     // Also mark related notifications as read
     markChatNotificationsAsRead(chatId);
 
-  }, [messages, chatId, firestore, currentUser, markChatNotificationsAsRead]);
+  }, [messages, chatId, firestore, currentUser, auth, markChatNotificationsAsRead]);
 
 
   const scrollToBottom = () => {
@@ -261,8 +318,15 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
                             </button>
                           )}
                         </div>
-                        <p className={`text-xs mt-1 ${ isCurrentUser ? 'text-right' : 'text-left'} text-muted-foreground/80`}>
+                        <p className={`text-xs mt-1 flex items-center gap-0.5 ${ isCurrentUser ? 'justify-end' : 'justify-start'} text-muted-foreground/80`}>
                           {messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {isCurrentUser && (
+                            <MessageTicks 
+                              msg={msg} 
+                              currentUserId={currentUser.id}
+                              partnerId={chatPartner.id}
+                            />
+                          )}
                         </p>
                       </div>
                     </div>

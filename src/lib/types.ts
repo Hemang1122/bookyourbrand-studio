@@ -164,6 +164,7 @@ export type ChatLastMessage = {
   senderName: string;
   type: MessageType;
   timestamp: Timestamp;
+  readBy?: string[];
 }
 
 export type Chat = {
