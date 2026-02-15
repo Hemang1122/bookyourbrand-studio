@@ -25,7 +25,7 @@ type SupportChatRoomProps = {
 export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
-  const { firestore } = useFirebaseServices();
+  const { firestore, firebaseApp } = useFirebaseServices();
   const { getOrCreateChat, sendMessage, markChatNotificationsAsRead } = useData();
   const [chatId, setChatId] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -34,6 +34,7 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadTask, setUploadTask] = useState<any>(null);
   const { toast } = useToast();
 
   // Get or create chat ID
@@ -110,32 +111,38 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
     setUploadProgress(0);
 
     try {
-      const storage = getStorage();
+      const storage = getStorage(firebaseApp);
       const timestamp = Date.now();
       const fileStorageRef = storageRef(storage, `chat-uploads/${chatId}/${timestamp}_${file.name}`);
-      const uploadTask = uploadBytesResumable(fileStorageRef, file);
+      const task = uploadBytesResumable(fileStorageRef, file);
+      setUploadTask(task);
 
-      uploadTask.on('state_changed',
+      task.on('state_changed',
         (snapshot) => {
           const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
           setUploadProgress(Math.round(progress));
         },
         (error) => {
-          console.error('Upload failed:', error);
-          toast({ title: 'Upload Failed', description: error.message, variant: 'destructive' });
+          console.error('Storage upload error code:', error.code);
+          console.error('Storage upload error message:', error.message);
+          console.error('Storage upload error details:', error);
+          toast({ title: 'Upload Failed', description: `${error.code}: ${error.message}`, variant: 'destructive' });
           setIsUploading(false);
           setUploadProgress(0);
+          setUploadTask(null);
         },
         async () => {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          const downloadURL = await getDownloadURL(task.snapshot.ref);
           sendMessage(chatId, file.name, downloadURL);
           setIsUploading(false);
           setUploadProgress(0);
+          setUploadTask(null);
         }
       );
     } catch (error: any) {
       toast({ title: 'Upload Failed', description: error.message, variant: 'destructive' });
       setIsUploading(false);
+      setUploadTask(null);
     }
   };
 
@@ -262,6 +269,20 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
                   style={{ width: `${uploadProgress}%` }}
                 />
               </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-5 px-2 text-xs"
+                onClick={() => {
+                  uploadTask?.cancel();
+                  setIsUploading(false);
+                  setUploadProgress(0);
+                  setUploadTask(null);
+                }}
+              >
+                Cancel
+              </Button>
             </div>
           </div>
         )}
