@@ -7,7 +7,7 @@ import { Send, Paperclip, FileText, Download, Loader2, Trash2, MoreVertical, Pen
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useCollection, useFirebaseServices, useMemoFirebase, useTypingIndicator } from '@/firebase';
+import { useCollection, useFirebaseServices, useMemoFirebase, useTypingIndicator, useUserStatus } from '@/firebase';
 import { collection, query, orderBy, serverTimestamp, addDoc, Timestamp, doc, writeBatch, arrayUnion, updateDoc, arrayRemove } from 'firebase/firestore';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -227,7 +227,9 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
           setUploadProgress(Math.round(progress));
         },
         (error) => {
-          console.error('Storage upload error:', error);
+          console.error('Storage upload error code:', error.code);
+          console.error('Storage upload error message:', error.message);
+          console.error('Storage upload error details:', error);
           toast({ title: 'Upload Failed', description: `${error.code}: ${error.message}`, variant: 'destructive' });
           setIsUploading(false);
           uploadTaskRef.current = null;
@@ -364,7 +366,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
                                 })}
                             </div>
                         )}
-                        <p className={cn("text-[10px] mt-1 flex items-center gap-1", isCurrentUser ? 'text-gray-400' : 'text-gray-500')}>
+                        <p className={cn("text-[10px] mt-1 flex items-center gap-1", isCurrentUser ? 'text-right' : 'text-left', 'text-gray-500')}>
                             {format(date, 'p')}
                              {msg.edited && !msg.deleted && (<span className="italic text-gray-500">edited</span>)}
                             {isCurrentUser && <MessageTicks msg={msg} currentUserId={currentUser.id} partnerId={chatPartner.id} />}
