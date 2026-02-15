@@ -34,7 +34,7 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadTask, setUploadTask] = useState<any>(null);
+  const uploadTaskRef = useRef<any>(null);
   const { toast } = useToast();
 
   // Get or create chat ID
@@ -115,7 +115,7 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
       const timestamp = Date.now();
       const fileStorageRef = storageRef(storage, `chat-uploads/${chatId}/${timestamp}_${file.name}`);
       const task = uploadBytesResumable(fileStorageRef, file);
-      setUploadTask(task);
+      uploadTaskRef.current = task;
 
       task.on('state_changed',
         (snapshot) => {
@@ -129,20 +129,20 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
           toast({ title: 'Upload Failed', description: `${error.code}: ${error.message}`, variant: 'destructive' });
           setIsUploading(false);
           setUploadProgress(0);
-          setUploadTask(null);
+          uploadTaskRef.current = null;
         },
         async () => {
           const downloadURL = await getDownloadURL(task.snapshot.ref);
           sendMessage(chatId, file.name, downloadURL);
           setIsUploading(false);
           setUploadProgress(0);
-          setUploadTask(null);
+          uploadTaskRef.current = null;
         }
       );
     } catch (error: any) {
       toast({ title: 'Upload Failed', description: error.message, variant: 'destructive' });
       setIsUploading(false);
-      setUploadTask(null);
+      uploadTaskRef.current = null;
     }
   };
 
@@ -275,10 +275,10 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
                 size="sm"
                 className="h-5 px-2 text-xs"
                 onClick={() => {
-                  uploadTask?.cancel();
+                  uploadTaskRef.current?.cancel();
                   setIsUploading(false);
                   setUploadProgress(0);
-                  setUploadTask(null);
+                  uploadTaskRef.current = null;
                 }}
               >
                 Cancel
