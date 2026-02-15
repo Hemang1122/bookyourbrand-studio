@@ -20,6 +20,7 @@ import { DailyReportDialog } from './components/daily-report-dialog';
 import { Logo } from '@/components/logo';
 import { NotificationBell } from './notification-bell';
 import { useAuth } from '@/firebase/provider';
+import { usePresence } from '@/firebase';
 
 function AppHeader() {
     const { user } = useAuth();
@@ -51,6 +52,9 @@ export default function AppLayoutClient({
   children: React.ReactNode;
 }) {
   const { user } = useAuth();
+  
+  // Set up presence for the current user
+  usePresence(user?.id);
 
   // This check is crucial to ensure we don't render the DataProvider and layout
   // for a null user, which can happen during the redirect phase after logout.

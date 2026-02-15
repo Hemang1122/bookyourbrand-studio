@@ -1,4 +1,3 @@
-
 'use client';
 import { useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -12,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { useData } from '../../data-provider';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { formatDistanceToNow } from 'date-fns';
+import { UserPresence } from '@/components/ui/user-presence';
 
 type SupportChatListProps = {
   contacts: User[];
@@ -82,10 +82,13 @@ export function SupportChatList({ contacts, selectedContact, onSelectContact }: 
               )}
               onClick={() => onSelectContact(contact)}
             >
-              <Avatar>
-                <AvatarImage src={avatar?.imageUrl} alt={contact.name} />
-                <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
-              </Avatar>
+              <div className="relative">
+                <Avatar>
+                    <AvatarImage src={avatar?.imageUrl} alt={contact.name} />
+                    <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <UserPresence userId={contact.id} showLastSeen={false} className="absolute bottom-0 right-0" />
+              </div>
               <div className="flex-1 overflow-hidden">
                 <div className="flex justify-between items-center">
                     <p className="font-semibold truncate">{contact.name}</p>
@@ -95,8 +98,8 @@ export function SupportChatList({ contacts, selectedContact, onSelectContact }: 
                     <p className="text-sm text-muted-foreground truncate">
                         {lastMessage ? `${lastMessage.senderName}: ${lastMessage.text}` : `Start a conversation...`}
                     </p>
-                    {contact.chat?.unreadCount && contact.chat.unreadCount > 0 ? (
-                        <Badge variant="destructive" className="h-5 w-5 justify-center p-0">{contact.chat.unreadCount}</Badge>
+                    {(contact.chat?.unreadCount ?? 0) > 0 ? (
+                        <Badge variant="destructive" className="h-5 w-5 justify-center p-0">{contact.chat?.unreadCount}</Badge>
                     ) : null}
                 </div>
               </div>

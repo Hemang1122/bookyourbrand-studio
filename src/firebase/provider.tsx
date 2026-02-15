@@ -6,6 +6,7 @@ import { Firestore } from 'firebase/firestore';
 import { Auth, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
 import type { User } from '@/lib/types';
+import { Database } from 'firebase/database';
 
 
 // --- Core Firebase Services Context (for initialization) ---
@@ -14,30 +15,33 @@ interface FirebaseServicesContextState {
   firebaseApp: FirebaseApp | null;
   firestore: Firestore | null;
   auth: Auth | null;
+  database: Database | null;
 }
 
 const FirebaseServicesContext = createContext<FirebaseServicesContextState | undefined>(undefined);
 
 
 /**
- * FirebaseProvider: Manages and provides the CORE Firebase service instances (app, auth, firestore).
+ * FirebaseProvider: Manages and provides the CORE Firebase service instances (app, auth, firestore, database).
  * This is primarily for use with the client-side initialization.
  */
-export const FirebaseProvider: React.FC<{ children: ReactNode; firebaseApp: FirebaseApp | null; firestore: Firestore | null; auth: Auth | null; }> = ({
+export const FirebaseProvider: React.FC<{ children: ReactNode; firebaseApp: FirebaseApp | null; firestore: Firestore | null; auth: Auth | null; database: Database | null; }> = ({
   children,
   firebaseApp,
   firestore,
   auth,
+  database
 }) => {
   const servicesContextValue = useMemo((): FirebaseServicesContextState => {
-    const servicesAvailable = !!(firebaseApp && firestore && auth);
+    const servicesAvailable = !!(firebaseApp && firestore && auth && database);
     return {
       areServicesAvailable: servicesAvailable,
       firebaseApp: servicesAvailable ? firebaseApp : null,
       firestore: servicesAvailable ? firestore : null,
       auth: servicesAvailable ? auth : null,
+      database: servicesAvailable ? database : null,
     };
-  }, [firebaseApp, firestore, auth]);
+  }, [firebaseApp, firestore, auth, database]);
 
   return (
     <FirebaseServicesContext.Provider value={servicesContextValue}>

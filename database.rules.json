@@ -1,0 +1,22 @@
+{
+  "rules": {
+    // status/{uid} => { isOnline: boolean, last_seen: timestamp }
+    "status": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    // typing/{chatId}/{uid} => boolean
+    "typing": {
+      "$chatId": {
+        ".read": "auth != null && root.child('chats/' + $chatId + '/participants/' + auth.uid).exists()",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          // Add a validation to ensure the data is a boolean or null
+          ".validate": "newData.isBoolean() || newData.val() === null"
+        }
+      }
+    }
+  }
+}

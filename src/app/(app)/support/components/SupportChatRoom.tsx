@@ -8,12 +8,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
 import { AddChatAttachmentDialog } from '../../projects/[id]/components/add-chat-attachment-dialog';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useCollection, useFirebaseServices, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirebaseServices, useMemoFirebase, useTypingIndicator } from '@/firebase';
 import { collection, query, orderBy, Timestamp, doc, writeBatch, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { UserPresence } from '@/components/ui/user-presence';
+import { TypingIndicator } from './TypingIndicator';
 
 type SupportChatRoomProps = {
   chatPartner: User;
@@ -26,6 +28,7 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
   const { getOrCreateChat, sendMessage, markChatNotificationsAsRead } = useData();
   const [chatId, setChatId] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const { typingUsers, setTyping } = useTypingIndicator(chatId);
   
   // Get or create chat ID
   useEffect(() => {
@@ -91,12 +94,19 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
     e.preventDefault();
     if (!chatId || !newMessage.trim()) return;
     sendMessage(chatId, newMessage);
+    setTyping(false);
     setNewMessage('');
   };
 
   const handleAddAttachment = (url: string, message: string) => {
     if (!chatId) return;
     sendMessage(chatId, message || url, url);
+    setTyping(false);
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewMessage(e.target.value);
+    setTyping(true);
   }
   
   if (!currentUser || !chatPartner) return null;
@@ -112,7 +122,7 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
         </Avatar>
          <div className="ml-4">
             <CardTitle className="text-base">{chatPartner.name}</CardTitle>
-            <CardDescription className="text-xs capitalize">{chatPartner.role}</CardDescription>
+            <UserPresence userId={chatPartner.id} />
          </div>
       </CardHeader>
        <div className="flex-1 flex flex-col overflow-hidden">
@@ -203,6 +213,7 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
                 })}
             </div>
         </ScrollArea>
+        <TypingIndicator typingUserIds={typingUsers} />
 
         {/* Input bar always visible */}
         <div className="border-t p-4 bg-background">
@@ -219,7 +230,7 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
 
             <Input
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
+                onChange={handleInputChange}
                 placeholder="Type a message..."
                 autoComplete="off"
             />

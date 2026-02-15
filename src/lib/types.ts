@@ -14,7 +14,7 @@ export type User = {
   joiningLetterUrl?: string;
   fcmTokens?: string[];
   isOnline?: boolean;
-  lastSeen?: Timestamp;
+  lastSeen?: number | object;
 };
 
 export type PackageName = 'Bronze' | 'Silver' | 'Gold' | 'Advanced Editing' | 'Podcast';
@@ -191,4 +191,9 @@ export type ChatMessage = {
   timestamp: Timestamp;
   readBy: string[];
   deleted?: boolean;
+};
+
+export type UserPresence = {
+  isOnline: boolean;
+  lastSeen: number;
 };
