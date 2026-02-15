@@ -3,15 +3,16 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import type { ChatMessage, User, Project } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Paperclip, Link as LinkIcon, FileText } from 'lucide-react';
+import { Send, Paperclip, Loader2, FileText, Download } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
-import { AddChatAttachmentDialog } from './add-chat-attachment-dialog';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useCollection, useFirebaseServices, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, serverTimestamp, addDoc, Timestamp } from 'firebase/firestore';
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../../data-provider';
+import { useToast } from '@/hooks/use-toast';
 
 type ProjectChatProps = {
   project: Project;
@@ -23,6 +24,11 @@ export function ProjectChat({ project }: ProjectChatProps) {
   const { firestore } = useFirebaseServices();
   const { addNotification, markChatNotificationsAsRead } = useData();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const { toast } = useToast();
 
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -98,9 +104,43 @@ export function ProjectChat({ project }: ProjectChatProps) {
     sendMessage(newMessage);
   };
 
-  const handleAddAttachment = (url: string, message: string) => {
-    sendMessage(message || url, url);
-  }
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    e.target.value = '';
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      const storage = getStorage();
+      const timestamp = Date.now();
+      const fileStorageRef = storageRef(storage, `chat-uploads/${project.id}/${timestamp}_${file.name}`);
+      const uploadTask = uploadBytesResumable(fileStorageRef, file);
+
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(Math.round(progress));
+        },
+        (error) => {
+          console.error('Upload failed:', error);
+          toast({ title: 'Upload Failed', description: error.message, variant: 'destructive' });
+          setIsUploading(false);
+          setUploadProgress(0);
+        },
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          sendMessage(file.name, downloadURL);
+          setIsUploading(false);
+          setUploadProgress(0);
+        }
+      );
+    } catch (error: any) {
+      toast({ title: 'Upload Failed', description: error.message, variant: 'destructive' });
+      setIsUploading(false);
+    }
+  };
   
   if (!currentUser) return null;
 
@@ -140,18 +180,23 @@ export function ProjectChat({ project }: ProjectChatProps) {
                     <div className={`flex flex-col gap-1 max-w-xs lg:max-w-md ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                         {!isCurrentUser && <span className="text-xs text-muted-foreground">{msg.senderName}</span>}
                         <div className={`rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                            {msg.type === 'media' ? (
-                            <div className="space-y-2">
-                                <a href={msg.mediaURL || ''} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-lg border bg-background/50 p-3 hover:bg-accent">
-                                    <FileText className="h-6 w-6 text-muted-foreground" />
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium text-foreground">File Attachment</p>
-                                        <p className="text-xs text-muted-foreground truncate">{msg.mediaURL}</p>
-                                    </div>
-                                    <LinkIcon className="h-4 w-4 text-muted-foreground"/>
+                            {msg.mediaURL && msg.mediaURL.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i) ? (
+                              <div className="space-y-2">
+                                <a href={msg.mediaURL} target="_blank" rel="noopener noreferrer">
+                                  <img 
+                                    src={msg.mediaURL} 
+                                    alt={msg.text || 'Image attachment'} 
+                                    className="max-w-[240px] max-h-[320px] rounded-lg object-cover cursor-pointer"
+                                  />
                                 </a>
-                                {msg.text && msg.text !== msg.mediaURL && <p className="text-sm">{msg.text}</p>}
-                            </div>
+                                {msg.text && !msg.mediaURL.includes(msg.text) && <p className="text-sm">{msg.text}</p>}
+                              </div>
+                            ) : msg.mediaURL ? (
+                              <a href={msg.mediaURL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-lg bg-background/50 hover:bg-background text-sm font-medium">
+                                <FileText className="h-4 w-4 shrink-0" />
+                                <span className="truncate max-w-[180px]">{msg.text || 'Download file'}</span>
+                                <Download className="h-4 w-4 shrink-0 ml-auto" />
+                              </a>
                             ) : (
                                 <p className="text-sm">{msg.text}</p>
                             )}
@@ -165,15 +210,42 @@ export function ProjectChat({ project }: ProjectChatProps) {
             })}
             </div>
         </ScrollArea>
+         {isUploading && (
+          <div className="px-4 py-1 border-t">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Uploading... {uploadProgress}%</span>
+              <div className="flex-1 bg-muted rounded-full h-1">
+                <div 
+                  className="bg-primary h-1 rounded-full transition-all"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
         <div className="border-t p-4 bg-background">
             <form onSubmit={handleSendTextMessage} className="flex w-full items-center space-x-2">
-            <AddChatAttachmentDialog onAddAttachment={handleAddAttachment}>
-                <Button variant="ghost" size="icon" type="button">
-                    <Paperclip className="h-5 w-5" />
-                    <span className="sr-only">Attach file</span>
-                </Button>
-            </AddChatAttachmentDialog>
-
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+              onChange={handleFileSelect}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+            >
+              {isUploading 
+                ? <Loader2 className="h-5 w-5 animate-spin" /> 
+                : <Paperclip className="h-5 w-5" />
+              }
+               <span className="sr-only">Attach file</span>
+            </Button>
             <Input
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}

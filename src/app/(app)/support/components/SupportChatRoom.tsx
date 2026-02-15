@@ -3,15 +3,16 @@ import { useState, useEffect, useRef } from 'react';
 import type { ChatMessage, User } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Paperclip, FileText, Link as LinkIcon } from 'lucide-react';
+import { Send, Paperclip, FileText, Download, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
-import { AddChatAttachmentDialog } from '../../projects/[id]/components/add-chat-attachment-dialog';
-import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { CardHeader, CardTitle } from '@/components/ui/card';
 import { useCollection, useFirebaseServices, useMemoFirebase, useTypingIndicator } from '@/firebase';
-import { collection, query, orderBy, Timestamp, doc, writeBatch, arrayUnion, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, Timestamp, doc, writeBatch, arrayUnion } from 'firebase/firestore';
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
+import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { UserPresence } from '@/components/ui/user-presence';
@@ -30,6 +31,11 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { typingUsers, setTyping } = useTypingIndicator(chatId);
   
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const { toast } = useToast();
+
   // Get or create chat ID
   useEffect(() => {
     if (currentUser && chatPartner) {
@@ -94,11 +100,45 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
     setNewMessage('');
   };
 
-  const handleAddAttachment = (url: string, message: string) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!chatId) return;
-    sendMessage(chatId, message || url, url);
-    setTyping(false);
-  }
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    e.target.value = '';
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      const storage = getStorage();
+      const timestamp = Date.now();
+      const fileStorageRef = storageRef(storage, `chat-uploads/${chatId}/${timestamp}_${file.name}`);
+      const uploadTask = uploadBytesResumable(fileStorageRef, file);
+
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(Math.round(progress));
+        },
+        (error) => {
+          console.error('Upload failed:', error);
+          toast({ title: 'Upload Failed', description: error.message, variant: 'destructive' });
+          setIsUploading(false);
+          setUploadProgress(0);
+        },
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          sendMessage(chatId, file.name, downloadURL);
+          setIsUploading(false);
+          setUploadProgress(0);
+        }
+      );
+    } catch (error: any) {
+      toast({ title: 'Upload Failed', description: error.message, variant: 'destructive' });
+      setIsUploading(false);
+    }
+  };
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewMessage(e.target.value);
@@ -173,29 +213,23 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
                             : 'bg-muted'
                         }`}
                         >
-                        {msg.type === 'media' ? (
-                            <div className="space-y-2">
-                            <a
-                                href={msg.mediaURL || '#'}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-3 rounded-lg border bg-background/50 p-3 hover:bg-accent"
-                            >
-                                <FileText className="h-6 w-6 text-muted-foreground" />
-                                <div className="flex-1">
-                                <p className="text-sm font-medium text-foreground">
-                                    File Attachment
-                                </p>
-                                <p className="text-xs text-muted-foreground truncate">
-                                    {msg.mediaURL}
-                                </p>
-                                </div>
-                                <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                        {msg.mediaURL && msg.mediaURL.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i) ? (
+                          <div className="space-y-2">
+                            <a href={msg.mediaURL} target="_blank" rel="noopener noreferrer">
+                              <img 
+                                src={msg.mediaURL} 
+                                alt={msg.text || 'Image attachment'} 
+                                className="max-w-[240px] max-h-[320px] rounded-lg object-cover cursor-pointer"
+                              />
                             </a>
-                            {msg.text && msg.text !== msg.mediaURL && (
-                                <p className="text-sm">{msg.text}</p>
-                            )}
-                            </div>
+                            {msg.text && !msg.mediaURL.includes(msg.text) && <p className="text-sm">{msg.text}</p>}
+                          </div>
+                        ) : msg.mediaURL ? (
+                          <a href={msg.mediaURL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-lg bg-background/50 hover:bg-background text-sm font-medium">
+                            <FileText className="h-4 w-4 shrink-0" />
+                            <span className="truncate max-w-[180px]">{msg.text || 'Download file'}</span>
+                            <Download className="h-4 w-4 shrink-0 ml-auto" />
+                          </a>
                         ) : (
                             <p className="text-sm">{msg.text}</p>
                         )}
@@ -217,18 +251,45 @@ export function SupportChatRoom({ chatPartner }: SupportChatRoomProps) {
             </div>
         </ScrollArea>
         <TypingIndicator typingUserIds={typingUsers} />
+        {isUploading && (
+          <div className="px-4 py-1 border-t">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Uploading... {uploadProgress}%</span>
+              <div className="flex-1 bg-muted rounded-full h-1">
+                <div 
+                  className="bg-primary h-1 rounded-full transition-all"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
         <div className="border-t p-4 bg-background">
             <form
             onSubmit={handleSendTextMessage}
             className="flex w-full items-center space-x-2"
             >
-            <AddChatAttachmentDialog onAddAttachment={handleAddAttachment}>
-                <Button variant="ghost" size="icon" type="button">
-                <Paperclip className="h-5 w-5" />
-                <span className="sr-only">Attach file</span>
-                </Button>
-            </AddChatAttachmentDialog>
-
+             <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+              onChange={handleFileSelect}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+            >
+              {isUploading 
+                ? <Loader2 className="h-5 w-5 animate-spin" /> 
+                : <Paperclip className="h-5 w-5" />
+              }
+               <span className="sr-only">Attach file</span>
+            </Button>
             <Input
                 value={newMessage}
                 onChange={handleInputChange}
