@@ -1,13 +1,11 @@
-
 'use client';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TeamAnalytics } from './components/team-analytics';
 import { ClientAnalytics } from './components/client-analytics';
 import { useAuth } from '@/firebase/provider';
 import { redirect } from 'next/navigation';
-import { Users, Briefcase, Download, Loader2, BarChart3 } from 'lucide-react';
+import { Users, Briefcase, Download, Loader2, BarChart3, IndianRupee, FolderKanban, CheckCircle, FileText } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -23,8 +21,7 @@ import type { User, TimerSession, PackageName, Project, Task, Client } from '@/l
 import { packages } from '../settings/billing/packages-data';
 import html2canvas from 'html2canvas';
 import { OverviewChart } from '../dashboard/components/overview-chart';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { LoginLogo } from '@/components/login-logo';
+import { cn } from '@/lib/utils';
 
 
 type AnalyticsTab = 'team-analytics' | 'client-analytics' | 'business-analytics';
@@ -45,45 +42,56 @@ const BusinessAnalytics = ({ tasks, projects, clients }: { tasks: Task[], projec
         }, 0);
     }, [projects, clients]);
 
-    const kpis = {
-        'Total Revenue': `₹${totalRevenue.toLocaleString('en-IN')}`,
-        'Total Clients': clients.length,
-        'Total Projects': projects.length,
-        'Completed Tasks': tasks.filter(t => t.status === 'Completed').length,
-    };
+    const kpis = [
+        { label: 'Total Revenue', value: `₹${totalRevenue.toLocaleString('en-IN')}`, icon: IndianRupee, color: '#10B981', change: '+12%' },
+        { label: 'Total Clients', value: clients.length.toString(), icon: Users, color: '#7C3AED', change: '+8%' },
+        { label: 'Total Projects', value: projects.length.toString(), icon: FolderKanban, color: '#3B82F6', change: '+24%' },
+        { label: 'Completed Tasks', value: tasks.filter(t => t.status === 'Completed').length.toString(), icon: CheckCircle, color: '#EC4899', change: '+18%' },
+    ];
+    
+    const executiveSummary = `This report provides a comprehensive overview of BookYourBrands' performance, analyzing key metrics across revenue, client acquisition, and operational efficiency. The data highlights a strong growth trajectory and identifies key areas for strategic focus to maintain momentum.`;
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Business Report Preview</CardTitle>
-                <CardDescription>A summary of the key sections that will be included in your detailed PDF report.</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6">
-                 <div className="space-y-8">
-                    <div className="p-8 rounded-lg bg-muted/50">
-                        <h3 className="text-xl font-semibold mb-4">Executive Summary</h3>
-                        <p className="text-muted-foreground">This report provides a comprehensive overview of BookYourBrands' performance, analyzing key metrics across revenue, client acquisition, and operational efficiency. The data highlights a strong growth trajectory and identifies key areas for strategic focus to maintain momentum.</p>
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {kpis.map(kpi => (
+                    <div key={kpi.label} className="rounded-2xl p-5 bg-[#13131F] border border-white/5 hover:border-purple-500/20 transition-all">
+                        <div className="flex items-start justify-between mb-4">
+                            <div className="p-2.5 rounded-xl" style={{ background: kpi.color + '20' }}>
+                                <kpi.icon className="h-5 w-5" style={{ color: kpi.color }} />
+                            </div>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-400">{kpi.change}</span>
+                        </div>
+                        <p className="text-2xl font-bold text-white mb-1">{kpi.value}</p>
+                        <p className="text-xs text-muted-foreground">{kpi.label}</p>
                     </div>
-                     <div className="p-8 rounded-lg bg-muted/50">
-                        <h3 className="text-xl font-semibold mb-4">Key Performance Indicators (KPIs)</h3>
-                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                            {Object.entries(kpis).map(([key, value]) => (
-                                <div key={key} className="p-4 bg-background rounded-lg shadow">
-                                    <p className="text-sm font-medium text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}</p>
-                                    <p className="text-2xl font-bold">{value}</p>
-                                </div>
-                            ))}
+                ))}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 rounded-2xl p-6 bg-[#13131F] border border-white/5">
+                    <div className="flex items-center justify-between mb-6">
+                        <div>
+                        <h3 className="font-semibold text-white">Task Status Overview</h3>
+                        <p className="text-xs text-muted-foreground mt-1">Distribution of tasks by current status</p>
                         </div>
                     </div>
-                     <div className="p-8 rounded-lg bg-muted/50">
-                        <h3 className="text-xl font-semibold mb-4">Task Status Overview</h3>
-                        <div className="h-[350px]">
-                           <OverviewChart tasks={tasks} />
-                        </div>
+                    <div className="h-64">
+                        <OverviewChart tasks={tasks} />
                     </div>
                 </div>
-            </CardContent>
-        </Card>
+
+                <div className="rounded-2xl p-6 bg-[#13131F] border border-white/5">
+                    <div className="flex items-center gap-2 mb-4">
+                        <div className="p-1.5 rounded-lg bg-purple-500/10">
+                            <FileText className="h-4 w-4 text-purple-400" />
+                        </div>
+                        <h3 className="font-semibold text-white">Executive Summary</h3>
+                    </div>
+                    <p className="text-muted-foreground text-sm leading-relaxed">{executiveSummary}</p>
+                </div>
+            </div>
+        </div>
     );
 };
 
@@ -371,63 +379,99 @@ export default function ReportsPage() {
             generateTeamClientReport();
         }
     };
+    
+    const TABS = [
+        { id: 'team-analytics', label: 'Team Analytics', icon: Users },
+        { id: 'client-analytics', label: 'Client Analytics', icon: Briefcase },
+        { id: 'business-analytics', label: 'Business Report', icon: BarChart3 }
+    ];
+    
+    const quickStats = useMemo(() => {
+        const totalRevenue = projects.reduce((acc, proj) => {
+            const client = clients.find(c => c.id === proj.client.id);
+            return acc + getPackagePrice(client?.packageName);
+        }, 0);
+        return [
+            { label: 'Total Revenue', value: `₹${(totalRevenue/1000).toFixed(1)}k`, icon: IndianRupee, color: '#10B981' },
+            { label: 'Total Clients', value: clients.length, icon: Users, color: '#7C3AED' },
+            { label: 'Active Projects', value: projects.filter(p => p.status === 'Active' || p.status === 'In Progress').length, icon: FolderKanban, color: '#3B82F6' },
+            { label: 'Completed Tasks', value: tasks.filter(t => t.status === 'Completed').length, icon: CheckCircle, color: '#EC4899' },
+        ];
+    }, [projects, clients, tasks]);
 
     return (
         <div className="space-y-6">
-             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Analytics Reports</h2>
-                    <p className="text-muted-foreground">
-                        Insights into team performance and client activities.
-                    </p>
-                </div>
-                 <div className="flex items-center gap-2">
-                    {activeTab === 'team-analytics' && (
-                        <Select value={String(dateRange)} onValueChange={(value) => setDateRange(Number(value))}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Select date range" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="7">Last 7 Days</SelectItem>
-                                <SelectItem value="30">Last 30 Days</SelectItem>
-                                <SelectItem value="90">Last 90 Days</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    )}
-                     <Button onClick={handleDownload} disabled={isDownloading || isLoading}>
-                        {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                        Download PDF
-                    </Button>
+             <div className="relative overflow-hidden rounded-2xl p-8 mb-8 bg-gradient-to-r from-purple-900/20 to-pink-900/20 border border-purple-500/20">
+                <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full opacity-20 blur-3xl bg-gradient-to-br from-purple-500 to-pink-500" />
+                <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500">
+                                <BarChart3 className="h-6 w-6 text-white" />
+                            </div>
+                            <h1 className="text-3xl font-bold text-white">Analytics Reports</h1>
+                        </div>
+                        <p className="text-muted-foreground ml-14">Insights into team performance and client activities</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        {activeTab === 'team-analytics' && (
+                            <Select value={String(dateRange)} onValueChange={(value) => setDateRange(Number(value))}>
+                                <SelectTrigger className="w-[180px]">
+                                    <SelectValue placeholder="Select date range" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="7">Last 7 Days</SelectItem>
+                                    <SelectItem value="30">Last 30 Days</SelectItem>
+                                    <SelectItem value="90">Last 90 Days</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        )}
+                        <Button onClick={handleDownload} disabled={isDownloading || isLoading} className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0">
+                            {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                            Download PDF
+                        </Button>
+                    </div>
                 </div>
             </div>
 
-            <Tabs defaultValue="team-analytics" className="w-full" onValueChange={(value) => setActiveTab(value as AnalyticsTab)}>
-                <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="team-analytics">
-                        <Users className="mr-2 h-4 w-4" />
-                        Team Analytics
-                    </TabsTrigger>
-                    <TabsTrigger value="client-analytics">
-                        <Briefcase className="mr-2 h-4 w-4" />
-                        Client Analytics
-                    </TabsTrigger>
-                    <TabsTrigger value="business-analytics">
-                        <BarChart3 className="mr-2 h-4 w-4" />
-                        Business Report
-                    </TabsTrigger>
-                </TabsList>
-                <TabsContent value="team-analytics">
-                    <TeamAnalytics dateRange={dateRange} />
-                </TabsContent>
-                <TabsContent value="client-analytics">
-                   <ClientAnalytics dateRange={dateRange} />
-                </TabsContent>
-                 <TabsContent value="business-analytics">
-                   <BusinessAnalytics tasks={tasks} projects={projects} clients={clients}/>
-                </TabsContent>
-            </Tabs>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                {quickStats.map(stat => (
+                    <div key={stat.label} className="rounded-xl p-4 bg-[#13131F] border border-white/5 flex items-center gap-3">
+                        <div className="p-2 rounded-lg" style={{ background: stat.color + '20' }}>
+                            <stat.icon className="h-4 w-4" style={{ color: stat.color }} />
+                        </div>
+                        <div>
+                            <p className="text-lg font-bold text-white">{stat.value}</p>
+                            <p className="text-xs text-muted-foreground">{stat.label}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+             <div className="flex gap-1 p-1 rounded-xl mb-8 bg-white/5 border border-white/5 w-fit">
+                {TABS.map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id as AnalyticsTab)}
+                        className={cn(
+                            "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                            activeTab === tab.id
+                            ? "bg-gradient-to-r from-purple-600 to-pink-500 text-white shadow-md shadow-purple-500/25"
+                            : "text-muted-foreground hover:text-white hover:bg-white/5"
+                        )}
+                    >
+                    <tab.icon className="h-4 w-4" />
+                    {tab.label}
+                    </button>
+                ))}
+            </div>
+
+            <div>
+                {activeTab === 'team-analytics' && <TeamAnalytics dateRange={dateRange} />}
+                {activeTab === 'client-analytics' && <ClientAnalytics dateRange={dateRange} />}
+                {activeTab === 'business-analytics' && <BusinessAnalytics tasks={tasks} projects={projects} clients={clients}/>}
+            </div>
             
-            {/* Hidden chart for PDF generation */}
             <div className="absolute -left-[9999px] top-0 w-[800px] bg-background p-4">
                 <div id="overview-chart-for-pdf">
                     <OverviewChart tasks={tasks} />
