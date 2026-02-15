@@ -2,13 +2,12 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { notFound, useParams } from 'next/navigation';
+import { notFound, useParams, useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TaskList } from './components/task-list';
 import { FileManager } from './components/file-manager';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ListTodo, Files, Info, Users, Edit, Trash2, MessageSquare } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ChevronRight, Info, Users, Settings, LayoutList, FolderOpen, MessageSquare, Plus, Calendar, Pencil, Trash2, FileIcon, Download } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
 import type { Project, Client, User, ProjectStatus } from '@/lib/types';
@@ -21,23 +20,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ProjectChat } from './components/project-chat';
+import { Card } from '@/components/ui/card';
 
-
-const getStatusBadgeClass = (status: ProjectStatus) => {
-    switch (status) {
-        case 'Active':
-        case 'In Progress':
-            return 'bg-green-600/90 hover:bg-green-600 text-white';
-        case 'Completed':
-            return '';
-        case 'On Hold':
-            return 'bg-amber-500/90 hover:bg-amber-500 text-white';
-        case 'Rework':
-            return 'bg-red-500/90 hover:bg-red-500 text-white';
-        default:
-            return '';
-    }
-}
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -45,6 +29,7 @@ export default function ProjectDetailPage() {
   const { user } = useAuth();
   const { projects, isLoading, deleteProject, updateProject, users } = useData();
   const { toast } = useToast();
+  const router = useRouter();
 
   const project = useMemo(() => {
     return projects.find((p) => p.id === id);
@@ -73,16 +58,15 @@ export default function ProjectDetailPage() {
                 </div>
             </div>
             <Card>
-                <CardContent className="p-6">
+                <div className="p-6">
                     <Skeleton className="h-96 w-full" />
-                </CardContent>
+                </div>
             </Card>
         </div>
     )
   }
 
   if (!project) {
-    // This will be called if the project is not found after loading.
     return notFound();
   }
   
@@ -94,121 +78,124 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="space-y-6">
-       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex-1">
-          <h2 className="text-3xl font-bold tracking-tight">{project.name}</h2>
-          <p className="text-muted-foreground">For client: {getClientName(project.client)}</p>
-        </div>
-        <div className="flex items-center gap-2">
-            {user?.role === 'admin' && (
-              <>
-                <EditProjectDialog project={project} onProjectUpdate={updateProject}>
-                  <Button variant="outline">
-                    <Edit className="mr-2 h-4 w-4" /> Edit
-                  </Button>
-                </EditProjectDialog>
-                <DeleteProjectDialog project={project} onProjectDelete={deleteProject}>
-                   <Button variant="destructive">
-                    <Trash2 className="mr-2 h-4 w-4" />
-                  </Button>
-                </DeleteProjectDialog>
-              </>
-            )}
-             {user?.role === 'team' || user?.role === 'admin' ? (
-              <Select onValueChange={(value: ProjectStatus) => handleStatusChange(value)} value={project.status}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Update status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="In Progress">In Progress</SelectItem>
-                  <SelectItem value="On Hold">On Hold</SelectItem>
-                  <SelectItem value="Rework">Rework</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            ) : (
-               <Badge variant={project.status === 'Completed' ? 'secondary' : 'default'} className={cn("text-base px-4 py-2", getStatusBadgeClass(project.status))}>
-                  {project.status}
-              </Badge>
-            )}
+      <div className="relative overflow-hidden rounded-2xl p-8 mb-6 bg-gradient-to-r from-purple-900/20 to-pink-900/20 border border-purple-500/20">
+        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full opacity-20 blur-3xl bg-gradient-to-br from-purple-500 to-pink-500" />
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-3 text-sm text-muted-foreground">
+            <span onClick={() => router.push('/projects')} className="hover:text-purple-400 cursor-pointer transition-colors">
+              Projects
+            </span>
+            <ChevronRight className="h-4 w-4" />
+            <span className="text-white">{project.name}</span>
+          </div>
+
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-1">{project.name}</h1>
+              <p className="text-muted-foreground">
+                For client: <span className="text-purple-400 ml-1">{getClientName(project.client)}</span>
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-3">
+               {user?.role === 'team' || user?.role === 'admin' ? (
+                <Select onValueChange={(value: ProjectStatus) => handleStatusChange(value)} value={project.status}>
+                  <SelectTrigger className="rounded-xl px-4 py-2 text-sm font-medium border bg-white/5 text-white border-white/10 focus:border-purple-500/50 focus:outline-none w-[180px]">
+                    <SelectValue placeholder="Update status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="In Progress">In Progress</SelectItem>
+                    <SelectItem value="On Hold">On Hold</SelectItem>
+                    <SelectItem value="Rework">Rework</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                 <span className={cn("inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold")}>{project.status}</span>
+              )}
+              {user?.role === 'admin' && (
+                <>
+                  <EditProjectDialog project={project} onProjectUpdate={updateProject}>
+                    <Button variant="outline" size="sm" className="border-white/10 hover:border-purple-500/50 hover:bg-purple-500/10 text-white">
+                      <Pencil className="h-4 w-4 mr-2" /> Edit
+                    </Button>
+                  </EditProjectDialog>
+                  <DeleteProjectDialog project={project} onProjectDelete={deleteProject}>
+                    <Button variant="outline" size="sm" className="border-red-500/30 hover:bg-red-500/10 text-red-400 hover:text-red-300">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </DeleteProjectDialog>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
       
-      <div className="grid gap-6 md:grid-cols-3">
-        {project.guidelines && (
-          <Card className="md:col-span-2">
-            <CardHeader className='pb-2'>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Info className="h-5 w-5" />
-                Project Guidelines
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">{project.guidelines}</p>
-            </CardContent>
-          </Card>
-        )}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Project Team
-                </CardTitle>
-                {user?.role === 'admin' && (
-                    <ManageTeamDialog project={project}>
-                        <Button variant="outline" size="sm">
-                            <Edit className="mr-2 h-4 w-4" /> Manage
-                        </Button>
-                    </ManageTeamDialog>
-                )}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div className="lg:col-span-2 rounded-2xl p-5 bg-[#13131F] border border-white/5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="p-1.5 rounded-lg bg-purple-500/10">
+              <Info className="h-4 w-4 text-purple-400" />
             </div>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {displayTeamMembers.map(member => {
-                return (
-                    <div key={member.id}>
-                        <p className="font-semibold text-sm">{member.name}</p>
-                        {user?.role !== 'client' && <p className="text-xs text-muted-foreground">{member.email}</p>}
-                    </div>
-                )
-            })}
-             {displayTeamMembers.length === 0 && <p className="text-sm text-muted-foreground">No team members assigned.</p>}
-          </CardContent>
-        </Card>
-      </div>
+            <h3 className="font-semibold text-white">Project Guidelines</h3>
+          </div>
+          <p className="text-muted-foreground text-sm leading-relaxed">{project.guidelines || 'No guidelines provided.'}</p>
+        </div>
 
+        <div className="rounded-2xl p-5 bg-[#13131F] border border-white/5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-pink-500/10">
+                <Users className="h-4 w-4 text-pink-400" />
+              </div>
+              <h3 className="font-semibold text-white">Project Team</h3>
+            </div>
+            {user?.role === 'admin' && (
+              <ManageTeamDialog project={project}>
+                <Button variant="ghost" size="sm" className="h-7 text-xs text-purple-400 hover:text-purple-300 hover:bg-purple-500/10">
+                  <Settings className="h-3 w-3 mr-1" /> Manage
+                </Button>
+              </ManageTeamDialog>
+            )}
+          </div>
+          <div className="space-y-3">
+            {displayTeamMembers.length > 0 ? displayTeamMembers.map(member => (
+              <div key={member.id} className="flex items-center gap-3">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="text-xs bg-gradient-to-br from-purple-500/30 to-pink-500/30 text-purple-200">{member.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-sm font-medium text-white">{member.name}</p>
+                  <p className="text-xs text-muted-foreground">{user?.role !== 'client' && member.email}</p>
+                </div>
+              </div>
+            )) : <p className="text-sm text-muted-foreground">No team members assigned.</p>}
+          </div>
+        </div>
+      </div>
+      
       <Tabs defaultValue="tasks" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="tasks"><ListTodo className="mr-2 h-4 w-4" />Tasks</TabsTrigger>
-          <TabsTrigger value="files"><Files className="mr-2 h-4 w-4" />Files</TabsTrigger>
-          <TabsTrigger value="chat"><MessageSquare className="mr-2 h-4 w-4" />Chat</TabsTrigger>
+        <TabsList className="flex gap-1 p-1 rounded-xl mb-6 bg-white/5 border border-white/5 w-fit">
+          <TabsTrigger value="tasks" className="px-6 py-2 rounded-lg text-sm font-medium transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-purple-500/25 data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-white data-[state=inactive]:hover:bg-white/5">
+              <LayoutList className="h-4 w-4 mr-2" />Tasks
+          </TabsTrigger>
+          <TabsTrigger value="files" className="px-6 py-2 rounded-lg text-sm font-medium transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-purple-500/25 data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-white data-[state=inactive]:hover:bg-white/5">
+              <FolderOpen className="h-4 w-4 mr-2" />Files
+          </TabsTrigger>
+          <TabsTrigger value="chat" className="px-6 py-2 rounded-lg text-sm font-medium transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-purple-500/25 data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-white data-[state=inactive]:hover:bg-white/5">
+              <MessageSquare className="h-4 w-4 mr-2" />Chat
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="tasks">
-          <Card>
-            <CardHeader>
-              <CardTitle>Tasks</CardTitle>
-              <CardDescription>Manage and track all tasks for this project.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <TaskList projectId={project.id} />
-            </CardContent>
-          </Card>
+          <TaskList projectId={project.id} />
         </TabsContent>
         <TabsContent value="files">
-           <Card>
-            <CardHeader>
-              <CardTitle>File Management</CardTitle>
-              <CardDescription>Upload and access all project-related files.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <FileManager projectId={project.id} />
-            </CardContent>
-          </Card>
+           <FileManager projectId={project.id} />
         </TabsContent>
         <TabsContent value="chat">
-           <Card className="h-[70vh]">
+           <Card className="h-[70vh] bg-[#13131F] border border-white/5">
              <ProjectChat project={project} />
            </Card>
         </TabsContent>
@@ -216,3 +203,5 @@ export default function ProjectDetailPage() {
     </div>
   );
 }
+
+    

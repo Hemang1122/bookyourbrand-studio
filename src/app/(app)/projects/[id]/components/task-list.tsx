@@ -1,12 +1,12 @@
+
 'use client';
 
 import { useState } from 'react';
 import type { Task, TaskStatus, User } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AddTaskDialog } from './add-task-dialog';
 import { Button } from '@/components/ui/button';
-import { Plus, Wand2, CheckCircle, Play, History, MoreHorizontal, AlertCircle } from 'lucide-react';
+import { Plus, Wand2, CheckCircle, Play, History, MoreHorizontal, AlertCircle, Calendar } from 'lucide-react';
 import { useData } from '../../../data-provider';
 import { useAuth } from '@/firebase/provider';
 import {
@@ -29,6 +29,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { AddManualTaskDialog } from './add-manual-task-dialog';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
 type TaskCardProps = {
   task: Task;
@@ -38,16 +40,19 @@ type TaskCardProps = {
 const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
   const { user } = useAuth();
   const canUpdateStatus = (user?.role === 'admin' || (user?.role === 'team' && user.id === task.assignedTo?.id));
+  const assigneeName = task.assignedTo?.name || 'Unassigned';
 
   return (
-      <Card className="bg-background">
-        <CardHeader className="p-4 flex flex-row items-start justify-between">
-          <CardTitle className="text-base">{task.title}</CardTitle>
-          <div className="flex items-center gap-1">
+      <div className="rounded-xl p-4 mb-3 bg-white/[0.03] border border-white/5 hover:border-purple-500/20 transition-all cursor-pointer group">
+        <div className="flex items-start justify-between mb-2">
+            <p className="text-sm font-medium text-white group-hover:text-purple-300 transition-colors pr-2">
+                {task.title}
+            </p>
+            <div className="flex items-center gap-1">
             {task.remarks && task.remarks.length > 0 && (
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-white">
                     <History className="h-4 w-4" />
                   </Button>
                 </PopoverTrigger>
@@ -55,9 +60,7 @@ const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
                   <div className="grid gap-4">
                     <div className="space-y-2">
                       <h4 className="font-medium leading-none">Task History</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Recent status changes for this task.
-                      </p>
+                      <p className="text-sm text-muted-foreground">Recent status changes for this task.</p>
                     </div>
                     <div className="grid gap-2">
                       {task.remarks.slice().reverse().map((remark, index) => (
@@ -78,7 +81,7 @@ const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
             {canUpdateStatus && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-white">
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -107,23 +110,21 @@ const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
               </DropdownMenu>
             )}
           </div>
-        </CardHeader>
-        <CardContent className="flex items-center justify-between p-4 pt-0">
-            <div className="flex items-center gap-4">
-                <Badge variant="outline">Due: {new Date(task.dueDate).toLocaleDateString()}</Badge>
+        </div>
+        
+        {task.dueDate && (
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Calendar className="h-3 w-3" />
+                <span className="text-xs">Due: {new Date(task.dueDate).toLocaleDateString()}</span>
             </div>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger>
-                <span className="text-xs text-muted-foreground">{task.assignedTo?.name}</span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Assigned to {task.assignedTo?.name}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </CardContent>
-      </Card>
+        )}
+        <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/5">
+            <Avatar className="h-5 w-5">
+                <AvatarFallback className="text-[10px] bg-gradient-to-br from-purple-500/30 to-pink-500/30 text-purple-200">{assigneeName.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <span className="text-xs text-muted-foreground">{assigneeName}</span>
+        </div>
+      </div>
   );
 };
 
@@ -143,6 +144,13 @@ export function TaskList({ projectId }: TaskListProps) {
 
 
   const projectTasks = (tasks || []).filter((t) => t.projectId === projectId);
+  
+  const statusConfig: { [key in TaskStatus]: { color: string, textColor: string } } = {
+    Pending: { color: 'bg-gray-400', textColor: 'text-gray-400' },
+    'In Progress': { color: 'bg-blue-400', textColor: 'text-blue-400' },
+    'Rework': { color: 'bg-orange-400', textColor: 'text-orange-400' },
+    Completed: { color: 'bg-green-400', textColor: 'text-green-400' },
+  }
 
   const columns = {
     Pending: projectTasks.filter((t) => t.status === 'Pending'),
@@ -160,29 +168,39 @@ export function TaskList({ projectId }: TaskListProps) {
   return (
     <>
       <div className="space-y-4">
-        {(user?.role === 'admin' || user?.role === 'client' || user?.role === 'team') && (
-          <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsManualTaskOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Task
-              </Button>
-              <Button onClick={() => setIsAiTaskOpen(true)}>
-                <Wand2 className="mr-2 h-4 w-4" />
-                Generate with AI
-              </Button>
-          </div>
-        )}
+        <div className="flex items-center justify-between mb-6">
+            <div>
+                <h2 className="text-xl font-bold text-white">Tasks</h2>
+                <p className="text-sm text-muted-foreground">Manage and track all tasks for this project</p>
+            </div>
+            {(user?.role === 'admin' || user?.role === 'client' || user?.role === 'team') && (
+            <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsManualTaskOpen(true)} className="bg-transparent text-white border-white/20 hover:bg-white/10 hover:text-white">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Task
+                </Button>
+                <Button onClick={() => setIsAiTaskOpen(true)} className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0">
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    Generate with AI
+                </Button>
+            </div>
+            )}
+        </div>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
           {(Object.keys(columns) as Array<keyof typeof columns>).map((status) => (
             <div key={status} className="flex flex-col gap-4">
-              <h3 className="text-lg font-semibold tracking-tight">
-                {status} <span className="text-sm text-muted-foreground">({columns[status].length})</span>
-              </h3>
-              <div className="flex flex-col gap-4 rounded-lg bg-muted/50 p-4 min-h-[200px]">
+              <div className="flex items-center gap-2">
+                  <div className={cn("w-2 h-2 rounded-full", statusConfig[status].color)} />
+                  <h3 className={cn("font-semibold", statusConfig[status].textColor)}>
+                    {status}
+                  </h3>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-muted-foreground ml-1">{columns[status].length}</span>
+              </div>
+              <div className="rounded-2xl p-4 min-h-[200px] bg-[#13131F] border border-white/5">
                 {columns[status].map((task) => <TaskCard key={task.id} task={task} onStatusUpdate={handleStatusUpdateClick} />)}
                 {columns[status].length === 0 && (
-                  <div className="text-center text-sm text-muted-foreground py-8">
-                    No tasks in this stage.
+                  <div className="flex flex-col items-center justify-center h-32 text-center">
+                    <p className="text-muted-foreground text-sm">No tasks in this stage</p>
                   </div>
                 )}
               </div>
@@ -213,3 +231,5 @@ export function TaskList({ projectId }: TaskListProps) {
     </>
   );
 }
+
+    

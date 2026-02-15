@@ -1,18 +1,10 @@
+
 'use client';
 
 import { useState } from 'react';
 import type { ProjectFile } from '@/lib/types';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Link, Download, Plus, Trash2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Plus, Trash2, File as FileIcon, Download } from 'lucide-react';
 import { useAuth } from '@/firebase/provider';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -29,6 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 type FileManagerProps = {
   projectId: string;
@@ -52,6 +45,7 @@ export function FileManager({ projectId }: FileManagerProps) {
       uploadedByName: user.name,
       uploadedByAvatar: user.avatar,
       type: 'link',
+      size: 'External Link'
     });
 
     toast({ title: 'File Link Added', description: `${name} has been added to the project.` });
@@ -64,54 +58,40 @@ export function FileManager({ projectId }: FileManagerProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <AddFileLinkDialog onAddFile={handleAddFileLink}>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Add File Link
-          </Button>
-        </AddFileLinkDialog>
-      </div>
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[40%]">File Name</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Uploaded By</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {files.map((file) => {
-              const uploadedAtDate = file.uploadedAt.toDate ? file.uploadedAt.toDate() : new Date(file.uploadedAt);
-              return (
-                <TableRow key={file.id}>
-                  <TableCell className="font-medium flex items-center gap-2">
-                    <Link className="h-5 w-5 text-muted-foreground" />
-                    {file.name}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{file.type || 'link'}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span>{file.uploadedByName}</span>
+        <div className="flex items-center justify-between mb-6">
+            <div>
+                <h2 className="text-xl font-bold text-white">File Management</h2>
+                <p className="text-sm text-muted-foreground">Upload and access all project-related files.</p>
+            </div>
+            <AddFileLinkDialog onAddFile={handleAddFileLink}>
+                <Button className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add File Link
+                </Button>
+            </AddFileLinkDialog>
+        </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {files.map((file) => {
+            const uploadedAtDate = file.uploadedAt.toDate ? file.uploadedAt.toDate() : new Date(file.uploadedAt);
+            return (
+                <div key={file.id} className="rounded-xl p-4 flex items-center gap-4 bg-[#13131F] border border-white/5 hover:border-purple-500/20 transition-all">
+                    <div className="p-3 rounded-xl bg-purple-500/10">
+                        <FileIcon className="h-5 w-5 text-purple-400" />
                     </div>
-                  </TableCell>
-                  <TableCell>{format(uploadedAtDate, 'PP')}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" asChild>
-                      <a href={file.url} target="_blank" rel="noopener noreferrer">
-                        <Download className="h-4 w-4" />
-                        <span className="sr-only">Open Link</span>
-                      </a>
-                    </Button>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">{file.size || 'Link'} · {format(uploadedAtDate, 'PP')}</p>
+                    </div>
+                    <a href={file.url} target="_blank" rel="noopener noreferrer">
+                        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-purple-400">
+                            <Download className="h-4 w-4" />
+                        </Button>
+                    </a>
                      <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                            <Trash2 className="h-4 w-4 text-destructive" />
+                        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-red-400">
+                            <Trash2 className="h-4 w-4" />
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
@@ -130,20 +110,17 @@ export function FileManager({ projectId }: FileManagerProps) {
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {files.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
-                  No files added yet.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+                </div>
+            )
+        })}
+        {files.length === 0 && (
+          <div className="md:col-span-2 lg:col-span-3 text-center text-muted-foreground py-12">
+            No files added yet.
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
+    
