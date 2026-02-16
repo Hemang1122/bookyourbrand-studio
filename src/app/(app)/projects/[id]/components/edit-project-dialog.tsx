@@ -122,6 +122,7 @@ export function EditProjectDialog({ project, onProjectUpdate, children }: EditPr
                         <SelectItem value="On Hold">On Hold</SelectItem>
                         <SelectItem value="Rework">Rework</SelectItem>
                         <SelectItem value="Completed">Completed</SelectItem>
+                        <SelectItem value="Approved">Approved</SelectItem>
                     </SelectContent>
                 </Select>
             </div>

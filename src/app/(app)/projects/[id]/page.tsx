@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -7,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TaskList } from './components/task-list';
 import { FileManager } from './components/file-manager';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { ChevronRight, Info, Users, Settings, LayoutList, FolderOpen, MessageSquare, Plus, Calendar, Pencil, Trash2, FileIcon, Download } from 'lucide-react';
+import { ChevronRight, Info, Users, Settings, LayoutList, FolderOpen, MessageSquare, Plus, Calendar, Pencil, Trash2, FileIcon, Download, CheckCircle2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
 import type { Project, Client, User, ProjectStatus } from '@/lib/types';
@@ -21,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ProjectChat } from './components/project-chat';
 import { Card } from '@/components/ui/card';
+import { format } from 'date-fns';
 
 
 export default function ProjectDetailPage() {
@@ -98,7 +98,12 @@ export default function ProjectDetailPage() {
             </div>
             
             <div className="flex items-center gap-3">
-               {user?.role === 'team' || user?.role === 'admin' ? (
+               {project.status === 'Approved' ? (
+                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium bg-green-500/20 text-green-400 border border-green-500/30">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Approved by Client
+                 </div>
+               ) : user?.role === 'team' || user?.role === 'admin' ? (
                 <Select onValueChange={(value: ProjectStatus) => handleStatusChange(value)} value={project.status}>
                   <SelectTrigger className="rounded-xl px-4 py-2 text-sm font-medium border bg-white/5 text-white border-white/10 focus:border-purple-500/50 focus:outline-none w-[180px]">
                     <SelectValue placeholder="Update status" />
@@ -109,6 +114,7 @@ export default function ProjectDetailPage() {
                     <SelectItem value="On Hold">On Hold</SelectItem>
                     <SelectItem value="Rework">Rework</SelectItem>
                     <SelectItem value="Completed">Completed</SelectItem>
+                    <SelectItem value="Approved">Approved</SelectItem>
                   </SelectContent>
                 </Select>
               ) : (
@@ -133,6 +139,21 @@ export default function ProjectDetailPage() {
         </div>
       </div>
       
+       {project.clientFeedback && (
+        <div className="rounded-2xl p-5 mb-4 bg-orange-500/10 border border-orange-500/20">
+            <div className="flex items-center gap-2 mb-3">
+                <MessageSquare className="h-4 w-4 text-orange-400" />
+                <h3 className="font-semibold text-orange-400">Client Requested Changes</h3>
+                {project.feedbackAt && (
+                    <span className="text-xs text-muted-foreground ml-auto">
+                        {format(new Date(project.feedbackAt), 'PPp')}
+                    </span>
+                )}
+            </div>
+            <p className="text-sm text-gray-300 leading-relaxed">{project.clientFeedback}</p>
+        </div>
+       )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <div className="lg:col-span-2 rounded-2xl p-5 bg-[#13131F] border border-white/5">
           <div className="flex items-center gap-2 mb-3">
@@ -203,5 +224,3 @@ export default function ProjectDetailPage() {
     </div>
   );
 }
-
-    

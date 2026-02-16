@@ -49,9 +49,10 @@ export type Client = {
     instagram?: SocialConnection;
     facebook?: SocialConnection;
   };
+  realEmail?: string;
 };
 
-export type ProjectStatus = 'Active' | 'On Hold' | 'Completed' | 'In Progress' | 'Rework';
+export type ProjectStatus = 'Active' | 'On Hold' | 'Completed' | 'In Progress' | 'Rework' | 'Approved';
 
 export type Project = {
   id: string;
@@ -64,6 +65,10 @@ export type Project = {
   description: string;
   guidelines?: string;
   coverImage: string;
+  approvalToken?: string | null;
+  approvedAt?: string;
+  clientFeedback?: string;
+  feedbackAt?: string;
 };
 
 export type TaskStatus = 'Pending' | 'In Progress' | 'Completed' | 'Rework';

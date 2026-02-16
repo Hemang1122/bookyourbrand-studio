@@ -10,7 +10,7 @@ import { type ProjectStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 
-const statusFilters: (ProjectStatus | 'All')[] = ['All', 'Active', 'In Progress', 'Rework', 'Completed', 'On Hold'];
+const statusFilters: (ProjectStatus | 'All')[] = ['All', 'Active', 'In Progress', 'Rework', 'Completed', 'Approved', 'On Hold'];
 
 export default function ProjectsPage() {
   const { user } = useAuth();
@@ -19,14 +19,15 @@ export default function ProjectsPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const projectCounts = useMemo(() => {
-    if (!projects) return { totalCount: 0, activeCount: 0, inProgressCount: 0, completedCount: 0, onHoldCount: 0, reworkCount: 0 };
+    if (!projects) return { totalCount: 0, activeCount: 0, inProgressCount: 0, completedCount: 0, onHoldCount: 0, reworkCount: 0, approvedCount: 0 };
     return {
         totalCount: projects.length,
         activeCount: projects.filter(p => p.status === 'Active').length,
         inProgressCount: projects.filter(p => p.status === 'In Progress').length,
         completedCount: projects.filter(p => p.status === 'Completed').length,
         onHoldCount: projects.filter(p => p.status === 'On Hold').length,
-        reworkCount: projects.filter(p => p.status === 'Rework').length
+        reworkCount: projects.filter(p => p.status === 'Rework').length,
+        approvedCount: projects.filter(p => p.status === 'Approved').length,
     };
   }, [projects]);
 
@@ -72,7 +73,7 @@ export default function ProjectsPage() {
           { label: 'Active', count: projectCounts.activeCount, color: 'text-blue-400' },
           { label: 'In Progress', count: projectCounts.inProgressCount, color: 'text-purple-400' },
           { label: 'Rework', count: projectCounts.reworkCount, color: 'text-orange-400' },
-          { label: 'Completed', count: projectCounts.completedCount, color: 'text-green-400' },
+          { label: 'Completed', count: projectCounts.completedCount + projectCounts.approvedCount, color: 'text-green-400' },
           { label: 'On Hold', count: projectCounts.onHoldCount, color: 'text-gray-400' },
         ].map(stat => (
           <div key={stat.label} className="rounded-xl p-3 text-center bg-[#13131F] border border-white/5">

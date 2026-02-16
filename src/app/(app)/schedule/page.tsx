@@ -12,7 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import type { User } from '@/lib/types';
+import type { User, ProjectStatus } from '@/lib/types';
+import { useUserStatus } from '@/firebase';
 
 export default function SchedulePage() {
   const { user } = useAuth();
@@ -51,12 +52,13 @@ export default function SchedulePage() {
     return null;
   }
   
-  const getStatusBadgeClasses = (status: string) => {
+  const getStatusBadgeClasses = (status: ProjectStatus) => {
     switch (status) {
         case 'Active':
             return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
         case 'In Progress':
             return 'bg-purple-500/15 text-purple-400 border-purple-500/30';
+        case 'Approved':
         case 'Completed':
             return 'bg-green-500/15 text-green-400 border-green-500/30';
         case 'Rework':
@@ -66,6 +68,54 @@ export default function SchedulePage() {
         default:
             return 'bg-secondary text-secondary-foreground';
     }
+}
+
+const MemberListItem = ({ member, isSelected, onSelect }: { member: User, isSelected: boolean, onSelect: (member: User) => void }) => {
+    const userStatus = useUserStatus(member.id);
+    return (
+        <button
+            key={member.id}
+            onClick={() => onSelect(member)}
+            className={cn(
+            "w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 text-left",
+            isSelected
+                ? "bg-gradient-to-r from-purple-600/20 to-pink-500/20 border border-purple-500/30"
+                : "hover:bg-white/5 border border-transparent"
+            )}
+        >
+            <div className="relative shrink-0">
+            <Avatar className="h-8 w-8">
+                <AvatarFallback className={cn(
+                "text-xs font-bold",
+                isSelected
+                    ? "bg-gradient-to-br from-purple-500 to-pink-500 text-white"
+                    : "bg-gradient-to-br from-purple-500/30 to-pink-500/30 text-purple-200"
+                )}>
+                {member.name.charAt(0).toUpperCase()}
+                </AvatarFallback>
+            </Avatar>
+             <div className={cn(
+                "absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5",
+                "rounded-full border-2 border-[#13131F]",
+                userStatus?.isOnline ? "bg-green-400" : "bg-gray-500"
+              )} />
+            </div>
+            <div className="flex-1 min-w-0">
+            <p className={cn(
+                "text-sm font-medium truncate",
+                isSelected ? "text-white" : "text-gray-300"
+            )}>
+                {member.name}
+            </p>
+             <p className="text-xs text-muted-foreground">
+                {userStatus?.isOnline ? 'Online' : 'Offline'}
+              </p>
+            </div>
+            {isSelected && (
+            <div className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
+            )}
+        </button>
+    )
 }
 
 
@@ -86,7 +136,7 @@ export default function SchedulePage() {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_320px_1fr] xl:grid-cols-[280px_350px_1fr] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_350px_1fr] gap-6">
         
         {/* Team Member List */}
         <div className="rounded-2xl p-5 bg-[#13131F] border border-white/5 h-fit">
@@ -103,40 +153,12 @@ export default function SchedulePage() {
           </div>
           <div className="space-y-1 max-h-[400px] overflow-y-auto">
             {filteredMembers.map(member => (
-              <button
+              <MemberListItem
                 key={member.id}
-                onClick={() => setSelectedMember(member)}
-                className={cn(
-                  "w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 text-left",
-                  selectedMember?.id === member.id
-                    ? "bg-gradient-to-r from-purple-600/20 to-pink-500/20 border border-purple-500/30"
-                    : "hover:bg-white/5 border border-transparent"
-                )}
-              >
-                <div className="relative shrink-0">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className={cn(
-                      "text-xs font-bold",
-                      selectedMember?.id === member.id
-                        ? "bg-gradient-to-br from-purple-500 to-pink-500 text-white"
-                        : "bg-gradient-to-br from-purple-500/30 to-pink-500/30 text-purple-200"
-                    )}>
-                      {member.name.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={cn(
-                    "text-sm font-medium truncate",
-                    selectedMember?.id === member.id ? "text-white" : "text-gray-300"
-                  )}>
-                    {member.name}
-                  </p>
-                </div>
-                {selectedMember?.id === member.id && (
-                  <div className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
-                )}
-              </button>
+                member={member}
+                isSelected={selectedMember?.id === member.id}
+                onSelect={setSelectedMember}
+              />
             ))}
           </div>
         </div>
