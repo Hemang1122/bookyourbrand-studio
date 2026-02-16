@@ -98,20 +98,19 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="realEmail">
-              Real Email Address
-              <span className="text-muted-foreground text-xs ml-1">
-                (optional — for sending credentials)
-              </span>
+            <Label className="text-gray-300">
+              Notification Email <span className="text-muted-foreground font-normal ml-1">(optional)</span>
             </Label>
             <Input
-              id="realEmail"
               type="email"
               value={realEmail}
               onChange={(e) => setRealEmail(e.target.value)}
-              placeholder="e.g. user@gmail.com"
-              disabled={isProcessing}
+              placeholder="client@gmail.com"
+              className="bg-white/5 border-white/10 text-white"
             />
+             <p className="text-xs text-muted-foreground">
+              Where project updates and approval emails will be sent. Can be added later.
+            </p>
           </div>
           {name && (
             <Alert>

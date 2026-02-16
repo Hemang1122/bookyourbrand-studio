@@ -7,6 +7,7 @@ export type User = {
   uid: string;
   name: string;
   email: string;
+  realEmail?: string;
   avatar: string; // Corresponds to id in placeholder-images.json
   role: UserRole;
   username: string;
