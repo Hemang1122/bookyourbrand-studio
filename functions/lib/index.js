@@ -33,11 +33,13 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUser = exports.createUser = void 0;
+exports.onProjectStatusCompleted = exports.deleteUser = exports.createUser = void 0;
 const admin = __importStar(require("firebase-admin"));
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const nodemailer = __importStar(require("nodemailer"));
+const firestore_1 = require("firebase-functions/v2/firestore");
+const crypto = __importStar(require("crypto"));
 if (admin.apps.length === 0) {
     admin.initializeApp();
 }
@@ -94,6 +96,7 @@ exports.createUser = (0, https_1.onCall)({ secrets: [gmailUser, gmailAppPassword
                 id: userRecord.uid,
                 name: name,
                 email: email,
+                realEmail: realEmail || null,
                 avatar: 'avatar-' + (Math.floor(Math.random() * 3) + 2),
                 reelsCreated: 0,
                 reelsLimit: 3,
@@ -115,7 +118,7 @@ exports.createUser = (0, https_1.onCall)({ secrets: [gmailUser, gmailAppPassword
                 },
             });
             const roleName = role === 'client' ? 'Client' : 'Editor';
-            const portalUrl = 'https://studio-6449361728-f6242.web.app/login';
+            const portalUrl = 'https://studio--studio-6449361728-f6242.us-central1.hosted.app/login';
             const mailOptions = {
                 from: `"BookYourBrands" <${gmailUser.value()}>`,
                 to: realEmail,
@@ -207,6 +210,113 @@ exports.deleteUser = (0, https_1.onCall)(async (request) => {
             stack: error.stack,
         }));
         throw new https_1.HttpsError('internal', 'Failed to delete user: ' + error.message);
+    }
+});
+exports.onProjectStatusCompleted = (0, firestore_1.onDocumentUpdated)({ document: 'projects/{projectId}', secrets: [gmailUser, gmailAppPassword] }, async (event) => {
+    var _a, _b, _c;
+    const before = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
+    const after = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
+    // Only trigger when status changes TO "Completed"
+    if ((before === null || before === void 0 ? void 0 : before.status) === (after === null || after === void 0 ? void 0 : after.status) || (after === null || after === void 0 ? void 0 : after.status) !== 'Completed') {
+        return;
+    }
+    const projectId = event.params.projectId;
+    const projectName = after === null || after === void 0 ? void 0 : after.name;
+    const clientId = (_c = after === null || after === void 0 ? void 0 : after.client) === null || _c === void 0 ? void 0 : _c.id;
+    if (!clientId) {
+        console.log('No client ID found for project:', projectId);
+        return;
+    }
+    const db = admin.firestore();
+    // Get client's real email
+    const clientDoc = await db.collection('clients').doc(clientId).get();
+    if (!clientDoc.exists) {
+        console.log('Client document not found:', clientId);
+        return;
+    }
+    const clientData = clientDoc.data();
+    const realEmail = clientData === null || clientData === void 0 ? void 0 : clientData.realEmail;
+    if (!realEmail) {
+        console.log('No real email for client:', clientId);
+        return;
+    }
+    // Generate secure one-time approval token
+    const approvalToken = crypto.randomBytes(32).toString('hex');
+    // Save token to project
+    await db.collection('projects').doc(projectId).update({ approvalToken });
+    // Build approval URLs
+    const baseUrl = 'https://studio--studio-6449361728-f6242.us-central1.hosted.app';
+    const approveUrl = `${baseUrl}/api/project-approval?projectId=${projectId}&action=approve&token=${approvalToken}`;
+    const changesUrl = `${baseUrl}/api/project-approval?projectId=${projectId}&action=changes&token=${approvalToken}`;
+    // Send email
+    const mailOptions = {
+        from: `"BookYourBrands" <${gmailUser.value()}>`,
+        to: realEmail,
+        subject: `🎬 Your Reel is Ready for Approval — ${projectName}`,
+        html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width">
+        </head>
+        <body style="margin:0;padding:0;background:#0F0F1A;font-family:'Segoe UI',Arial,sans-serif;">
+          <div style="max-width:600px;margin:0 auto;padding:40px 20px;">
+            <div style="text-align:center;margin-bottom:32px;">
+              <h1 style="margin:0;font-size:28px;font-weight:800;background:linear-gradient(135deg,#C084FC,#EC4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+                BookYourBrands
+              </h1>
+              <p style="color:#9CA3AF;margin:8px 0 0;">Your Creative Studio</p>
+            </div>
+            <div style="background:#13131F;border-radius:20px;padding:40px;border:1px solid rgba(124,58,237,0.2);">
+              <div style="text-align:center;margin-bottom:24px;">
+                <div style="display:inline-block;background:rgba(124,58,237,0.15);border-radius:50%;padding:20px;border:2px solid rgba(124,58,237,0.3);">
+                  <span style="font-size:40px;">🎬</span>
+                </div>
+              </div>
+              <h2 style="color:white;font-size:24px;text-align:center;margin:0 0 8px;">Your Reel is Ready!</h2>
+              <p style="color:#9CA3AF;text-align:center;margin:0 0 32px;font-size:16px;">
+                <strong style="color:#C084FC;">${projectName}</strong> has been completed by our team.
+              </p>
+              <p style="color:#D1D5DB;font-size:15px;line-height:1.6;margin:0 0 32px;">
+                Hi there! 👋 Great news — your reel is polished and ready for your review. Please watch it carefully and let us know if you'd like to approve it or request any changes.
+              </p>
+              <div style="display:flex;gap:16px;justify-content:center;margin-bottom:24px;flex-wrap:wrap;">
+                <a href="${approveUrl}" style="display:inline-block;padding:16px 32px;background:linear-gradient(135deg,#10B981,#059669);color:white;text-decoration:none;border-radius:12px;font-weight:700;font-size:16px;text-align:center;">
+                  ✓ Approve Reel
+                </a>
+                <a href="${changesUrl}" style="display:inline-block;padding:16px 32px;background:linear-gradient(135deg,#EF4444,#DC2626);color:white;text-decoration:none;border-radius:12px;font-weight:700;font-size:16px;text-align:center;">
+                  ✗ Request Changes
+                </a>
+              </div>
+              <p style="color:#6B7280;font-size:13px;text-align:center;margin:0;">
+                This approval link is valid for 7 days. If you have questions, reply to this email.
+              </p>
+            </div>
+            <div style="text-align:center;margin-top:32px;">
+              <p style="color:#4B5563;font-size:13px;margin:0;">© 2026 BookYourBrands. All rights reserved.</p>
+              <p style="color:#4B5563;font-size:12px;margin:8px 0 0;">
+                Founded by <span style="color:#9CA3AF;">Arpit Lalani</span>
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    };
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: gmailUser.value(),
+            pass: gmailAppPassword.value(),
+        },
+    });
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log(`Approval email sent to ${realEmail} for project ${projectName}`);
+    }
+    catch (error) {
+        console.error('Failed to send approval email:', error);
     }
 });
 //# sourceMappingURL=index.js.map
