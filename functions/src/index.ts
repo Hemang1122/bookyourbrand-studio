@@ -93,7 +93,7 @@ export const createUser = onCall({ secrets: [gmailUser, gmailAppPassword] }, asy
       });
 
       const roleName = role === 'client' ? 'Client' : 'Editor';
-      const portalUrl = 'https://studio-6449361728-f6242.web.app/login';
+      const portalUrl = 'https://studio--studio-6449361728-f6242.us-central1.hosted.app/login';
 
       const mailOptions = {
         from: `"BookYourBrands" <${gmailUser.value()}>`,
