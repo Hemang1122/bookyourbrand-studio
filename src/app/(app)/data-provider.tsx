@@ -1,3 +1,4 @@
+
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
@@ -69,7 +70,16 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       type,
       ...(chatId && { chatId }),
     };
-    addDocumentNonBlocking(collection(firestore, 'notifications'), newNotif);
+    
+    const notificationsColRef = collection(firestore, 'notifications');
+    addDoc(notificationsColRef, newNotif).catch(async (error) => {
+      const permissionError = new FirestorePermissionError({
+        path: notificationsColRef.path,
+        operation: 'create',
+        requestResourceData: newNotif,
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    });
     
   }, [firestore]);
   
