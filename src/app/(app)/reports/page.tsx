@@ -15,11 +15,8 @@ import {
 } from "@/components/ui/select";
 import { useData } from '../data-provider';
 import { format, subDays, isAfter, parseISO } from 'date-fns';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import type { User, TimerSession, PackageName, Project, Task, Client } from '@/lib/types';
 import { packages } from '../settings/billing/packages-data';
-import html2canvas from 'html2canvas';
 import { OverviewChart } from '../dashboard/components/overview-chart';
 import { cn } from '@/lib/utils';
 
@@ -113,6 +110,10 @@ export default function ReportsPage() {
     
     const generateBusinessReport = async () => {
         setIsDownloading(true);
+
+        const { default: jsPDF } = await import('jspdf');
+        await import('jspdf-autotable');
+        const { default: html2canvas } = await import('html2canvas');
 
         const doc = new jsPDF('p', 'pt', 'a4');
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -314,8 +315,10 @@ export default function ReportsPage() {
         setIsDownloading(false);
     };
     
-    const generateTeamClientReport = () => {
+    const generateTeamClientReport = async () => {
         setIsDownloading(true);
+        const { default: jsPDF } = await import('jspdf');
+        await import('jspdf-autotable');
         const doc = new jsPDF();
         const reportTitle = activeTab === 'team-analytics' ? 'Team Performance Report' : 'Client Activity Report';
         
@@ -376,7 +379,7 @@ export default function ReportsPage() {
         if (activeTab === 'business-analytics') {
             await generateBusinessReport();
         } else {
-            generateTeamClientReport();
+            await generateTeamClientReport();
         }
     };
     

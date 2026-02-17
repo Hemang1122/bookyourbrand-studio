@@ -10,7 +10,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Download, Loader2 } from 'lucide-react';
-import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import type { Client } from '@/lib/types';
 import { packages as subscriptionPackages } from '../packages-data';
@@ -25,8 +24,10 @@ type InvoiceDialogProps = {
 export function InvoiceDialog({ client, packageName, open, onOpenChange }: InvoiceDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     setIsLoading(true);
+
+    const { default: jsPDF } = await import('jspdf');
     
     const pkg = subscriptionPackages.find(p => p.name === packageName);
     const tier = pkg?.tiers?.[0];

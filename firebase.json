@@ -1,4 +1,3 @@
-
 {
   "database": {
     "rules": "database.rules.json"
@@ -11,5 +10,16 @@
       "npm --prefix functions run build"
     ],
     "source": "functions"
+  },
+  "hosting": {
+    "source": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "frameworksBackend": {
+      "region": "us-central1"
+    }
   }
 }

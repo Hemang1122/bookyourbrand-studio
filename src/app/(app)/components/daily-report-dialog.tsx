@@ -18,8 +18,6 @@ import { Bot, Loader2, Calendar as CalendarIcon, Download } from 'lucide-react';
 import { useData } from '../data-provider';
 import { format } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 
 
 type DailyReportDialogProps = {
@@ -67,47 +65,49 @@ export function DailyReportDialog({ children }: DailyReportDialogProps) {
     }
   };
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     const reportNode = reportContentRef.current;
     if (reportNode) {
+      const { default: jsPDF } = await import('jspdf');
+      const { default: html2canvas } = await import('html2canvas');
+
       // Temporarily increase width for better canvas capture
       reportNode.style.width = '1000px';
 
-      html2canvas(reportNode, { scale: 2 }).then((canvas) => {
-         reportNode.style.width = ''; // Reset style
+      const canvas = await html2canvas(reportNode, { scale: 2 });
+      reportNode.style.width = ''; // Reset style
 
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({
-            orientation: 'p',
-            unit: 'px',
-            format: 'a4'
-        });
-
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
-
-        const ratio = canvasWidth / canvasHeight;
-        let imgWidth = pdfWidth - 20; // with margin
-        let imgHeight = imgWidth / ratio;
-        
-        let heightLeft = imgHeight;
-        let position = 10; // top margin
-
-        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
-
-        while (heightLeft >= 0) {
-            position = heightLeft - imgHeight;
-            pdf.addPage();
-            pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-            heightLeft -= pdfHeight;
-        }
-
-        pdf.save(`daily_report_${format(selectedDate || new Date(), 'yyyy-MM-dd')}.pdf`);
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+          orientation: 'p',
+          unit: 'px',
+          format: 'a4'
       });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+
+      const ratio = canvasWidth / canvasHeight;
+      let imgWidth = pdfWidth - 20; // with margin
+      let imgHeight = imgWidth / ratio;
+      
+      let heightLeft = imgHeight;
+      let position = 10; // top margin
+
+      pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      while (heightLeft >= 0) {
+          position = heightLeft - imgHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+          heightLeft -= pdfHeight;
+      }
+
+      pdf.save(`daily_report_${format(selectedDate || new Date(), 'yyyy-MM-dd')}.pdf`);
     }
   };
 
