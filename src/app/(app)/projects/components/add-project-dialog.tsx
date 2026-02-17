@@ -57,7 +57,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   }
   
   const reelsCreated = clientForProject?.reelsCreated || 0;
-  const canAddProject = clientForProject ? reelsCreated < (clientForProject.reelsLimit || 0) : false;
+  const canAddProject = currentUser?.role === 'admin' || (clientForProject ? reelsCreated < (clientForProject.reelsLimit || 0) : false);
 
   const handleAddProject = () => {
     if (!canAddProject) {

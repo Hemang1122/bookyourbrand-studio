@@ -85,11 +85,20 @@ export function ClientDashboard() {
             <Film className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{myClientRecord.packageName || 'N/A'} Plan</div>
-            <p className="text-xs text-muted-foreground">
-                {reelsUsed} of {reelsLimit} projects used.
-            </p>
-             <Progress value={(reelsLimit > 0 ? (reelsUsed / reelsLimit) * 100 : 0)} className="mt-2 h-2" />
+            <div className="text-2xl font-bold mb-2">{myClientRecord.packageName || 'N/A'} Plan</div>
+            <div className="rounded-xl p-4 bg-white/[0.03] border border-white/5">
+                <div className="flex justify-between mb-2">
+                    <span className="text-sm text-muted-foreground">Active Projects</span>
+                    <span className="text-sm font-bold text-white">
+                        {reelsUsed} / {reelsLimit === 9999 ? 'Unlimited' : reelsLimit}
+                    </span>
+                </div>
+                <Progress value={reelsLimit === 9999 ? 5 : Math.min(100, (reelsUsed / reelsLimit) * 100)} className="h-1.5"/>
+                <p className="text-xs text-muted-foreground mt-2">
+                    {reelsLimit === 9999 ? 'Unlimited projects on Enterprise plan'
+                    : `${reelsLimit - reelsUsed} projects remaining`}
+                </p>
+            </div>
           </CardContent>
         </Card>
         <Card>

@@ -19,6 +19,8 @@ export type User = {
   lastSeen?: number | object;
   createdAt?: Timestamp;
   photoURL?: string;
+  packageName?: PackageName;
+  reelsLimit?: number;
 };
 
 export type PackageName = 'Bronze' | 'Silver' | 'Gold' | 'Advanced Editing' | 'Podcast';

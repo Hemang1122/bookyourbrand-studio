@@ -1,10 +1,11 @@
 'use client';
+import { Suspense } from 'react';
 import { LoginLogo } from '@/components/login-logo';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
-export default function ApprovalErrorPage() {
+function ApprovalErrorContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const reason = searchParams.get('reason');
@@ -39,5 +40,17 @@ export default function ApprovalErrorPage() {
                 </Button>
             </div>
         </div>
+    );
+}
+
+export default function ApprovalErrorPage() {
+    return (
+        <Suspense fallback={
+            <div style={{ background: 'linear-gradient(135deg, #0F0F1A, #1a0533)' }} className="min-h-screen flex items-center justify-center">
+                <div className="text-white">Loading...</div>
+            </div>
+        }>
+            <ApprovalErrorContent />
+        </Suspense>
     );
 }

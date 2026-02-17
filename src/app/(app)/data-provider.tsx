@@ -202,7 +202,11 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const clients = useMemo(() => {
     if (!clientsData || !projectsData) return initialClients;
     return clientsData.map(c => {
-        const projectCount = projectsData.filter(p => p.client.id === c.id).length;
+        const projectCount = projectsData.filter(p => 
+            p.client.id === c.id &&
+            p.status !== 'Completed' &&
+            p.status !== 'Approved'
+        ).length;
         return {
             ...c,
             reelsCreated: projectCount,
