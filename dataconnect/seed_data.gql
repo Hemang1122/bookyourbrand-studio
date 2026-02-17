@@ -1,0 +1,119 @@
+mutation CreateDemoData @transaction @auth(level: USER, insecureReason: "Seed data mutations should only be callable by authenticated users and typically from an admin context.") {
+  user_insertMany(data: [
+    {
+      id: "721c5f8e-8a19-4b6e-8e0f-21f1d1c8b3a0",
+      createdAt: "2023-01-01T10:00:00Z",
+      displayName: "Alice Smith",
+      email: "alice.smith@example.com",
+      role: "admin"
+    },
+    {
+      id: "b2a8d1e0-4c3d-4e2b-8a5f-0f1c2d3e4a5b",
+      createdAt: "2023-01-02T11:00:00Z",
+      displayName: "Bob Johnson",
+      email: "bob.johnson@example.com",
+      role: "manager"
+    },
+    {
+      id: "c7f9e1d0-a3b2-4f0c-9e1d-2a3b4c5d6e7f",
+      createdAt: "2023-01-03T12:00:00Z",
+      displayName: "Charlie Brown",
+      email: "charlie.brown@example.com",
+      photoUrl: "https://example.com/charlie.jpg"
+    }
+  ])
+  client_insertMany(data: [
+    {
+      id: "d1e2f3a4-b5c6-7d8e-9f0a-1b2c3d4e5f6a",
+      createdAt: "2023-02-01T09:00:00Z",
+      name: "Acme Corp",
+      email: "contact@acmecorp.com",
+      address: "123 Main St, Anytown, USA",
+      phone: "555-123-4567",
+      company: "Acme Corp"
+    },
+    {
+      id: "e0f1a2b3-c4d5-6e7f-8a9b-0c1d2e3f4a5b",
+      createdAt: "2023-02-05T10:30:00Z",
+      name: "Widgets Inc",
+      email: "info@widgetsinc.com",
+      address: "456 Oak Ave, Otherville, USA",
+      phone: "555-987-6543",
+      company: "Widgets Inc"
+    }
+  ])
+  project_insertMany(data: [
+    {
+      id: "f0a1b2c3-d4e5-6f7a-8b9c-0d1e2f3a4b5c",
+      createdAt: "2023-03-01T14:00:00Z",
+      title: "Website Redesign",
+      description: "Complete overhaul of company website.",
+      startDate: "2023-03-01",
+      dueDate: "2023-06-30",
+      status: "In Progress",
+      budget: 15000.00,
+      clientId: "d1e2f3a4-b5c6-7d8e-9f0a-1b2c3d4e5f6a",
+      projectManagerId: "721c5f8e-8a19-4b6e-8e0f-21f1d1c8b3a0"
+    },
+    {
+      id: "1c2d3e4f-5a6b-7c8d-9e0f-1a2b3c4d5e6f",
+      createdAt: "2023-03-10T09:00:00Z",
+      title: "Mobile App Development",
+      description: "Develop new mobile application for iOS and Android.",
+      startDate: "2023-03-15",
+      dueDate: "2023-09-30",
+      status: "Planning",
+      budget: 25000.00,
+      clientId: "e0f1a2b3-c4d5-6e7f-8a9b-0c1d2e3f4a5b",
+      projectManagerId: "b2a8d1e0-4c3d-4e2b-8a5f-0f1c2d3e4a5b"
+    }
+  ])
+  invoice_insertMany(data: [
+    {
+      id: "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+      createdAt: "2023-04-01T10:00:00Z",
+      invoiceNumber: "INV-2023-001",
+      amount: 5000.00,
+      currency: "USD",
+      issueDate: "2023-04-01",
+      dueDate: "2023-04-30",
+      status: "Paid",
+      notes: "First payment for website redesign.",
+      clientId: "d1e2f3a4-b5c6-7d8e-9f0a-1b2c3d4e5f6a",
+      projectId: "f0a1b2c3-d4e5-6f7a-8b9c-0d1e2f3a4b5c"
+    },
+    {
+      id: "b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e",
+      createdAt: "2023-04-15T11:00:00Z",
+      invoiceNumber: "INV-2023-002",
+      amount: 7500.00,
+      currency: "USD",
+      issueDate: "2023-04-15",
+      dueDate: "2023-05-14",
+      status: "Pending",
+      notes: "Initial payment for mobile app development.",
+      clientId: "e0f1a2b3-c4d5-6e7f-8a9b-0c1d2e3f4a5b",
+      projectId: "1c2d3e4f-5a6b-7c8d-9e0f-1a2b3c4d5e6f"
+    }
+  ])
+  asset_insertMany(data: [
+    {
+      id: "c3d4e5f6-a7b8-9c0d-1e2f-3a4b5c6d7e8f",
+      fileName: "homepage_mockup.png",
+      fileType: "image/png",
+      fileUrl: "https://example.com/assets/homepage_mockup.png",
+      description: "Mockup for the new homepage design.",
+      uploadedAt: "2023-03-05T08:00:00Z",
+      projectId: "f0a1b2c3-d4e5-6f7a-8b9c-0d1e2f3a4b5c"
+    },
+    {
+      id: "d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f9a",
+      fileName: "app_icon.svg",
+      fileType: "image/svg+xml",
+      fileUrl: "https://example.com/assets/app_icon.svg",
+      description: "Vector icon for the new mobile app.",
+      uploadedAt: "2023-03-20T10:00:00Z",
+      projectId: "1c2d3e4f-5a6b-7c8d-9e0f-1a2b3c4d5e6f"
+    }
+  ])
+}

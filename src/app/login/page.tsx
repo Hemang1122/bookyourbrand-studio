@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -13,14 +12,39 @@ import { LoginForm } from './components/login-form';
 import { Suspense, useEffect, useState } from 'react';
 import { FirebaseClientProvider } from '@/firebase';
 import { Facebook, Instagram, Youtube } from 'lucide-react';
+import { useAuth } from '@/lib/auth-client';
+import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 
 function LoginPageContent() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
+  // If auth state is loading, show a spinner.
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+  
+  // If auth is loaded and user exists, redirect them to the dashboard.
+  if (user) {
+    router.replace('/dashboard');
+    return (
+       <div className="flex h-screen w-full items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  // If auth is loaded and no user, show the login page.
   return (
     <main className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-background p-4 lg:grid lg:grid-cols-2">
       <div

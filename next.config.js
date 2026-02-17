@@ -1,9 +1,5 @@
-
-import type {NextConfig} from 'next';
-
-const nextConfig: NextConfig = {
-  output: 'standalone',
-  /* config options here */
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -33,8 +29,8 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
-    optimizePackageImports: ['jspdf'],
+    optimizePackageImports: ['jspdf', 'html2canvas'],
   },
 };
 
-export default nextConfig;
+module.exports = nextConfig;

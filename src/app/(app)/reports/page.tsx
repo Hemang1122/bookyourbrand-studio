@@ -43,7 +43,7 @@ const BusinessAnalytics = ({ tasks, projects, clients }: { tasks: Task[], projec
         { label: 'Total Revenue', value: `₹${totalRevenue.toLocaleString('en-IN')}`, icon: IndianRupee, color: '#10B981', change: '+12%' },
         { label: 'Total Clients', value: clients.length.toString(), icon: Users, color: '#7C3AED', change: '+8%' },
         { label: 'Total Projects', value: projects.length.toString(), icon: FolderKanban, color: '#3B82F6', change: '+24%' },
-        { label: 'Completed Tasks', value: tasks.filter(t => t.status === 'Completed').length.toString(), icon: CheckCircle, color: '#EC4899', change: '+18%' },
+        { label: 'Completed Tasks', value: tasks.filter(t => t.status === 'Completed').length.toString(), icon: '#EC4899', change: '+18%' },
     ];
     
     const executiveSummary = `This report provides a comprehensive overview of BookYourBrands' performance, analyzing key metrics across revenue, client acquisition, and operational efficiency. The data highlights a strong growth trajectory and identifies key areas for strategic focus to maintain momentum.`;
@@ -439,7 +439,7 @@ export default function ReportsPage() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 {quickStats.map(stat => (
-                    <div key={stat.label} className="rounded-xl p-4 bg-[#13131F] border border-white/5 flex items-center gap-3">
+                    <div key={stat.label} className="rounded-xl p-4 bg-[#13131F] border border-white/5 flex items-center gap-4">
                         <div className="p-2 rounded-lg" style={{ background: stat.color + '20' }}>
                             <stat.icon className="h-4 w-4" style={{ color: stat.color }} />
                         </div>

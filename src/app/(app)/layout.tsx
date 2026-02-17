@@ -63,6 +63,7 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
 
         finalUser = {
           id: authUser.uid,
+          uid: authUser.uid,
           email: userEmail,
           name: name,
           role: role,
@@ -83,7 +84,7 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
                 email: finalUser.email,
                 company: `${finalUser.name}'s Company`,
                 avatar: finalUser.avatar,
-                packageName: 'Gold',
+                packageName: 'Gold' as const,
                 reelsLimit: defaultTier?.reels ?? 10,
                 reelsCreated: 0,
                 maxDuration: isNaN(maxDuration) ? 90 : maxDuration,

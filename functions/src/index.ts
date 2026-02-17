@@ -251,7 +251,7 @@ export const onProjectStatusCompleted = onDocumentUpdated(
     await db.collection('projects').doc(projectId).update({ approvalToken });
     
     // Build approval URLs
-    const baseUrl = 'https://studio-6449361728-f6242.web.app';
+    const baseUrl = 'https://studio--studio-6449361728-f6242.us-central1.hosted.app';
     const approveUrl = `${baseUrl}/api/project-approval?projectId=${projectId}&action=approve&token=${approvalToken}`;
     const changesUrl = `${baseUrl}/api/project-approval?projectId=${projectId}&action=changes&token=${approvalToken}`;
     
@@ -328,5 +328,3 @@ export const onProjectStatusCompleted = onDocumentUpdated(
     }
   }
 );
-
-    

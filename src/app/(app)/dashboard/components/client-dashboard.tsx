@@ -47,9 +47,9 @@ export function ClientDashboard() {
   const completedProjects = myProjects.filter(p => p.status === 'Completed').length;
   const safeTasks = tasks || [];
   
-  const reelsUsed = myClientRecord.reelsCreated || 0;
+  const activeProjectCount = (projects || []).filter(p => p.client.id === myClientRecord.id && p.status !== 'Completed' && p.status !== 'Approved').length;
   const reelsLimit = myClientRecord.reelsLimit || 0;
-  const canAddProject = reelsUsed < reelsLimit;
+  const canAddProject = activeProjectCount < reelsLimit;
 
 
   return (
@@ -90,13 +90,13 @@ export function ClientDashboard() {
                 <div className="flex justify-between mb-2">
                     <span className="text-sm text-muted-foreground">Active Projects</span>
                     <span className="text-sm font-bold text-white">
-                        {reelsUsed} / {reelsLimit === 9999 ? 'Unlimited' : reelsLimit}
+                        {activeProjectCount} / {reelsLimit === 9999 ? 'Unlimited' : reelsLimit}
                     </span>
                 </div>
-                <Progress value={reelsLimit === 9999 ? 5 : Math.min(100, (reelsUsed / reelsLimit) * 100)} className="h-1.5"/>
+                <Progress value={reelsLimit === 9999 ? 5 : Math.min(100, (activeProjectCount / reelsLimit) * 100)} className="h-1.5"/>
                 <p className="text-xs text-muted-foreground mt-2">
                     {reelsLimit === 9999 ? 'Unlimited projects on Enterprise plan'
-                    : `${reelsLimit - reelsUsed} projects remaining`}
+                    : `${reelsLimit - activeProjectCount} projects remaining`}
                 </p>
             </div>
           </CardContent>

@@ -86,8 +86,8 @@ function ClientSubscriptionCard() {
         )
     }
 
-    const myProjects = projects ? projects.filter(p => p.client.id === myClientRecord?.id) : [];
-    const reelsUsed = myProjects.length;
+    const activeProjects = (projects || []).filter(p => p.client.id === myClientRecord?.id && p.status !== 'Completed' && p.status !== 'Approved');
+    const reelsUsed = activeProjects.length;
     const reelsLimit = myClientRecord.reelsLimit || 0;
     const usagePercentage = reelsLimit > 0 ? (reelsUsed / reelsLimit) * 100 : 0;
 
@@ -102,7 +102,7 @@ function ClientSubscriptionCard() {
                     <div className="flex justify-between items-baseline">
                         <p className="font-bold text-xl">{myClientRecord.packageName} Plan</p>
                         <p className="text-muted-foreground text-sm">
-                            {reelsUsed} of {reelsLimit} projects used
+                            {reelsUsed} of {reelsLimit === 9999 ? 'Unlimited' : reelsLimit} projects used
                         </p>
                     </div>
                     <Progress value={usagePercentage} />
