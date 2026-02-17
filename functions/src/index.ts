@@ -4,7 +4,6 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import * as nodemailer from 'nodemailer';
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
-import * as crypto from 'crypto';
 
 if (admin.apps.length === 0) {
     admin.initializeApp();
@@ -244,17 +243,6 @@ export const onProjectStatusCompleted = onDocumentUpdated(
       return;
     }
     
-    // Generate secure one-time approval token
-    const approvalToken = crypto.randomBytes(32).toString('hex');
-    
-    // Save token to project
-    await db.collection('projects').doc(projectId).update({ approvalToken });
-    
-    // Build approval URLs
-    const baseUrl = 'https://studio--studio-6449361728-f6242.us-central1.hosted.app';
-    const approveUrl = `${baseUrl}/api/project-approval?projectId=${projectId}&action=approve&token=${approvalToken}`;
-    const changesUrl = `${baseUrl}/api/project-approval?projectId=${projectId}&action=changes&token=${approvalToken}`;
-    
     // Send email
     const mailOptions = {
       from: `"BookYourBrands" <${gmailUser.value()}>`,
@@ -288,16 +276,42 @@ export const onProjectStatusCompleted = onDocumentUpdated(
               <p style="color:#D1D5DB;font-size:15px;line-height:1.6;margin:0 0 32px;">
                 Hi there! 👋 Great news — your reel is polished and ready for your review. Please watch it carefully and let us know if you'd like to approve it or request any changes.
               </p>
-              <div style="display:flex;gap:16px;justify-content:center;margin-bottom:24px;flex-wrap:wrap;">
-                <a href="${approveUrl}" style="display:inline-block;padding:16px 32px;background:linear-gradient(135deg,#10B981,#059669);color:white;text-decoration:none;border-radius:12px;font-weight:700;font-size:16px;text-align:center;">
-                  ✓ Approve Reel
-                </a>
-                <a href="${changesUrl}" style="display:inline-block;padding:16px 32px;background:linear-gradient(135deg,#EF4444,#DC2626);color:white;text-decoration:none;border-radius:12px;font-weight:700;font-size:16px;text-align:center;">
-                  ✗ Request Changes
-                </a>
-              </div>
+              <div style="background:rgba(124,58,237,0.1);
+            border-radius:12px;padding:20px;
+            margin-bottom:24px;
+            border:1px solid rgba(124,58,237,0.2);">
+  <p style="color:#D1D5DB;font-size:15px;
+            line-height:1.6;margin:0 0 16px;">
+    🎬 Please review your completed reel and share 
+    your feedback with our team through the 
+    <strong style="color:#C084FC;">Support Chat</strong> 
+    in your client portal.
+  </p>
+  <p style="color:#9CA3AF;font-size:13px;
+            line-height:1.5;margin:0;">
+    Log in to your portal and navigate to the 
+    Support section to chat with our team. 
+    Let us know if you'd like any changes or if 
+    you approve the final reel!
+  </p>
+</div>
+
+<div style="text-align:center;margin-bottom:24px;">
+  <a href="https://studio--studio-6449361728-f6242.us-central1.hosted.app/login"
+     style="display:inline-block;
+            padding:16px 32px;
+            background:linear-gradient(135deg,#7C3AED,#EC4899);
+            color:white;
+            text-decoration:none;
+            border-radius:12px;
+            font-weight:700;
+            font-size:16px;
+            text-align:center;">
+    🔐 Access Client Portal
+  </a>
+</div>
               <p style="color:#6B7280;font-size:13px;text-align:center;margin:0;">
-                This approval link is valid for 7 days. If you have questions, reply to this email.
+                If you have questions, reply to this email.
               </p>
             </div>
             <div style="text-align:center;margin-top:32px;">
