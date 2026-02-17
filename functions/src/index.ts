@@ -247,7 +247,7 @@ export const onProjectStatusCompleted = onDocumentUpdated(
     const mailOptions = {
       from: `"BookYourBrands" <${gmailUser.value()}>`,
       to: realEmail,
-      subject: `🎬 Your Reel is Ready for Approval — ${projectName}`,
+      subject: `🎬 Your Reel is Ready for Review — ${projectName}`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -296,20 +296,6 @@ export const onProjectStatusCompleted = onDocumentUpdated(
   </p>
 </div>
 
-<div style="text-align:center;margin-bottom:24px;">
-  <a href="https://studio--studio-6449361728-f6242.us-central1.hosted.app/login"
-     style="display:inline-block;
-            padding:16px 32px;
-            background:linear-gradient(135deg,#7C3AED,#EC4899);
-            color:white;
-            text-decoration:none;
-            border-radius:12px;
-            font-weight:700;
-            font-size:16px;
-            text-align:center;">
-    🔐 Access Client Portal
-  </a>
-</div>
               <p style="color:#6B7280;font-size:13px;text-align:center;margin:0;">
                 If you have questions, reply to this email.
               </p>
