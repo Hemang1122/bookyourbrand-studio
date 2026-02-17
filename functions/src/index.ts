@@ -274,28 +274,8 @@ export const onProjectStatusCompleted = onDocumentUpdated(
                 <strong style="color:#C084FC;">${projectName}</strong> has been completed by our team.
               </p>
               <p style="color:#D1D5DB;font-size:15px;line-height:1.6;margin:0 0 32px;">
-                Hi there! 👋 Great news — your reel is polished and ready for your review. Please watch it carefully and let us know if you'd like to approve it or request any changes.
+                Hi there! 👋 Great news — your reel is polished and ready for your review. Please watch it carefully. To request any changes, please get in touch with our support team and let them know what you'd like changed.
               </p>
-              <div style="background:rgba(124,58,237,0.1);
-            border-radius:12px;padding:20px;
-            margin-bottom:24px;
-            border:1px solid rgba(124,58,237,0.2);">
-  <p style="color:#D1D5DB;font-size:15px;
-            line-height:1.6;margin:0 0 16px;">
-    🎬 Please review your completed reel and share 
-    your feedback with our team through the 
-    <strong style="color:#C084FC;">Support Chat</strong> 
-    in your client portal.
-  </p>
-  <p style="color:#9CA3AF;font-size:13px;
-            line-height:1.5;margin:0;">
-    Log in to your portal and navigate to the 
-    Support section to chat with our team. 
-    Let us know if you'd like any changes or if 
-    you approve the final reel!
-  </p>
-</div>
-
               <p style="color:#6B7280;font-size:13px;text-align:center;margin:0;">
                 If you have questions, reply to this email.
               </p>
