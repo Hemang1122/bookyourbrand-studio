@@ -1,6 +1,9 @@
 {
   "database": {
     "rules": "database.rules.json"
+  },{
+  "database": {
+    "rules": "database.rules.json"
   },
   "storage": {
     "rules": "storage.rules"
@@ -10,5 +13,36 @@
     "predeploy": [
       "npm --prefix functions run build"
     ]
+  },
+  "hosting": {
+    "source": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "frameworksBackend": {
+      "region": "us-central1"
+    }
+  }
+}  "storage": {
+    "rules": "storage.rules"
+  },
+  "functions": {
+    "source": "functions",
+    "predeploy": [
+      "npm --prefix functions run build"
+    ]
+  },
+  "hosting": {
+    "source": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "frameworksBackend": {
+      "region": "us-central1"
+    }
   }
 }
