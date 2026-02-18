@@ -14,6 +14,15 @@ import { formatDistanceToNow } from 'date-fns';
 import { useUserStatus } from '@/firebase';
 import { useAuth } from '@/firebase/provider';
 
+type SupportChatListProps = {
+    contacts: User[];
+    selectedContact: User | null;
+    onSelectContact: (contact: User) => void;
+};
+
+type Filter = 'all' | 'client' | 'team';
+
+
 const getMessageDate = (timestamp: any): Date | null => {
   if (!timestamp) return null;
   if (typeof timestamp.toDate === 'function') {

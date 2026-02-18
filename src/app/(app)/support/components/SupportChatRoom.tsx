@@ -25,7 +25,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { format, isSameDay, isToday, isYesterday } from 'date-fns';
+import { format, isSameDay, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
 import { Logo } from '@/components/logo';
 import { Badge } from '@/components/ui/badge';
 
@@ -298,7 +298,15 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
         </Avatar>
         <div className="ml-4">
             <h3 className="font-bold text-base">{chatPartner.name}</h3>
-            <p className="text-xs text-green-400">{userStatus?.isOnline ? 'Online' : 'Offline'}</p>
+            <p className="text-xs text-gray-400">
+              {userStatus?.isOnline ? (
+                <span className="text-green-400">● Online</span>
+              ) : userStatus?.last_seen ? (
+                <>Last seen {formatDistanceToNow(new Date(userStatus.last_seen), { addSuffix: true })}</>
+              ) : (
+                'Offline'
+              )}
+            </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
             <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white hover:bg-white/10"><Phone /></Button>
