@@ -384,16 +384,6 @@
             }
           ]
         }
-      },
-      {
-        "path": "/projects/{projectId}/chat/messages/{messageId}",
-        "definition": {
-          "entityName": "ChatMessage",
-          "schema": {
-            "$ref": "#/backend/entities/ChatMessage"
-          },
-          "description": "Stores chat messages for a specific project."
-        }
       }
     ],
     "reasoning": "The Firestore structure is designed to provide a secure, scalable, and easily debuggable CRM for BookYourBrands. It prioritizes authorization independence by denormalizing authorization data and ensures clear separation of concerns through structural segregation. Access modeling follows consistent patterns, leveraging path-based ownership for user-specific data and membership maps for collaborative entities. The structure supports QAPs by using segregation and predictable data patterns, allowing secure list operations and minimizing the need for complex filtering in rules.\n\n**Authorization Independence:** The `clientId` is stored within the `projects` documents. This allows rules to validate ownership without needing to perform a `get()` operation on the `clients` collection.\n\n**Structural Segregation:** The project documents are stored at the top level, making them accessible for all users, while tasks are nested under projects, and chats are separated, keeping different levels of access separate. The new `/notifications` collection allows for scalable, user-specific notifications.\n\n**Access Modeling:** The `/users/{userId}` path is used for private user data, ensuring only the user can access their information. Projects are associated with clients through the `clientId` field. Tasks are nested under projects to simplify project-specific access control. Chats and Messages are segregated for clarity. The new `/notifications` collection allows for scalable, user-specific notifications.\n\n**QAPs Support:** By storing projects at the top level, listing projects is possible with rules that ensure the user has access to the projects based on their role. Querying notifications is efficient because they are queried by the recipient's user ID."

@@ -39,7 +39,6 @@ const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const nodemailer = __importStar(require("nodemailer"));
 const firestore_1 = require("firebase-functions/v2/firestore");
-const crypto = __importStar(require("crypto"));
 if (admin.apps.length === 0) {
     admin.initializeApp();
 }
@@ -240,19 +239,11 @@ exports.onProjectStatusCompleted = (0, firestore_1.onDocumentUpdated)({ document
         console.log('No real email for client:', clientId);
         return;
     }
-    // Generate secure one-time approval token
-    const approvalToken = crypto.randomBytes(32).toString('hex');
-    // Save token to project
-    await db.collection('projects').doc(projectId).update({ approvalToken });
-    // Build approval URLs
-    const baseUrl = 'https://studio--studio-6449361728-f6242.us-central1.hosted.app';
-    const approveUrl = `${baseUrl}/api/project-approval?projectId=${projectId}&action=approve&token=${approvalToken}`;
-    const changesUrl = `${baseUrl}/api/project-approval?projectId=${projectId}&action=changes&token=${approvalToken}`;
     // Send email
     const mailOptions = {
         from: `"BookYourBrands" <${gmailUser.value()}>`,
         to: realEmail,
-        subject: `🎬 Your Reel is Ready for Approval — ${projectName}`,
+        subject: `🎬 Your Reel is Ready for Review — ${projectName}`,
         html: `
         <!DOCTYPE html>
         <html>
@@ -279,18 +270,10 @@ exports.onProjectStatusCompleted = (0, firestore_1.onDocumentUpdated)({ document
                 <strong style="color:#C084FC;">${projectName}</strong> has been completed by our team.
               </p>
               <p style="color:#D1D5DB;font-size:15px;line-height:1.6;margin:0 0 32px;">
-                Hi there! 👋 Great news — your reel is polished and ready for your review. Please watch it carefully and let us know if you'd like to approve it or request any changes.
+                Hi there! 👋 Great news — your reel is polished and ready for your review. Please watch it carefully. To request any changes, please get in touch with our support team and let them know what you'd like changed.
               </p>
-              <div style="display:flex;gap:16px;justify-content:center;margin-bottom:24px;flex-wrap:wrap;">
-                <a href="${approveUrl}" style="display:inline-block;padding:16px 32px;background:linear-gradient(135deg,#10B981,#059669);color:white;text-decoration:none;border-radius:12px;font-weight:700;font-size:16px;text-align:center;">
-                  ✓ Approve Reel
-                </a>
-                <a href="${changesUrl}" style="display:inline-block;padding:16px 32px;background:linear-gradient(135deg,#EF4444,#DC2626);color:white;text-decoration:none;border-radius:12px;font-weight:700;font-size:16px;text-align:center;">
-                  ✗ Request Changes
-                </a>
-              </div>
               <p style="color:#6B7280;font-size:13px;text-align:center;margin:0;">
-                This approval link is valid for 7 days. If you have questions, reply to this email.
+                If you have questions, reply to this email.
               </p>
             </div>
             <div style="text-align:center;margin-top:32px;">

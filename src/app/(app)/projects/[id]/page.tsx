@@ -18,7 +18,6 @@ import { DeleteProjectDialog } from './components/delete-project-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { ProjectChat } from './components/project-chat';
 import { Card } from '@/components/ui/card';
 import { format } from 'date-fns';
 
@@ -205,20 +204,12 @@ export default function ProjectDetailPage() {
           <TabsTrigger value="files" className="px-6 py-2 rounded-lg text-sm font-medium transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-purple-500/25 data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-white data-[state=inactive]:hover:bg-white/5">
               <FolderOpen className="h-4 w-4 mr-2" />Files
           </TabsTrigger>
-          <TabsTrigger value="chat" className="px-6 py-2 rounded-lg text-sm font-medium transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-purple-500/25 data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-white data-[state=inactive]:hover:bg-white/5">
-              <MessageSquare className="h-4 w-4 mr-2" />Chat
-          </TabsTrigger>
         </TabsList>
         <TabsContent value="tasks">
           <TaskList projectId={project.id} />
         </TabsContent>
         <TabsContent value="files">
            <FileManager projectId={project.id} />
-        </TabsContent>
-        <TabsContent value="chat">
-           <Card className="h-[70vh] bg-[#13131F] border border-white/5">
-             <ProjectChat project={project} />
-           </Card>
         </TabsContent>
       </Tabs>
     </div>
