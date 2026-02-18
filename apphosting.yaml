@@ -4,7 +4,6 @@ runConfig:
   memoryMiB: 512
   concurrency: 80
   minInstances: 0
-  
-env:
-  - variable: NODE_ENV
-    value: production
+
+buildConfig:
+  npmInstallCommand: npm ci --legacy-peer-deps
