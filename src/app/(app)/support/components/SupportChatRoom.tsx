@@ -218,6 +218,9 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
     sendMessage(chatId, newMessage);
     setTyping(false);
     setNewMessage('');
+    setTimeout(() => {
+      scrollToBottom('smooth');
+    }, 100);
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -256,6 +259,9 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
           setIsUploading(false);
           setUploadProgress(0);
           uploadTaskRef.current = null;
+          setTimeout(() => {
+            scrollToBottom('smooth');
+          }, 100);
         }
       );
     } catch (error: any) {
@@ -268,6 +274,13 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewMessage(e.target.value);
     setTyping(true);
+    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (viewport) {
+      const isNearBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 200;
+      if (isNearBottom) {
+        scrollToBottom('smooth');
+      }
+    }
   }
   
   if (!currentUser || !chatPartner) return null;

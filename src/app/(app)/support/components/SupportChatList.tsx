@@ -65,7 +65,7 @@ const ChatListItem = ({ contact, isSelected, onSelect, chats, currentUser }: { c
                 <div className="flex justify-between items-center">
                     <p className="font-semibold truncate text-white text-sm">{contact.name}</p>
                     {lastMessageDate && (
-                      <p className="text-xs text-gray-400 shrink-0 ml-2">{formatDistanceToNow(lastMessageDate, { addSuffix: true })}</p>
+                      <p className="text-xs text-gray-400 ml-2">{formatDistanceToNow(lastMessageDate, { addSuffix: true })}</p>
                     )}
                 </div>
                 <div className="flex justify-between items-start mt-1">
