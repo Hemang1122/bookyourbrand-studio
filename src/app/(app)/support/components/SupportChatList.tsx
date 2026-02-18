@@ -85,16 +85,8 @@ const ChatListItem = ({ contact, isSelected, onSelect, chats, currentUser }: { c
                     <p className="text-sm text-gray-400 truncate flex-1 min-w-0">
                         {lastMessage ? (
                           <>
-                           {isSentByMe && (
-                              <span className="inline-flex items-center mr-1">
-                                { (lastMessage.readBy?.length ?? 0) > 1 ? (
-                                    <svg width="16" height="10" viewBox="0 0 16 10" className="text-blue-400" fill="currentColor"><path d="M1 5l3 3L10 1M6 5l3 3 5-7" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                                ) : (
-                                    <svg width="10" height="10" viewBox="0 0 10 10" className="text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 5l3 3 5-7"/></svg>
-                                )}
-                              </span>
-                            )}
-                            {lastMessage.text}
+                           {isSentByMe ? "You: " : ""}
+                           {lastMessage.text}
                           </>
                         ) : 'Start a conversation...'}
                     </p>
