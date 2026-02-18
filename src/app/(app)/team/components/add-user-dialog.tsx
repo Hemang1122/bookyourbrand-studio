@@ -15,19 +15,15 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
 import { useData } from '../../data-provider';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type AddUserDialogProps = {
   children: React.ReactNode;
 };
 
-type Role = 'client' | 'team';
-
 export function AddUserDialog({ children }: AddUserDialogProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
-  const [role, setRole] = useState<Role>('client');
   const [realEmail, setRealEmail] = useState('');
   const { toast } = useToast();
   const { createUser } = useData();
@@ -36,24 +32,24 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
   const { email, password } = useMemo(() => {
     if (!name) return { email: '', password: '' };
     const cleanName = name.toLowerCase().replace(/\s+/g, '');
-    const domain = role === 'client' ? 'creative.co' : 'example.com';
+    const domain = 'example.com';
     return {
       email: `${cleanName}@${domain}`,
       password: `${cleanName}@1234`,
     };
-  }, [name, role]);
+  }, [name]);
 
   const handleAddUser = async () => {
-    if (!name || !role) {
-      toast({ title: 'Error', description: 'Name and role are required.', variant: 'destructive' });
+    if (!name) {
+      toast({ title: 'Error', description: 'Name is required.', variant: 'destructive' });
       return;
     }
     
     setIsProcessing(true);
     try {
-      const result = await createUser({ name, role, realEmail: realEmail || undefined });
+      const result = await createUser({ name, role: 'team', realEmail: realEmail || undefined });
       toast({
-        title: 'User Created Successfully!',
+        title: 'Team Member Created!',
         description: realEmail 
           ? `Login credentials sent to ${realEmail}`
           : `Email: ${result.email} | Password: ${result.password}`,
@@ -61,7 +57,6 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
       });
       setOpen(false);
       setName('');
-      setRole('client');
       setRealEmail('');
     } catch (error) {
       // Error toast is handled in the data provider
@@ -75,27 +70,15 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create New User</DialogTitle>
+          <DialogTitle>Add New Team Member</DialogTitle>
           <DialogDescription>
-            This will create a new Firebase account and a corresponding profile in Firestore.
+            This will create a new team member account (Editor).
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-6 py-4">
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Jane Doe" disabled={isProcessing} autoFocus/>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="role">Role</Label>
-            <Select value={role} onValueChange={(value: Role) => setRole(value)} disabled={isProcessing}>
-                <SelectTrigger id="role">
-                    <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="client">Client</SelectItem>
-                    <SelectItem value="team">Editor (Team)</SelectItem>
-                </SelectContent>
-            </Select>
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., John Doe" disabled={isProcessing} autoFocus/>
           </div>
           <div className="space-y-2">
             <Label className="text-gray-300">
@@ -105,11 +88,11 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
               type="email"
               value={realEmail}
               onChange={(e) => setRealEmail(e.target.value)}
-              placeholder="client@gmail.com"
+              placeholder="member@gmail.com"
               className="bg-white/5 border-white/10 text-white"
             />
              <p className="text-xs text-muted-foreground">
-              Where project updates and approval emails will be sent. Can be added later.
+              Login credentials will be sent here.
             </p>
           </div>
           {name && (
@@ -126,7 +109,7 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isProcessing}>Cancel</Button>
           <Button onClick={handleAddUser} disabled={isProcessing || !name}>
             {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            {isProcessing ? 'Creating...' : 'Create User'}
+            {isProcessing ? 'Creating...' : 'Create Member'}
           </Button>
         </DialogFooter>
       </DialogContent>

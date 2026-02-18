@@ -130,14 +130,14 @@ export default function TeamPage() {
                       <div className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500">
                           <Users className="h-6 w-6 text-white" />
                       </div>
-                      <h1 className="text-3xl font-bold text-white">Team & User Management</h1>
+                      <h1 className="text-3xl font-bold text-white">Team Management</h1>
                   </div>
                   <p className="text-muted-foreground ml-14">{teamMembers.length} members</p>
               </div>
               <AddUserDialog>
                   <Button className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0 shadow-lg">
                       <Plus className="h-4 w-4 mr-2" />
-                      Add User
+                      Add Team Member
                   </Button>
               </AddUserDialog>
           </div>

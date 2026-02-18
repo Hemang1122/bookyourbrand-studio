@@ -11,7 +11,7 @@ import { useData } from '../data-provider';
 import { useAuth } from '@/firebase/provider';
 import { useUserStatus } from '@/firebase';
 import { redirect } from 'next/navigation';
-import { AddUserDialog } from '../team/components/add-user-dialog';
+import { AddClientDialog } from './components/add-client-dialog';
 import { ViewClientDetailsDialog } from './components/view-client-details-dialog';
 import type { Client } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -238,12 +238,12 @@ export default function ClientsPage() {
                   </div>
                   <p className="text-muted-foreground ml-14">{clients.length} clients · manage all accounts</p>
               </div>
-              <AddUserDialog>
+              <AddClientDialog>
                  <Button className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0 shadow-lg">
                       <Plus className="h-4 w-4 mr-2" />
                       Add Client
                   </Button>
-              </AddUserDialog>
+              </AddClientDialog>
           </div>
       </div>
       

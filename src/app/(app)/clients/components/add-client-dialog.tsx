@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -14,8 +14,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { useFirebaseServices } from '@/firebase';
+import { useData } from '../../data-provider';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type AddClientDialogProps = {
   children: React.ReactNode;
@@ -26,85 +26,86 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
   const [name, setName] = useState('');
   const [realEmail, setRealEmail] = useState('');
   const { toast } = useToast();
+  const { createUser } = useData();
   const [isProcessing, setIsProcessing] = useState(false);
-  const { functions } = useFirebaseServices();
 
   const handleAddClient = async () => {
     if (!name) {
-      toast({ title: 'Error', description: 'Name is required.', 
-              variant: 'destructive' });
+      toast({ title: 'Error', description: 'Name is required.', variant: 'destructive' });
       return;
     }
-    if (!functions) {
-      toast({ title: 'Error', description: 'Functions service not available.', variant: 'destructive' });
-      return;
-    }
-
+    
     setIsProcessing(true);
     try {
-      const createUserFn = httpsCallable(functions, 'createUser');
-      const result: any = await createUserFn({ 
-        name, 
-        role: 'client',
-        realEmail: realEmail || undefined
-      });
-      toast({ 
-        title: 'Client Created!', 
+      const result = await createUser({ name, role: 'client', realEmail: realEmail || undefined });
+      toast({
+        title: 'Client Created Successfully!',
         description: realEmail 
-            ? `Login credentials sent to ${realEmail}`
-            : `Email: ${result.data.email} | Password: ${result.data.password}`,
+          ? `Login credentials sent to ${realEmail}`
+          : `Email: ${result.email} | Password: ${result.password}`,
         duration: 10000,
       });
       setOpen(false);
       setName('');
       setRealEmail('');
-    } catch (error: any) {
-      toast({ 
-        title: 'Error creating client', 
-        description: error.message, 
-        variant: 'destructive' 
-      });
+    } catch (error) {
+      // Error toast is handled in the data provider
     } finally {
       setIsProcessing(false);
     }
   };
 
+  const cleanName = name.toLowerCase().replace(/\s+/g, '');
+  const email = `${cleanName}@creative.co`;
+  const password = `${cleanName}@1234`;
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add New Client</DialogTitle>
-          <DialogDescription>Fill in the name for the new client. Credentials will be generated automatically.</DialogDescription>
+          <DialogDescription>
+            This will create a new client account. Credentials can be sent via email.
+          </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-6 py-4">
           <div className="space-y-2">
             <Label htmlFor="name">Client Name</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Acme Corp" disabled={isProcessing} />
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Acme Inc." disabled={isProcessing} autoFocus/>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="realEmail">
-              Real Email Address
-              <span className="text-muted-foreground text-xs ml-1">
-                (optional — for sending credentials)
-              </span>
+            <Label className="text-gray-300">
+              Notification Email <span className="text-muted-foreground font-normal ml-1">(optional)</span>
             </Label>
             <Input
-              id="realEmail"
               type="email"
               value={realEmail}
               onChange={(e) => setRealEmail(e.target.value)}
-              placeholder="e.g. user@gmail.com"
+              placeholder="client@example.com"
+              className="bg-white/5 border-white/10 text-white"
               disabled={isProcessing}
             />
+             <p className="text-xs text-muted-foreground">
+              Project updates and credentials will be sent here.
+            </p>
           </div>
+          {name && (
+            <Alert>
+              <AlertTitle>Generated Credentials Preview</AlertTitle>
+              <AlertDescription className="break-all">
+                <p><b>Login Email:</b> {email}</p>
+                <p><b>Initial Password:</b> {password}</p>
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isProcessing}>Cancel</Button>
-          <Button onClick={handleAddClient} disabled={isProcessing}>
-            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isProcessing ? 'Adding Client...' : 'Add Client'}
-            </Button>
+          <Button onClick={handleAddClient} disabled={isProcessing || !name}>
+            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {isProcessing ? 'Creating...' : 'Create Client'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
