@@ -3,3 +3,4 @@ node_modules/
 .firebase/
 src/node_modules/
 *.pack
+functions/node_modules/
