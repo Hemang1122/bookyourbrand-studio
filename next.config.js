@@ -29,9 +29,6 @@ const nextConfig = {
       },
     ],
   },
-  experimental: {
-    optimizePackageImports: ['jspdf'],
-  },
 };
 
 module.exports = nextConfig;
