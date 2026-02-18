@@ -1,5 +1,9 @@
 runConfig:
-  runCommand: npm start
+  runtime: nodejs20
+  cpu: 1
+  memoryMiB: 512
+  concurrency: 80
+  minInstances: 0
   
 env:
   - variable: NODE_ENV
