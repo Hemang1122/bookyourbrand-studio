@@ -18,6 +18,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { packages as subscriptionPackages } from '../../settings/billing/packages-data';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { DocumentManager } from './document-manager';
 
 
 type ViewClientDetailsDialogProps = {
@@ -74,65 +76,67 @@ export function ViewClientDetailsDialog({ client, children }: ViewClientDetailsD
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Client Details: {client.name}</DialogTitle>
           <DialogDescription>Viewing details for {client.company}.</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-6 py-4">
-          
-          <div className="space-y-4 rounded-md border p-4">
-            <h4 className="font-medium">Subscription Plan</h4>
-             <div className="space-y-2">
-                <Label htmlFor="package-select">Package</Label>
-                <Select
-                    value={selectedPackage}
-                    onValueChange={(value: PackageName) => setSelectedPackage(value)}
-                >
-                    <SelectTrigger id="package-select">
-                        <SelectValue placeholder="Select a package" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {subscriptionPackages.map(pkg => (
-                           pkg.tiers && <SelectItem key={pkg.name} value={pkg.name}>{pkg.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-             <Button onClick={handleSaveSubscription} disabled={isSaving} className="w-full">
-                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Save Subscription
-            </Button>
-          </div>
-          
-          <div className="space-y-2">
-            <h4 className="font-medium">Founder Details</h4>
-            <p className="text-sm text-muted-foreground p-4 bg-muted rounded-md">
-                {client.founderDetails || "No details provided."}
-            </p>
-          </div>
 
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="w-full mt-4">
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete Client Account
+        <Tabs defaultValue="subscription" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="subscription">Subscription</TabsTrigger>
+            <TabsTrigger value="documents">Documents</TabsTrigger>
+          </TabsList>
+          <TabsContent value="subscription" className="py-4">
+              <div className="space-y-4 rounded-md border p-4">
+                <h4 className="font-medium">Subscription Plan</h4>
+                 <div className="space-y-2">
+                    <Label htmlFor="package-select">Package</Label>
+                    <Select
+                        value={selectedPackage}
+                        onValueChange={(value: PackageName) => setSelectedPackage(value)}
+                    >
+                        <SelectTrigger id="package-select">
+                            <SelectValue placeholder="Select a package" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {subscriptionPackages.map(pkg => (
+                               pkg.tiers && <SelectItem key={pkg.name} value={pkg.name}>{pkg.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                 <Button onClick={handleSaveSubscription} disabled={isSaving} className="w-full">
+                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Save Subscription
                 </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        This will permanently delete {client.name}'s account and all associated data from authentication and Firestore. This action cannot be undone.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteConfirmed} className="bg-destructive hover:bg-destructive/90">Delete Account</AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-          
-        </div>
+              </div>
+          </TabsContent>
+          <TabsContent value="documents" className="py-4">
+            <DocumentManager client={client} />
+          </TabsContent>
+        </Tabs>
+
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+              <Button variant="destructive" className="w-full mt-4">
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete Client Account
+              </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      This will permanently delete {client.name}'s account and all associated data from authentication and Firestore. This action cannot be undone.
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteConfirmed} className="bg-destructive hover:bg-destructive/90">Delete Account</AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
+
       </DialogContent>
     </Dialog>
   );

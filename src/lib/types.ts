@@ -34,16 +34,26 @@ export type SocialConnection = {
   connectedAt?: Timestamp;
 };
 
+export type ClientDocumentType = 'contract' | 'package_details' | 'business_registration' | 'founder_details' | 'custom';
+
+export type ClientDocument = {
+  id: string;
+  clientId: string;
+  name: string; 
+  type: ClientDocumentType;
+  fileName: string;
+  url: string;
+  storagePath: string; 
+  uploadedById: string;
+  uploadedAt: Timestamp;
+};
+
 export type Client = {
   id: string;
   name: string;
   email: string;
   company: string;
   avatar: string;
-  founderDetails?: string;
-  agreementUrl?: string;
-  idCardUrl?: string;
-  // Subscription details
   packageName?: PackageName;
   reelsLimit?: number;
   reelsCreated?: number;
@@ -131,14 +141,6 @@ export type DocumentType = 'aadhar' | 'pan' | 'joiningLetter' | 'agreement' | 'i
 
 export type UserDocument = {
   userId: string;
-  type: DocumentType;
-  url: string;
-  fileName: string;
-  uploadedAt: FieldValue;
-};
-
-export type ClientDocument = {
-  clientId: string;
   type: DocumentType;
   url: string;
   fileName: string;

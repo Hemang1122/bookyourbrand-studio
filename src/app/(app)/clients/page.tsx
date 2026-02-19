@@ -3,10 +3,9 @@
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Building2, Plus, Search, Mail, Eye, Trash2, Pencil, Send, AlertTriangle, Loader2 } from 'lucide-react';
+import { Building2, Plus, Search, Mail, Eye, Trash2 } from 'lucide-react';
 import { useData } from '../data-provider';
 import { useAuth } from '@/firebase/provider';
 import { useUserStatus } from '@/firebase';
@@ -17,27 +16,11 @@ import type { Client } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { useFirebaseServices } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
-
 
 // A new component for each client card to use hooks properly
-const ClientCard = ({ client, isAdmin, onDelete, onEditEmail }: { client: Client; isAdmin: boolean; onDelete: (id: string) => void; onEditEmail: (client: Client) => void }) => {
+const ClientCard = ({ client, isAdmin, onDelete }: { client: Client; isAdmin: boolean; onDelete: (id: string) => void; }) => {
   const userStatus = useUserStatus(client.id);
   const avatarUrl = (client as any).photoURL || PlaceHolderImages.find(p => p.id === client.avatar)?.imageUrl;
-  const reelsUsage = client.reelsCreated || 0;
-  const reelsLimit = client.reelsLimit || 3;
-  const progress = Math.min(100, reelsLimit > 0 ? (reelsUsage / reelsLimit) * 100 : 0);
 
   return (
       <div className="group rounded-2xl p-5 bg-[#13131F] border border-white/5 hover:border-purple-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/10 hover:-translate-y-0.5">
@@ -65,57 +48,17 @@ const ClientCard = ({ client, isAdmin, onDelete, onEditEmail }: { client: Client
               </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="rounded-xl p-3 text-center bg-white/[0.03] border border-white/5">
-                  <p className="text-xl font-bold text-white">{reelsUsage}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Reels Created</p>
-              </div>
-              <div className="rounded-xl p-3 text-center bg-white/[0.03] border border-white/5">
-                  <p className="text-xl font-bold text-white">{reelsLimit}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Reel Limit</p>
-              </div>
-          </div>
-
-          <div className="mb-4">
-              <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
-                  <span>Reel Usage</span>
-                  <span>{reelsUsage}/{reelsLimit}</span>
-              </div>
-              <div className="h-1.5 rounded-full bg-white/10">
-                  <div className="h-1.5 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all" style={{ width: `${progress}%` }} />
-              </div>
-          </div>
-
-          <div className="flex items-center gap-2 mb-2">
-            <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <div>
-              <p className="text-xs text-muted-foreground">Login Email</p>
-              <p className="text-xs text-white truncate">{client.email}</p>
-            </div>
-          </div>
-
           <div className="flex items-center gap-2 mb-4">
-            <Send className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-muted-foreground">Notification Email</p>
-              {client.realEmail ? (
+            <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <p className="text-xs text-white truncate">{client.email}</p>
+          </div>
+          
+          <div className="flex items-center gap-2 mb-4">
+             <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            {client.realEmail ? (
                 <p className="text-xs text-green-400 truncate">{client.realEmail}</p>
-              ) : (
-                <p className="text-xs text-yellow-400 flex items-center gap-1">
-                  <AlertTriangle className="h-3 w-3 shrink-0" />
-                  Not set — won't receive emails
-                </p>
-              )}
-            </div>
-            {isAdmin && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEditEmail(client);
-                }}
-                className="shrink-0 p-1 rounded-lg hover:bg-white/10 transition-colors text-muted-foreground hover:text-purple-400">
-                <Pencil className="h-3 w-3" />
-              </button>
+            ) : (
+                <p className="text-xs text-yellow-400">Notification email not set</p>
             )}
           </div>
 
@@ -155,48 +98,6 @@ export default function ClientsPage() {
   const { user } = useAuth();
   const { clients, deleteUser, isLoading } = useData();
   const [searchQuery, setSearchQuery] = useState('');
-  const { toast } = useToast();
-  const { firestore } = useFirebaseServices();
-
-  const [editEmailClient, setEditEmailClient] = useState<Client | null>(null);
-  const [editEmailValue, setEditEmailValue] = useState('');
-  const [isSavingEmail, setIsSavingEmail] = useState(false);
-
-  const openEditEmailDialog = (client: Client) => {
-    setEditEmailClient(client);
-    setEditEmailValue(client.realEmail || '');
-  };
-
-  const handleSaveRealEmail = async () => {
-    if (!editEmailClient || !firestore) return;
-    setIsSavingEmail(true);
-    try {
-      // Update in clients collection
-      await updateDoc(
-        doc(firestore, 'clients', editEmailClient.id),
-        { realEmail: editEmailValue.trim() }
-      );
-      // Also update in users collection
-      await updateDoc(
-        doc(firestore, 'users', editEmailClient.id),
-        { realEmail: editEmailValue.trim() }
-      );
-      toast({ 
-        title: 'Email updated!',
-        description: `Notification email set to ${editEmailValue}`
-      });
-      setEditEmailClient(null);
-    } catch (err: any) {
-      toast({ 
-        title: 'Error', 
-        description: err.message,
-        variant: 'destructive' 
-      });
-    } finally {
-      setIsSavingEmail(false);
-    }
-  };
-
 
   if (user?.role !== 'admin') {
     if (typeof window !== 'undefined') {
@@ -213,10 +114,6 @@ export default function ClientsPage() {
       (c.company && c.company.toLowerCase().includes(searchQuery.toLowerCase()))
     );
   }, [clients, searchQuery]);
-  
-  const missingEmailCount = clients.filter(
-    c => !c.realEmail
-  ).length;
 
   return (
     <div className="container mx-auto py-10">
@@ -229,12 +126,6 @@ export default function ClientsPage() {
                           <Building2 className="h-6 w-6 text-white" />
                       </div>
                       <h1 className="text-3xl font-bold text-white">Clients</h1>
-                      {missingEmailCount > 0 && (
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs bg-yellow-500/15 text-yellow-400 border border-yellow-500/20">
-                            <AlertTriangle className="h-3.5 w-3.5" />
-                            {missingEmailCount} client{missingEmailCount > 1 ? 's' : ''} missing notification email
-                        </div>
-                      )}
                   </div>
                   <p className="text-muted-foreground ml-14">{clients.length} clients · manage all accounts</p>
               </div>
@@ -264,7 +155,7 @@ export default function ClientsPage() {
        ) : filteredClients.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredClients.map(client => (
-              <ClientCard key={client.id} client={client} isAdmin={user.role === 'admin'} onDelete={deleteUser} onEditEmail={openEditEmailDialog} />
+              <ClientCard key={client.id} client={client} isAdmin={user.role === 'admin'} onDelete={deleteUser} />
             ))}
           </div>
         ) : (
@@ -276,56 +167,6 @@ export default function ClientsPage() {
             <p className="text-gray-500 text-sm">Add your first client to get started.</p>
           </div>
         )}
-      <Dialog 
-        open={!!editEmailClient} 
-        onOpenChange={(open) => !open && setEditEmailClient(null)}
-      >
-        <DialogContent className="bg-[#13131F] border border-white/10 text-white">
-          <DialogHeader>
-            <DialogTitle className="text-white">Set Notification Email</DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              This email will receive project updates, completed reel notifications, and approval requests for{' '}
-              <span className="text-purple-400 font-medium">{editEmailClient?.name}</span>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="rounded-xl p-3 bg-white/[0.03] border border-white/5">
-              <p className="text-xs text-muted-foreground mb-1">Login Email (cannot change)</p>
-              <p className="text-sm text-white">{editEmailClient?.email}</p>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-gray-300">Notification Email</Label>
-              <Input
-                type="email"
-                value={editEmailValue}
-                onChange={(e) => setEditEmailValue(e.target.value)}
-                placeholder="client@gmail.com"
-                className="bg-white/5 border-white/10 text-white focus-visible:ring-purple-500/30 focus-visible:border-purple-500/50"
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveRealEmail(); }}
-              />
-              <p className="text-xs text-muted-foreground">
-                This can be different from their login email. Project approval emails will be sent here.
-              </p>
-            </div>
-            {editEmailClient?.realEmail && editEmailValue === '' && (
-              <div className="rounded-xl p-3 bg-yellow-500/10 border border-yellow-500/20 flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-yellow-400 shrink-0 mt-0.5" />
-                <p className="text-xs text-yellow-300">
-                  Clearing this email means the client won't receive any project notifications or approval requests.
-                </p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditEmailClient(null)} className="border-white/10 text-white hover:bg-white/5">Cancel</Button>
-            <Button onClick={handleSaveRealEmail} disabled={isSavingEmail || editEmailValue === (editEmailClient?.realEmail || '')} className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0">
-              {isSavingEmail ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</>
-              ) : ( 'Save Email' )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

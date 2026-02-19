@@ -2,14 +2,14 @@
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus, TimerSession, Chat, ChatMessage } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus, TimerSession, Chat, ChatMessage, ClientDocument } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking, useFirebaseServices, FirestorePermissionError, errorEmitter } from '@/firebase';
-import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp, arrayUnion, runTransaction, getDocs, updateDoc, addDoc, getDoc, orderBy, setDoc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp, arrayUnion, runTransaction, getDocs, updateDoc, addDoc, getDoc, orderBy, setDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
-import { uploadFile } from '@/lib/storage';
+import { uploadFile, deleteFileFromStorage } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
 import type { FirebaseApp } from 'firebase/app';
 import { packages as subscriptionPackages } from './settings/billing/packages-data';
@@ -24,6 +24,7 @@ type DataContextType = {
   users: User[];
   scrumUpdates: ScrumUpdate[];
   files: ProjectFile[];
+  clientDocuments: ClientDocument[];
   notifications: Notification[];
   timerSessions: TimerSession[];
   chats: Chat[];
@@ -44,6 +45,8 @@ type DataContextType = {
   updateProject: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => void;
   addFile: (file: Omit<ProjectFile, 'id'>) => void;
   deleteFile: (fileId: string) => void;
+  addClientDocument: (document: Omit<ClientDocument, 'id' | 'uploadedAt' | 'uploadedById' | 'url' | 'storagePath' | 'fileName'>, file: File) => Promise<void>;
+  deleteClientDocument: (document: ClientDocument) => Promise<void>;
   addNotification: (message: string, url: string, recipients: string[], type: 'system' | 'chat', chatId?: string) => void;
   markNotificationsAsRead: (type?: 'system' | 'chat') => void;
   markChatNotificationsAsRead: (chatId: string) => void;
@@ -88,6 +91,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: files, isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? query(collection(firestore, 'files')) : null, [firestore]));
   const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
   
+  const { data: clientDocuments, isLoading: documentsLoading } = useCollection<ClientDocument>(useMemoFirebase(() => firestore ? collection(firestore, 'clientDocuments') : null, [firestore]));
+
   const { data: scrumUpdatesData, isLoading: scrumUpdatesLoading } = useCollection<ScrumUpdate>(useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
     if (currentUser.role === 'client') return null; // No need to fetch for clients
@@ -156,7 +161,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }, [chatsData, firestore, authUid]);
 
 
-  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading || chatsLoading;
+  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading || chatsLoading || documentsLoading;
   
   const teamEditorMapping = useMemo(() => {
     if (!usersData) return new Map<string, string>();
@@ -651,6 +656,41 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     deleteDocumentNonBlocking(fileRef);
   };
   
+  const addClientDocument = async (documentData: Omit<ClientDocument, 'id' | 'uploadedAt' | 'uploadedById' | 'url' | 'storagePath' | 'fileName'>, file: File) => {
+    if (!firestore || !currentUser) return;
+    const storagePath = `documents/${documentData.clientId}/${documentData.type}/${file.name}`;
+    const url = await uploadFile(file, storagePath);
+
+    const newDoc: Omit<ClientDocument, 'id'> = {
+      ...documentData,
+      url,
+      storagePath,
+      fileName: file.name,
+      uploadedById: currentUser.id,
+      uploadedAt: Timestamp.now(),
+    };
+    await addDoc(collection(firestore, 'clientDocuments'), newDoc);
+    toast({ title: "Document Uploaded", description: `${documentData.name} has been uploaded successfully.` });
+  };
+  
+  const deleteClientDocument = async (document: ClientDocument) => {
+    if (!firestore) return;
+    try {
+      await deleteFileFromStorage(document.storagePath);
+      await deleteDoc(doc(firestore, 'clientDocuments', document.id));
+      toast({ title: "Document Deleted", description: `${document.name} has been deleted.` });
+    } catch (error: any) {
+      console.error("Failed to delete document:", error);
+      if (error.code === 'storage/object-not-found') {
+        // If file doesn't exist in storage, just delete the DB record
+        await deleteDoc(doc(firestore, 'clientDocuments', document.id));
+        toast({ title: "Document record deleted", description: "The file was not found in storage, but the record has been removed." });
+      } else {
+        toast({ title: "Error", description: `Failed to delete document: ${error.message}`, variant: "destructive" });
+      }
+    }
+  };
+  
   const markNotificationsAsRead = useCallback(async (type?: 'system' | 'chat') => {
     if (!firestore || !notifications || notifications.length === 0 || !authUid) return;
 
@@ -711,6 +751,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         users,
         scrumUpdates,
         files,
+        clientDocuments: clientDocuments || [],
         notifications,
         chats,
         getOrCreateChat,
@@ -731,6 +772,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         updateProject,
         addFile,
         deleteFile,
+        addClientDocument,
+        deleteClientDocument,
         addNotification,
         markNotificationsAsRead,
         markChatNotificationsAsRead,

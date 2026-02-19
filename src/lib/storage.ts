@@ -1,5 +1,5 @@
 'use client';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL, type UploadMetadata } from 'firebase/storage';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject, type UploadMetadata } from 'firebase/storage';
 import { getApp } from 'firebase/app';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -28,4 +28,11 @@ export async function uploadFile(
       }
     );
   });
+}
+
+export async function deleteFileFromStorage(path: string): Promise<void> {
+  const app = getApp();
+  const storage = getStorage(app);
+  const storageRef = ref(storage, path);
+  return deleteObject(storageRef);
 }

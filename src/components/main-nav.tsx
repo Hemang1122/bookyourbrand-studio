@@ -13,6 +13,7 @@ import {
   LifeBuoy,
   BarChart,
   MessageSquare,
+  FileText,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -31,6 +32,7 @@ const navItems = [
   { href: '/projects', icon: FolderKanban, label: 'Projects', roles: ['admin', 'team', 'client'] },
   { href: '/clients', icon: Briefcase, label: 'Clients', roles: ['admin'] },
   { href: '/team', icon: Users, label: 'Team', roles: ['admin'] },
+  { href: '/documents', icon: FileText, label: 'Documents', roles: ['client'] },
   { href: '/profile', icon: Users, label: 'Profile', roles: ['admin', 'team', 'client'] },
   { href: '/support', icon: MessageSquare, label: 'Support', roles: ['admin', 'client', 'team'] },
   { href: '/scrum', icon: GitCommit, label: 'Scrum', roles: ['admin', 'team'] },
