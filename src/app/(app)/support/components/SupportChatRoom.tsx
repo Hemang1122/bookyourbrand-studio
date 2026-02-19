@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import type { ChatMessage, User, Timestamp as FirebaseTimestamp } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Paperclip, FileText, Download, Loader2, Trash2, MoreVertical, Pencil, Smile, ArrowLeft, ArrowDown, Phone, Video } from 'lucide-react';
+import { Send, Paperclip, FileText, Download, Loader2, Trash2, MoreVertical, Pencil, Smile, ArrowLeft, ArrowDown, Phone, Video, Reply, Pin, X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -106,6 +106,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
   
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
+  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
 
   useEffect(() => {
     if (currentUser && chatPartner) {
@@ -224,11 +225,25 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
 
   const handleSendTextMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatId || !newMessage.trim()) return;
-    sendMessage(chatId, newMessage);
+    if (!chatId || !newMessage.trim() || !currentUser) return;
+    
+    let replyToData: ChatMessage['replyTo'] | undefined = undefined;
+    if (replyingTo) {
+        replyToData = {
+            messageId: replyingTo.id,
+            text: replyingTo.text || 'Media file',
+            senderId: replyingTo.senderId,
+            senderName: replyingTo.senderId === currentUser.id 
+                ? currentUser.name 
+                : chatPartner.name,
+        };
+    }
+
+    sendMessage(chatId, newMessage, undefined, replyToData);
     sounds.messageSent();
     setTyping(false);
     setNewMessage('');
+    setReplyingTo(null); // Clear reply context
     setTimeout(() => {
       scrollToBottom('smooth');
     }, 100);
@@ -294,9 +309,29 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
       }
     }
   }
+
+  const handlePinMessage = async (messageId: string) => {
+    if (!chatId || !firestore) return;
+    const msgRef = doc(firestore, 'chats', chatId, 'messages', messageId);
+    const msg = messages?.find(m => m.id === messageId);
+    if (!msg) return;
+    
+    await updateDoc(msgRef, { 
+      pinned: !((msg as any).pinned)
+    });
+    
+    toast({ 
+      title: (msg as any).pinned ? 'Message unpinned' : 'Message pinned',
+      description: 'Pinned messages appear at the top'
+    });
+  };
   
   if (!currentUser || !chatPartner) return null;
   const userStatus = useUserStatus(chatPartner.id);
+
+  const pinnedMessages = useMemo(() => {
+    return (messages || []).filter(m => (m as any).pinned);
+  }, [messages]);
 
   return (
     <div className="flex h-full flex-col bg-gradient-to-b from-[#13131F] to-[#0F0F1A] text-white relative">
@@ -335,6 +370,42 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
         </div>
       )}
        <div className="flex-1 flex flex-col overflow-hidden relative">
+        {pinnedMessages.length > 0 && (
+          <div className="border-b border-white/10 bg-primary/10 backdrop-blur-xl">
+            <div className="p-3 flex items-center gap-3 overflow-x-auto">
+              <Pin className="h-4 w-4 text-primary shrink-0" />
+              <div className="flex gap-2 overflow-x-auto">
+                {pinnedMessages
+                  .slice(0, 3)
+                  .map(pinnedMsg => (
+                  <div 
+                    key={pinnedMsg.id}
+                    className="px-3 py-2 rounded-lg bg-white/5 
+                               border border-white/10 cursor-pointer 
+                               hover:bg-white/10 transition-colors 
+                               min-w-[200px]"
+                    onClick={() => {
+                      // TODO: Scroll to this message
+                    }}
+                  >
+                    <p className="text-xs text-primary font-semibold mb-1">
+                      {pinnedMsg.senderId === currentUser.id 
+                        ? 'You' : chatPartner.name}
+                    </p>
+                    <p className="text-sm text-white truncate">
+                      {pinnedMsg.text || '📎 Media'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              {pinnedMessages.length > 3 && (
+                <Badge variant="secondary" className="shrink-0">
+                  +{pinnedMessages.length - 3}
+                </Badge>
+              )}
+            </div>
+          </div>
+        )}
         <ScrollArea className="flex-1 custom-scrollbar" ref={scrollAreaRef}>
             <div className="p-6 space-y-3">
               {(messages || []).map((msg, index) => {
@@ -354,10 +425,30 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
                     <div className={cn('flex items-end gap-3', isCurrentUser ? 'justify-end' : 'justify-start', isCurrentUser ? 'animate-slideInRight' : 'animate-slideInLeft')}>
                       <div className={cn('flex flex-col gap-1 max-w-[65%]', isCurrentUser ? 'items-end' : 'items-start')}>
                         <div className="group relative">
+                          {(msg as any).pinned && (
+                            <div className="absolute -top-2 -right-2 bg-primary 
+                                            rounded-full p-1 shadow-lg z-10">
+                              <Pin className="h-3 w-3 text-white" />
+                            </div>
+                          )}
                           <div className={cn(
                               'px-4 py-2 text-sm break-words',
                               isCurrentUser ? 'bg-gradient-to-br from-primary to-pink-500 text-white rounded-t-2xl rounded-bl-2xl shadow-lg' : 'bg-[#1E1E2A] border border-white/10 text-gray-200 rounded-t-2xl rounded-br-2xl',
                           )}>
+                             {(msg as any).replyTo && (
+                              <div className="mb-2 p-2 rounded-lg bg-black/20 
+                                              border-l-2 border-primary/50 cursor-pointer"
+                                   onClick={() => {
+                                     // TODO: Scroll to the replied message
+                                   }}>
+                                <p className="text-xs text-primary font-semibold">
+                                  {(msg as any).replyTo.senderName}
+                                </p>
+                                <p className="text-xs text-gray-400 truncate">
+                                  {(msg as any).replyTo.text}
+                                </p>
+                              </div>
+                            )}
                              {editingMessageId === msg.id ? (
                                 <div className="flex flex-col gap-2 min-w-[200px]">
                                     <Input value={editingText} onChange={(e) => setEditingText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSaveEdit(msg.id); } if (e.key === 'Escape') setEditingMessageId(null); }} autoFocus className="text-sm bg-black/30 border-white/20 h-9" />
@@ -398,6 +489,11 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
                                         <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-[#1E1E2A] border border-white/10 shadow-md hover:bg-primary/20"><MoreVertical className="h-4 w-4 text-gray-400" /></Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-32 bg-[#1E1E2A] border-primary/20 text-white">
+                                        <DropdownMenuItem onClick={() => setReplyingTo(msg)}><Reply className="h-3 w-3 mr-2" />Reply</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handlePinMessage(msg.id)}>
+                                          <Pin className="h-3 w-3 mr-2" />
+                                          {(msg as any).pinned ? 'Unpin' : 'Pin'}
+                                        </DropdownMenuItem>
                                         {msg.type !== 'media' && isWithin15Minutes(msg) && <DropdownMenuItem onClick={() => startEditing(msg)}><Pencil className="h-3 w-3 mr-2" />Edit</DropdownMenuItem>}
                                         <DropdownMenuItem onClick={() => handleDeleteMessage(msg.id)} className="text-red-400 focus:text-red-400 focus:bg-red-500/10"><Trash2 className="h-3 w-3 mr-2" />Delete</DropdownMenuItem>
                                     </DropdownMenuContent>
@@ -457,6 +553,32 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
               </div>
               <Button type="button" variant="ghost" size="sm" className="h-5 px-2 text-xs" onClick={() => { uploadTaskRef.current?.cancel(); setIsUploading(false); }}>Cancel</Button>
             </div>
+          </div>
+        )}
+        {replyingTo && (
+          <div className="px-4 py-2 bg-white/5 border-t border-white/10 
+                          flex items-center justify-between">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="w-1 h-10 bg-gradient-to-b from-primary 
+                              to-pink-500 rounded-full" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-primary font-semibold">
+                  Replying to {replyingTo.senderId === currentUser.id 
+                    ? 'yourself' : chatPartner.name}
+                </p>
+                <p className="text-sm text-gray-400 truncate">
+                  {replyingTo.text || 'Media file'}
+                </p>
+              </div>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8" 
+              onClick={() => setReplyingTo(null)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         )}
         <div className="border-t border-white/5 p-4 bg-[#13131F]/90 backdrop-blur-xl">

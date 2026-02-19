@@ -206,6 +206,13 @@ export type ChatMessage = {
   edited?: boolean;
   editedAt?: Timestamp;
   reactions?: { [emoji: string]: string[] };
+  replyTo?: {
+    messageId: string;
+    text: string;
+    senderId: string;
+    senderName: string;
+  };
+  pinned?: boolean;
 };
 
 export type UserPresence = {

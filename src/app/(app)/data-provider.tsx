@@ -28,7 +28,7 @@ type DataContextType = {
   timerSessions: TimerSession[];
   chats: Chat[];
   getOrCreateChat: (partnerId: string) => Promise<string | null>;
-  sendMessage: (chatId: string, messageText: string, mediaUrl?: string) => void;
+  sendMessage: (chatId: string, messageText: string, mediaUrl?: string, replyTo?: ChatMessage['replyTo']) => void;
   addProject: (project: Omit<Project, 'id' | 'coverImage' >) => void;
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks' | 'dueDate'>) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
@@ -315,13 +315,13 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     }
   }, [firestore, currentUser, authUid, toast, usersData, addNotification]);
 
-  const sendMessage = useCallback(async (chatId: string, messageText: string, mediaUrl?: string) => {
+  const sendMessage = useCallback(async (chatId: string, messageText: string, mediaUrl?: string, replyTo?: ChatMessage['replyTo']) => {
     if (!currentUser || !firestore || (!messageText.trim() && !mediaUrl) || !authUid || !usersData) return;
     
     const messagesColRef = collection(firestore, 'chats', chatId, 'messages');
     const chatDocRef = doc(firestore, 'chats', chatId);
 
-    const messagePayload: Omit<ChatMessage, 'id' | 'timestamp'> = {
+    const messagePayload: Partial<ChatMessage> = {
       senderId: authUid,
       senderName: currentUser.name,
       senderRole: currentUser.role,
@@ -332,6 +332,10 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       deleted: false,
     };
     
+    if (replyTo) {
+      messagePayload.replyTo = replyTo;
+    }
+
     addDocumentNonBlocking(messagesColRef, { ...messagePayload, timestamp: serverTimestamp() });
     
     const chatUpdatePayload = {
