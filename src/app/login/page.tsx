@@ -35,10 +35,15 @@ function LoginPageContent() {
   }
   
   // If auth is loaded and user exists, redirect them to the dashboard.
+  useEffect(() => {
+    if (user) {
+      router.replace('/dashboard');
+    }
+  }, [user, router]);
+
   if (user) {
-    router.replace('/dashboard');
     return (
-       <div className="flex h-screen w-full items-center justify-center bg-background">
+      <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
