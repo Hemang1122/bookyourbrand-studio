@@ -25,6 +25,13 @@ function LoginPageContent() {
     setIsMounted(true);
   }, []);
 
+  // If auth is loaded and user exists, redirect them to the dashboard.
+  useEffect(() => {
+    if (user) {
+      router.replace('/dashboard');
+    }
+  }, [user, router]);
+
   // If auth state is loading, show a spinner.
   if (loading) {
     return (
@@ -34,13 +41,6 @@ function LoginPageContent() {
     );
   }
   
-  // If auth is loaded and user exists, redirect them to the dashboard.
-  useEffect(() => {
-    if (user) {
-      router.replace('/dashboard');
-    }
-  }, [user, router]);
-
   if (user) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
