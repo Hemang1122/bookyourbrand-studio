@@ -17,18 +17,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { sounds } from '@/lib/sounds';
 
-// Custom hook to track the previous value of a prop or state
-function usePrevious<T>(value: T): T | undefined {
-  const ref = useRef<T>();
-  useEffect(() => {
-    ref.current = value;
-  });
-  return ref.current;
-}
-
 export function NotificationBell() {
   const { user } = useAuth();
   const { notifications, markNotificationsAsRead, isLoading } = useData();
+  const prevUnreadCountRef = useRef<number>();
 
   // Memoize notifications to prevent re-renders, handle null safety
   const allNotifications = useMemo(() => {
@@ -51,14 +43,21 @@ export function NotificationBell() {
     return sortedNotifications.filter(n => !(n.readBy || []).includes(user.id)).length;
   }, [sortedNotifications, user]);
 
-  const prevUnreadCount = usePrevious(unreadCount);
-
   useEffect(() => {
-    // Play sound only if the count has increased
-    if (typeof prevUnreadCount !== 'undefined' && unreadCount > prevUnreadCount) {
+    // On the first run, the ref is undefined. We'll set it and skip playing a sound.
+    if (prevUnreadCountRef.current === undefined) {
+      prevUnreadCountRef.current = unreadCount;
+      return;
+    }
+
+    // If the new unread count is greater than the previous one, it means a new notification has arrived.
+    if (unreadCount > prevUnreadCountRef.current) {
       sounds.notification();
     }
-  }, [unreadCount, prevUnreadCount]);
+
+    // Update the ref to the current count for the next check.
+    prevUnreadCountRef.current = unreadCount;
+  }, [unreadCount]);
 
 
   const handleOpenChange = (open: boolean) => {
