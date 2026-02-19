@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils';
 import { format, isSameDay, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
 import { Logo } from '@/components/logo';
 import { Badge } from '@/components/ui/badge';
+import { sounds } from '@/lib/sounds';
 
 const getMessageDate = (timestamp: any): Date => {
   if (!timestamp) return new Date();
@@ -173,6 +174,15 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
             batch.update(msgRef, { readBy: arrayUnion(authUid) });
         });
         batch.commit().catch(err => console.error("Failed to mark messages as read:", err));
+        
+        // Play sound for received messages
+        const incomingMessages = messages?.filter(msg => 
+          msg.senderId !== currentUser.id && 
+          (Date.now() - getMessageDate(msg.timestamp).getTime() < 2000)
+        );
+        if (incomingMessages && incomingMessages.length > 0) {
+          sounds.messageReceived();
+        }
     }
     markChatNotificationsAsRead(chatId);
   }, [messages, chatId, firestore, currentUser, auth, markChatNotificationsAsRead]);
@@ -216,6 +226,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
     e.preventDefault();
     if (!chatId || !newMessage.trim()) return;
     sendMessage(chatId, newMessage);
+    sounds.messageSent();
     setTyping(false);
     setNewMessage('');
     setTimeout(() => {
@@ -256,6 +267,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
         async () => {
           const downloadURL = await getDownloadURL(task.snapshot.ref);
           sendMessage(chatId, file.name, downloadURL);
+          sounds.messageSent();
           setIsUploading(false);
           setUploadProgress(0);
           uploadTaskRef.current = null;

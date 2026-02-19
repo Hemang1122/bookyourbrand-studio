@@ -14,8 +14,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatDistanceToNow, compareDesc } from 'date-fns';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { NotificationSound } from '@/components/ui/notification-sound';
 import Link from 'next/link';
+import { sounds } from '@/lib/sounds';
 
 // Custom hook to track the previous value of a prop or state
 function usePrevious<T>(value: T): T | undefined {
@@ -29,7 +29,6 @@ function usePrevious<T>(value: T): T | undefined {
 export function NotificationBell() {
   const { user } = useAuth();
   const { notifications, markNotificationsAsRead, isLoading } = useData();
-  const [playSound, setPlaySound] = useState(false);
 
   // Memoize notifications to prevent re-renders, handle null safety
   const allNotifications = useMemo(() => {
@@ -57,7 +56,7 @@ export function NotificationBell() {
   useEffect(() => {
     // Play sound only if the count has increased
     if (typeof prevUnreadCount !== 'undefined' && unreadCount > prevUnreadCount) {
-      setPlaySound(true);
+      sounds.notification();
     }
   }, [unreadCount, prevUnreadCount]);
 
@@ -74,7 +73,6 @@ export function NotificationBell() {
 
   return (
     <>
-      <NotificationSound play={playSound} onPlayed={() => setPlaySound(false)} />
       <Popover onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <Button variant="ghost" size="icon" className="relative">
