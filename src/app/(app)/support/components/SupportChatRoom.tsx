@@ -483,22 +483,41 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-0 border-primary/20"><EmojiPicker onSelect={(emoji) => { handleReaction(msg.id, emoji) }} /></PopoverContent>
                                 </Popover>
-                                {isCurrentUser && (
+                                
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-[#1E1E2A] border border-white/10 shadow-md hover:bg-primary/20"><MoreVertical className="h-4 w-4 text-gray-400" /></Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-32 bg-[#1E1E2A] border-primary/20 text-white">
-                                        <DropdownMenuItem onClick={() => setReplyingTo(msg)}><Reply className="h-3 w-3 mr-2" />Reply</DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handlePinMessage(msg.id)}>
-                                          <Pin className="h-3 w-3 mr-2" />
-                                          {(msg as any).pinned ? 'Unpin' : 'Pin'}
+                                    <DropdownMenuContent align="end" className="w-40 bg-[#1E1E2A] border-primary/20 text-white">
+                                        {/* Reply - available for ALL messages */}
+                                        <DropdownMenuItem onClick={() => setReplyingTo(msg)} className="cursor-pointer">
+                                            <Reply className="h-3 w-3 mr-2" />Reply
                                         </DropdownMenuItem>
-                                        {msg.type !== 'media' && isWithin15Minutes(msg) && <DropdownMenuItem onClick={() => startEditing(msg)}><Pencil className="h-3 w-3 mr-2" />Edit</DropdownMenuItem>}
-                                        <DropdownMenuItem onClick={() => handleDeleteMessage(msg.id)} className="text-red-400 focus:text-red-400 focus:bg-red-500/10"><Trash2 className="h-3 w-3 mr-2" />Delete</DropdownMenuItem>
+                                        
+                                        {/* Pin - available for ALL messages */}
+                                        <DropdownMenuItem onClick={() => handlePinMessage(msg.id)} className="cursor-pointer">
+                                            <Pin className="h-3 w-3 mr-2" />
+                                            {(msg as any).pinned ? 'Unpin' : 'Pin'}
+                                        </DropdownMenuItem>
+                                        
+                                        {/* Edit - only for own messages within 15 min */}
+                                        {isCurrentUser && msg.type !== 'media' && isWithin15Minutes(msg) && (
+                                            <DropdownMenuItem onClick={() => startEditing(msg)} className="cursor-pointer">
+                                                <Pencil className="h-3 w-3 mr-2" />Edit
+                                            </DropdownMenuItem>
+                                        )}
+                                        
+                                        {/* Delete - only for own messages */}
+                                        {isCurrentUser && (
+                                            <DropdownMenuItem 
+                                                onClick={() => handleDeleteMessage(msg.id)} 
+                                                className="text-red-400 focus:text-red-400 focus:bg-red-500/10 cursor-pointer"
+                                            >
+                                                <Trash2 className="h-3 w-3 mr-2" />Delete
+                                            </DropdownMenuItem>
+                                        )}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
-                                )}
                             </div>
                            )}
                         </div>
