@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import type { ChatMessage, User, Timestamp as FirebaseTimestamp } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Paperclip, FileText, Download, Loader2, Trash2, MoreVertical, Pencil, Smile, ArrowLeft, ArrowDown, Phone, Video, Reply, Pin, X } from 'lucide-react';
+import { Send, Paperclip, FileText, Download, Loader2, Trash2, MoreVertical, Pencil, Smile, ArrowLeft, ArrowDown, Phone, Video, Reply, Pin, X, Mic, Play, Pause } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -29,6 +29,7 @@ import { format, isSameDay, isToday, isYesterday, formatDistanceToNow } from 'da
 import { Logo } from '@/components/logo';
 import { Badge } from '@/components/ui/badge';
 import { sounds } from '@/lib/sounds';
+import { useVoiceRecorder } from '@/hooks/use-voice-recorder';
 
 const getMessageDate = (timestamp: any): Date => {
   if (!timestamp) return new Date();
@@ -107,6 +108,91 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
+  
+  const {
+    isRecording,
+    recordingDuration,
+    audioBlob,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+    resetRecorder
+  } = useVoiceRecorder();
+
+  const formatDuration = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleSendVoiceNote = async () => {
+    if (!audioBlob || !chatId || !firebaseApp || !currentUser) return;
+    
+    setIsUploading(true);
+    
+    try {
+      const storage = getStorage(firebaseApp);
+      const timestamp = Date.now();
+      const fileName = `voice-note-${timestamp}.webm`;
+      const fileStorageRef = storageRef(
+        storage, 
+        `chat-uploads/${chatId}/${fileName}`
+      );
+      
+      const task = uploadBytesResumable(fileStorageRef, audioBlob);
+      uploadTaskRef.current = task;
+      
+      task.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / 
+                           snapshot.totalBytes) * 100;
+          setUploadProgress(Math.round(progress));
+        },
+        (error) => {
+          toast({ 
+            title: 'Upload Failed', 
+            description: error.message, 
+            variant: 'destructive' 
+          });
+          setIsUploading(false);
+          uploadTaskRef.current = null;
+        },
+        async () => {
+          const downloadURL = await getDownloadURL(task.snapshot.ref);
+          
+          // Send as voice note with duration
+          if (!firestore) return;
+          await addDoc(
+            collection(firestore, 'chats', chatId, 'messages'),
+            {
+              text: `🎤 Voice message (${formatDuration(recordingDuration)})`,
+              senderId: currentUser.id,
+              timestamp: serverTimestamp(),
+              type: 'voice',
+              mediaURL: downloadURL,
+              duration: recordingDuration,
+              readBy: [currentUser.id]
+            }
+          );
+          
+          sounds.messageSent();
+          setIsUploading(false);
+          setUploadProgress(0);
+          uploadTaskRef.current = null;
+          resetRecorder();
+          setTimeout(() => scrollToBottom('smooth'), 100);
+        }
+      );
+    } catch (error: any) {
+      toast({ 
+        title: 'Upload Failed', 
+        description: error.message, 
+        variant: 'destructive' 
+      });
+      setIsUploading(false);
+      uploadTaskRef.current = null;
+    }
+  };
 
   useEffect(() => {
     if (currentUser && chatPartner) {
@@ -466,6 +552,39 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
                                   </a>
                                   {msg.text && !msg.mediaURL.includes(msg.text) && <p>{msg.text}</p>}
                                 </div>
+                            ) : msg.type === 'voice' && msg.mediaURL ? (
+                                <div className="flex items-center gap-3 p-3 rounded-lg min-w-[200px]">
+                                    <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20"
+                                    onClick={() => {
+                                        const audio = new Audio(msg.mediaURL);
+                                        audio.play();
+                                    }}
+                                    >
+                                    <Play className="h-5 w-5" />
+                                    </Button>
+                                    <div className="flex-1">
+                                    <div className="flex gap-0.5 h-6 items-center">
+                                        {[...Array(20)].map((_, i) => (
+                                        <div 
+                                            key={i} 
+                                            className={cn(
+                                            "w-1 rounded-full",
+                                            isCurrentUser ? 'bg-white/60' : 'bg-primary/60'
+                                            )}
+                                            style={{ 
+                                            height: `${8 + Math.random() * 16}px` 
+                                            }}
+                                        />
+                                        ))}
+                                    </div>
+                                    </div>
+                                    <span className="text-xs font-mono">
+                                    {formatDuration((msg as any).duration || 0)}
+                                    </span>
+                                </div>
                             ) : msg.mediaURL ? (
                                 <a href={msg.mediaURL} target="_blank" rel="noopener noreferrer" className={cn("flex items-center gap-2 p-3 rounded-lg text-sm font-medium", isCurrentUser ? 'bg-white/10 hover:bg-white/20' : 'bg-black/20 hover:bg-black/30')}>
                                     <FileText className={cn("h-5 w-5 shrink-0", isCurrentUser ? 'text-white' : 'text-primary')} />
@@ -601,25 +720,119 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
           </div>
         )}
         <div className="border-t border-white/5 p-4 bg-[#13131F]/90 backdrop-blur-xl">
-            <form onSubmit={handleSendTextMessage} className="flex w-full items-center space-x-2">
-             <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*,.pdf,.doc,.docx" onChange={handleFileSelect} />
-            <Button type="button" variant="ghost" size="icon" className="hover:bg-primary/20" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-              {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5 text-gray-400 hover:text-primary transition-colors" />}
-            </Button>
-            <div className="relative flex-1">
-              <Input value={newMessage} onChange={handleInputChange} placeholder="Type a message..." autoComplete="off" className="bg-black/20 border-primary/20 rounded-full h-11 px-6 focus:ring-primary/50 focus:border-primary/50 text-white placeholder:text-gray-500"/>
-              <Popover>
-                <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full hover:bg-primary/20"><Smile className="text-gray-400" /></Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 border-primary/20 mb-2"><EmojiPicker onSelect={(emoji) => setNewMessage(prev => prev + emoji)} /></PopoverContent>
-              </Popover>
+            {isRecording ? (
+                // Recording UI
+                <div className="flex w-full items-center space-x-2">
+                <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="icon" 
+                    className="text-red-500 hover:bg-red-500/20"
+                    onClick={cancelRecording}
+                >
+                    <Trash2 className="h-5 w-5" />
+                </Button>
+                
+                <div className="flex-1 flex items-center justify-center gap-3 bg-red-500/10 rounded-full px-6 py-3 border border-red-500/30">
+                    <div className="h-3 w-3 bg-red-500 rounded-full animate-pulse" />
+                    <span className="text-red-500 font-mono font-bold text-lg">
+                    {formatDuration(recordingDuration)}
+                    </span>
+                    <div className="flex gap-1">
+                    {[...Array(3)].map((_, i) => (
+                        <div 
+                        key={i}
+                        className="w-1 bg-red-500 rounded-full animate-pulse"
+                        style={{ 
+                            height: `${12 + Math.random() * 12}px`,
+                            animationDelay: `${i * 0.1}s`
+                        }}
+                        />
+                    ))}
+                    </div>
+                </div>
+                
+                <Button 
+                    type="button"
+                    size="icon" 
+                    className="rounded-full h-11 w-11 bg-gradient-to-br from-green-600 to-green-500"
+                    onClick={stopRecording}
+                >
+                    <Send className="h-5 w-5" />
+                </Button>
+                </div>
+            ) : audioBlob ? (
+                // Preview recorded voice note
+                <div className="flex w-full items-center space-x-2">
+                <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => {
+                    resetRecorder();
+                    }}
+                >
+                    <X className="h-5 w-5" />
+                </Button>
+                
+                <div className="flex-1 flex items-center gap-3 bg-green-500/10 rounded-full px-6 py-3 border border-green-500/30">
+                    <Play className="h-4 w-4 text-green-500" />
+                    <span className="text-green-500 font-mono">
+                    {formatDuration(recordingDuration)}
+                    </span>
+                    <div className="flex-1 h-1 bg-green-500/30 rounded-full overflow-hidden">
+                    <div className="h-full bg-green-500 w-full animate-pulse" />
+                    </div>
+                </div>
+                
+                <Button 
+                    type="button"
+                    size="icon" 
+                    className="rounded-full h-11 w-11 bg-gradient-to-br from-primary to-pink-500"
+                    onClick={handleSendVoiceNote}
+                    disabled={isUploading}
+                >
+                    {isUploading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                    <Send className="h-5 w-5" />
+                    )}
+                </Button>
+                </div>
+            ) : (
+                // Normal text input UI
+                <form onSubmit={handleSendTextMessage} className="flex w-full items-center space-x-2">
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*,.pdf,.doc,.docx" onChange={handleFileSelect} />
+                <Button type="button" variant="ghost" size="icon" className="hover:bg-primary/20" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                    {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5 text-gray-400 hover:text-primary transition-colors" />}
+                </Button>
+                <div className="relative flex-1">
+                    <Input value={newMessage} onChange={handleInputChange} placeholder="Type a message..." autoComplete="off" className="bg-black/20 border-primary/20 rounded-full h-11 px-6 focus:ring-primary/50 focus:border-primary/50 text-white placeholder:text-gray-500"/>
+                    <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="ghost" size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full hover:bg-primary/20"><Smile className="text-gray-400" /></Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 border-primary/20 mb-2"><EmojiPicker onSelect={(emoji) => setNewMessage(prev => prev + emoji)} /></PopoverContent>
+                    </Popover>
+                </div>
+                
+                {newMessage.trim() ? (
+                    <Button type="submit" size="icon" className="rounded-full h-11 w-11 bg-gradient-to-br from-primary to-pink-500 hover:scale-105 active:scale-95 transition-all">
+                    <Send className="h-5 w-5" />
+                    </Button>
+                ) : (
+                    <Button 
+                    type="button"
+                    size="icon" 
+                    className="rounded-full h-11 w-11 bg-gradient-to-br from-primary to-pink-500 hover:scale-105 active:scale-95 transition-all"
+                    onClick={startRecording}
+                    >
+                    <Mic className="h-5 w-5" />
+                    </Button>
+                )}
+                </form>
+            )}
             </div>
-            <Button type="submit" size="icon" disabled={!newMessage.trim()} className="rounded-full h-11 w-11 bg-gradient-to-br from-primary to-pink-500 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:scale-100">
-                <Send className="h-5 w-5" />
-            </Button>
-            </form>
-        </div>
         </div>
     </div>
   );
