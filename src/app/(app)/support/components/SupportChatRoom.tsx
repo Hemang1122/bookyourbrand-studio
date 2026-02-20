@@ -82,6 +82,116 @@ const EmojiPicker = ({ onSelect }: { onSelect: (emoji: string) => void }) => (
   </div>
 );
 
+const VoiceNotePlayer = ({ 
+  audioUrl, 
+  duration, 
+  isCurrentUser 
+}: { 
+  audioUrl: string; 
+  duration: number; 
+  isCurrentUser: boolean;
+}) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handleTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
+    };
+
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
+
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, []);
+
+  const togglePlay = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (isPlaying) {
+      audio.pause();
+      setIsPlaying(false);
+    } else {
+      audio.play();
+      setIsPlaying(true);
+    }
+  };
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-lg min-w-[200px]">
+      <audio ref={audioRef} src={audioUrl} preload="metadata" />
+      
+      <Button 
+        variant="ghost" 
+        size="icon" 
+        className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 shrink-0"
+        onClick={togglePlay}
+      >
+        {isPlaying ? (
+          <Pause className="h-5 w-5" />
+        ) : (
+          <Play className="h-5 w-5" />
+        )}
+      </Button>
+      
+      <div className="flex-1">
+        <div className="relative h-6 flex items-center mb-1">
+          <div className="absolute inset-0 flex gap-0.5 items-center">
+            {[...Array(20)].map((_, i) => (
+              <div 
+                key={i} 
+                className={cn(
+                  "w-1 rounded-full transition-colors",
+                  i < (progress / 5) 
+                    ? (isCurrentUser ? 'bg-white' : 'bg-primary')
+                    : (isCurrentUser ? 'bg-white/30' : 'bg-primary/30')
+                )}
+                style={{ 
+                  height: `${8 + Math.random() * 16}px` 
+                }}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="h-1 bg-white/20 rounded-full overflow-hidden">
+          <div 
+            className={cn(
+              "h-full rounded-full transition-all",
+              isCurrentUser ? 'bg-white' : 'bg-primary'
+            )}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+      
+      <span className="text-xs font-mono shrink-0">
+        {formatTime(isPlaying ? currentTime : duration)}
+      </span>
+    </div>
+  );
+};
+
 
 type SupportChatRoomProps = {
   chatPartner: User;
@@ -553,39 +663,12 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
                                   {msg.text && !msg.mediaURL.includes(msg.text) && <p>{msg.text}</p>}
                                 </div>
                             ) : msg.type === 'voice' && msg.mediaURL ? (
-                                <div className="flex items-center gap-3 p-3 rounded-lg min-w-[200px]">
-                                    <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20"
-                                    onClick={() => {
-                                        const audio = new Audio(msg.mediaURL);
-                                        audio.play();
-                                    }}
-                                    >
-                                    <Play className="h-5 w-5" />
-                                    </Button>
-                                    <div className="flex-1">
-                                    <div className="flex gap-0.5 h-6 items-center">
-                                        {[...Array(20)].map((_, i) => (
-                                        <div 
-                                            key={i} 
-                                            className={cn(
-                                            "w-1 rounded-full",
-                                            isCurrentUser ? 'bg-white/60' : 'bg-primary/60'
-                                            )}
-                                            style={{ 
-                                            height: `${8 + Math.random() * 16}px` 
-                                            }}
-                                        />
-                                        ))}
-                                    </div>
-                                    </div>
-                                    <span className="text-xs font-mono">
-                                    {formatDuration((msg as any).duration || 0)}
-                                    </span>
-                                </div>
-                            ) : msg.mediaURL ? (
+                                <VoiceNotePlayer 
+                                  audioUrl={msg.mediaURL} 
+                                  duration={(msg as any).duration || 0}
+                                  isCurrentUser={isCurrentUser}
+                                />
+                              ) : msg.mediaURL ? (
                                 <a href={msg.mediaURL} target="_blank" rel="noopener noreferrer" className={cn("flex items-center gap-2 p-3 rounded-lg text-sm font-medium", isCurrentUser ? 'bg-white/10 hover:bg-white/20' : 'bg-black/20 hover:bg-black/30')}>
                                     <FileText className={cn("h-5 w-5 shrink-0", isCurrentUser ? 'text-white' : 'text-primary')} />
                                     <span className="truncate max-w-[180px]">{msg.text || 'Download file'}</span>
