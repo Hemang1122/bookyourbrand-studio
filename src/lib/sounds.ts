@@ -5,6 +5,25 @@ const isSoundsEnabled = () => {
   return localStorage.getItem('soundsEnabled') !== 'false';
 };
 
+const playSound = (soundFile: string): boolean => {
+  if (!isSoundsEnabled()) return false;
+  try {
+    const audio = new Audio(soundFile);
+    audio.volume = 0.5;
+    audio.play().catch(err => {
+      // This will log if the browser blocks autoplay or if the file isn't found.
+      // We can't synchronously return false here, but the beep fallback will
+      // be triggered if the Audio object itself can't be created.
+      console.log(`Could not play sound ${soundFile}:`, err);
+    });
+    return true;
+  } catch (err) {
+    // This catches errors if e.g. the Audio API isn't supported.
+    console.log(`Could not create audio for ${soundFile}:`, err);
+    return false;
+  }
+};
+
 const playBeep = (frequency: number, duration: number) => {
   if (!isSoundsEnabled()) return;
   try {
@@ -33,7 +52,22 @@ const playBeep = (frequency: number, duration: number) => {
 };
 
 export const sounds = {
-  messageSent: () => playBeep(900, 0.08),
-  messageReceived: () => playBeep(600, 0.12),
-  notification: () => playBeep(1200, 0.2)
+  messageSent: () => {
+    const played = playSound('/sounds/message-sent.mp3');
+    if (!played) {
+      playBeep(900, 0.08);
+    }
+  },
+  messageReceived: () => {
+    const played = playSound('/sounds/message-received.mp3');
+    if (!played) {
+      playBeep(600, 0.12);
+    }
+  },
+  notification: () => {
+    const played = playSound('/sounds/notification.mp3');
+    if (!played) {
+      playBeep(1200, 0.2);
+    }
+  }
 };
