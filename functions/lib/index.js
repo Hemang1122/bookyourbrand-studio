@@ -117,7 +117,7 @@ exports.createUser = (0, https_1.onCall)({ secrets: [gmailUser, gmailAppPassword
                 },
             });
             const roleName = role === 'client' ? 'Client' : 'Editor';
-            const portalUrl = 'https://studio--studio-6449361728-f6242.us-central1.hosted.app/login';
+            const portalUrl = 'https://studio-app--studio-6449361728-f6242.us-central1.hosted.app/login';
             const mailOptions = {
                 from: `"BookYourBrands" <${gmailUser.value()}>`,
                 to: realEmail,
