@@ -29,7 +29,7 @@ export function useVoiceCall(chatId: string | null, currentUserId: string) {
     pc.onicecandidate = async (event) => {
       if (event.candidate && callDocRef.current && firestore) {
         const callDoc = doc(firestore, 'calls', callDocRef.current);
-        // Using arrayUnion to store multiple candidates for each side
+        // Store candidate using user-specific key
         await updateDoc(callDoc, {
           [`candidates_${currentUserId}`]: arrayUnion(event.candidate.toJSON())
         });
@@ -73,16 +73,19 @@ export function useVoiceCall(chatId: string | null, currentUserId: string) {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      // Save call to Firestore
+      // Save call to Firestore with serialized offer
       const callDoc = await addDoc(collection(firestore, 'calls'), {
         chatId,
         callerId: currentUserId,
         recipientId,
-        offer: offer.toJSON(),
+        offer: {
+          type: offer.type,
+          sdp: offer.sdp
+        },
         status: 'ringing',
         timestamp: new Date(),
-        candidates_caller: [],
-        candidates_recipient: []
+        [`candidates_${currentUserId}`]: [],
+        [`candidates_${recipientId}`]: []
       });
 
       callDocRef.current = callDoc.id;
@@ -113,12 +116,20 @@ export function useVoiceCall(chatId: string | null, currentUserId: string) {
       const callData = incomingCall;
 
       if (callData?.offer) {
-        await pc.setRemoteDescription(new RTCSessionDescription(callData.offer));
+        // Explicitly reconstruct offer
+        await pc.setRemoteDescription(new RTCSessionDescription({
+          type: callData.offer.type,
+          sdp: callData.offer.sdp
+        }));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
 
+        // Save serialized answer
         await updateDoc(callDoc, {
-          answer: answer.toJSON(),
+          answer: {
+            type: answer.type,
+            sdp: answer.sdp
+          },
           status: 'connected'
         });
       }
@@ -207,8 +218,12 @@ export function useVoiceCall(chatId: string | null, currentUserId: string) {
           peerConnectionRef.current &&
           !peerConnectionRef.current.remoteDescription
         ) {
+          // Explicitly reconstruct answer
           await peerConnectionRef.current.setRemoteDescription(
-            new RTCSessionDescription(callData.answer)
+            new RTCSessionDescription({
+              type: callData.answer.type,
+              sdp: callData.answer.sdp
+            })
           );
           setCallStatus('connected');
         }
@@ -218,7 +233,6 @@ export function useVoiceCall(chatId: string | null, currentUserId: string) {
           const remoteId = callData.callerId === currentUserId ? callData.recipientId : callData.callerId;
           const remoteCandidates = callData[`candidates_${remoteId}`] || [];
           
-          // This is a simple implementation; ideally we'd track which candidates we've already added
           remoteCandidates.forEach(async (candidateData: any) => {
             try {
               await peerConnectionRef.current?.addIceCandidate(new RTCIceCandidate(candidateData));
