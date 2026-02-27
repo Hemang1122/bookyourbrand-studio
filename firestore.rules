@@ -112,7 +112,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
 
       // ── PROJECT CHAT SUBCOLLECTION ──────────────────────────
-      match /chat/messages/{messageId} {
+      match /chat-messages/{messageId} {
         function isProjectParticipant() {
           let projectData = get(/databases/$(database)/documents/projects/$(projectId)).data;
           return isAdmin() ||

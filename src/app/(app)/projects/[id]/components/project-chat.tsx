@@ -14,6 +14,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { sounds } from '@/lib/sounds';
 import type { ChatMessage, User, Client } from '@/lib/types';
 import Draggable from 'react-draggable';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const EMOJI_OPTIONS = ['👍', '❤️', '😂', '😮', '🔥', '👏'];
 
@@ -45,7 +46,7 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore || !projectId) return null;
     return query(
-      collection(firestore, 'projects', projectId, 'chat', 'messages'),
+      collection(firestore, 'projects', projectId, 'chat-messages'),
       orderBy('timestamp', 'asc')
     );
   }, [firestore, projectId]);
@@ -77,7 +78,7 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
 
     if (unreadMessages.length > 0) {
       unreadMessages.forEach(async (msg) => {
-        const msgRef = doc(firestore, 'projects', projectId, 'chat', 'messages', msg.id);
+        const msgRef = doc(firestore, 'projects', projectId, 'chat-messages', msg.id);
         await updateDoc(msgRef, { readBy: arrayUnion(authUid) });
       });
     }
@@ -93,7 +94,7 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
 
     try {
       await addDoc(
-        collection(firestore, 'projects', projectId, 'chat', 'messages'),
+        collection(firestore, 'projects', projectId, 'chat-messages'),
         {
           text: newMessage.trim(),
           senderId: currentUser.id,
@@ -116,7 +117,7 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
   const handleReaction = async (messageId: string, emoji: string) => {
     if (!firestore || !currentUser) return;
     
-    const msgRef = doc(firestore, 'projects', projectId, 'chat', 'messages', messageId);
+    const msgRef = doc(firestore, 'projects', projectId, 'chat-messages', messageId);
     const msg = messages?.find(m => m.id === messageId);
     if (!msg) return;
 
