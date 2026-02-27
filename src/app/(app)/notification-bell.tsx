@@ -19,7 +19,7 @@ import { sounds } from '@/lib/sounds';
 
 export function NotificationBell() {
   const { user } = useAuth();
-  const { notifications, markNotificationsAsRead, isLoading } = useData();
+  const { notifications, markNotificationsAsRead, chats, isLoading } = useData();
   const prevUnreadCountRef = useRef<number>();
 
   // Memoize notifications to prevent re-renders, handle null safety
@@ -40,9 +40,19 @@ export function NotificationBell() {
 
   const unreadNotificationsCount = useMemo(() => {
     if (!user) return 0;
-    // We use readBy array from the data model to track read status per user
-    return sortedNotifications.filter(n => !(n.readBy || []).includes(user.id)).length;
-  }, [sortedNotifications, user]);
+    
+    // Count unread notifications
+    const unreadNotifs = sortedNotifications.filter(
+      n => !(n.readBy || []).includes(user.id)
+    ).length;
+    
+    // Count unread chat messages
+    const unreadChats = chats?.reduce((sum, chat) => 
+      sum + (chat.unreadCount || 0), 0
+    ) || 0;
+    
+    return unreadNotifs + unreadChats;
+  }, [sortedNotifications, user, chats]);
 
   useEffect(() => {
     // On the first run, the ref is undefined. We'll set it and skip playing a sound.
