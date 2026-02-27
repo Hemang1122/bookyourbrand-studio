@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -9,6 +10,7 @@ import { format, isSameDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { CalendarDays, FolderKanban } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type ProjectCalendarCardProps = {
     selectedDate: Date | undefined;
@@ -54,26 +56,28 @@ export function ProjectCalendarCard({ selectedDate, onDateChange }: ProjectCalen
                     <h4 className="font-medium text-sm">
                         Projects starting on {selectedDate ? format(selectedDate, 'PPP') : '...'}
                     </h4>
-                    <div className="space-y-2">
-                        {scheduledProjects.length === 0 ? (
-                            <div className="text-center py-8 text-muted-foreground text-sm">
-                                <FolderKanban className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
-                                No projects starting on this date.
-                            </div>
-                        ) : (
-                            scheduledProjects.map(project => (
-                                <div key={project.id} className="flex items-center justify-between rounded-lg border p-3">
-                                    <div>
-                                        <p className="font-semibold text-sm">{project.name}</p>
-                                        <p className="text-xs text-muted-foreground">{project.client.name}</p>
-                                    </div>
-                                    <Button variant="ghost" size="sm" asChild>
-                                        <Link href={`/projects/${project.id}`}>View</Link>
-                                    </Button>
+                    <ScrollArea className="h-[250px] pr-4">
+                        <div className="space-y-2">
+                            {scheduledProjects.length === 0 ? (
+                                <div className="text-center py-8 text-muted-foreground text-sm">
+                                    <FolderKanban className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
+                                    No projects starting on this date.
                                 </div>
-                            ))
-                        )}
-                    </div>
+                            ) : (
+                                scheduledProjects.map(project => (
+                                    <div key={project.id} className="flex items-center justify-between rounded-lg border p-3">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="font-semibold text-sm truncate">{project.name}</p>
+                                            <p className="text-xs text-muted-foreground truncate">{project.client.name}</p>
+                                        </div>
+                                        <Button variant="ghost" size="sm" asChild className="shrink-0 ml-2">
+                                            <Link href={`/projects/${project.id}`}>View</Link>
+                                        </Button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </ScrollArea>
                 </div>
             </CardContent>
         </Card>

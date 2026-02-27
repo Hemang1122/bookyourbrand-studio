@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useData } from '../../data-provider';
@@ -9,6 +10,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 export function AdminDashboard() {
@@ -205,21 +207,23 @@ export function AdminDashboard() {
             />
           </div>
           
-          <div className="mt-2 space-y-2">
-            {scheduledProjects.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">
-                No projects starting today
-              </p>
-            ) : (
-              scheduledProjects.slice(0, 3).map(p => (
-                <div key={p.id} className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-white/5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
-                  <p className="text-xs text-white truncate flex-1">{p.name}</p>
-                  <span className="text-xs text-muted-foreground shrink-0">{p.clientName}</span>
-                </div>
-              ))
-            )}
-          </div>
+          <ScrollArea className="h-[150px] mt-2 pr-3">
+            <div className="space-y-2">
+              {scheduledProjects.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  No projects starting on this date
+                </p>
+              ) : (
+                scheduledProjects.map(p => (
+                  <div key={p.id} className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-white/5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
+                    <p className="text-xs text-white truncate flex-1">{p.name}</p>
+                    <span className="text-xs text-muted-foreground shrink-0">{p.clientName}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </ScrollArea>
         </div>
       </div>
       

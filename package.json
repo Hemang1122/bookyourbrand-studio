@@ -66,8 +66,8 @@
   },
   "devDependencies": {
     "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
+    "@types/react": "18",
+    "@types/react-dom": "18",
     "@types/uuid": "^10.0.0",
     "genkit-cli": "latest",
     "postcss": "^8",
