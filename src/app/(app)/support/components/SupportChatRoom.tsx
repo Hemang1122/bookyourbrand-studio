@@ -26,6 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { sounds } from '@/lib/sounds';
 import { useVoiceRecorder } from '@/hooks/use-voice-recorder';
 import { useVoiceCall } from '@/hooks/use-voice-call';
+import { TypingIndicator } from './TypingIndicator';
 
 const getMessageDate = (timestamp: any): Date => {
   if (!timestamp) return new Date();
