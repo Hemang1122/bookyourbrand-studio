@@ -46,10 +46,17 @@ export function NotificationBell() {
       n => !(n.readBy || []).includes(user.id)
     ).length;
     
-    // Count unread chat messages
-    const unreadChats = chats?.reduce((sum, chat) => 
-      sum + (chat.unreadCount || 0), 0
-    ) || 0;
+    // Count unread chat messages manually for debugging
+    let unreadChats = 0;
+    if (chats && Array.isArray(chats)) {
+      chats.forEach(chat => {
+        if (chat.unreadCount && typeof chat.unreadCount === 'number') {
+          unreadChats += chat.unreadCount;
+        }
+      });
+    }
+    
+    console.log('Unread notifs:', unreadNotifs, 'Unread chats:', unreadChats, 'Total:', unreadNotifs + unreadChats);
     
     return unreadNotifs + unreadChats;
   }, [sortedNotifications, user, chats]);
