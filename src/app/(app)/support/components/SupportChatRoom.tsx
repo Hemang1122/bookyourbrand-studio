@@ -3,20 +3,16 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import type { ChatMessage, User, Timestamp as FirebaseTimestamp } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Paperclip, FileText, Download, Loader2, Trash2, MoreVertical, Pencil, Smile, ArrowLeft, ArrowDown, Phone, Video, Reply, Pin, X, Mic, Play, Pause, PhoneOff, PhoneIncoming } from 'lucide-react';
+import { Send, Paperclip, FileText, Download, Loader2, Trash2, MoreVertical, Pencil, Smile, ArrowLeft, ArrowDown, Phone, Video, Reply, Pin, X, Mic, Play, Pause, PhoneOff, PhoneIncoming, PhoneMissed } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
-import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useCollection, useFirebaseServices, useMemoFirebase, useTypingIndicator, useUserStatus } from '@/firebase';
-import { collection, query, orderBy, serverTimestamp, addDoc, Timestamp, doc, writeBatch, arrayUnion, updateDoc, arrayRemove } from 'firebase/firestore';
+import { collection, query, orderBy, serverTimestamp, addDoc, Timestamp, doc, writeBatch, arrayUnion, updateDoc, arrayRemove, where, limit, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { UserPresence } from '@/components/ui/user-presence';
-import { TypingIndicator } from './TypingIndicator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   DropdownMenu,
@@ -26,7 +22,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { format, isSameDay, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
-import { Logo } from '@/components/logo';
 import { Badge } from '@/components/ui/badge';
 import { sounds } from '@/lib/sounds';
 import { useVoiceRecorder } from '@/hooks/use-voice-recorder';
@@ -51,7 +46,6 @@ const isWithin15Minutes = (msg: ChatMessage): boolean => {
   const now = Date.now();
   return now - date.getTime() < 15 * 60 * 1000;
 };
-
 
 const MessageTicks = ({ msg, currentUserId, partnerId }: {
   msg: ChatMessage;
@@ -193,7 +187,6 @@ const VoiceNotePlayer = ({
   );
 };
 
-
 type SupportChatRoomProps = {
   chatPartner: User;
   onBack: () => void;
@@ -219,6 +212,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
+  const [missedCalls, setMissedCalls] = useState<any[]>([]);
   
   const {
     isRecording,
@@ -239,7 +233,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
     answerCall,
     rejectCall,
     endCall
-  } = useVoiceCall(chatId, currentUser?.id || '');
+  } = useVoiceCall(chatId, currentUser);
 
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -282,7 +276,6 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
         async () => {
           const downloadURL = await getDownloadURL(task.snapshot.ref);
           
-          // Send as voice note with duration
           if (!firestore) return;
           await addDoc(
             collection(firestore, 'chats', chatId, 'messages'),
@@ -321,6 +314,30 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
         getOrCreateChat(chatPartner.id).then(setChatId);
     }
   }, [currentUser, chatPartner, getOrCreateChat]);
+
+  // Listen for missed calls
+  useEffect(() => {
+    if (!firestore || !chatId || !currentUser) return;
+    
+    const notificationsRef = collection(firestore, 'notifications');
+    const q = query(
+      notificationsRef,
+      where('chatId', '==', chatId),
+      where('type', '==', 'missed_call'),
+      where('recipients', 'array-contains', currentUser.id),
+      orderBy('timestamp', 'desc'),
+      limit(3)
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const calls = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter((n: any) => !(n.readBy || []).includes(currentUser.id));
+      setMissedCalls(calls);
+    });
+    
+    return () => unsubscribe();
+  }, [firestore, chatId, currentUser]);
 
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore || !chatId) return null;
@@ -372,7 +389,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
 
   useEffect(() => {
     if (!chatId || !firestore || !currentUser || !messages || messages.length === 0) return;
-    const authUid = auth?.currentUser?.uid ?? currentUser.id;
+    const authUid = auth?.currentUser?.uid || currentUser.id;
 
     const unreadMessages = messages.filter(msg => msg.senderId !== currentUser.id && !(msg.readBy || []).includes(authUid));
 
@@ -384,7 +401,6 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
         });
         batch.commit().catch(err => console.error("Failed to mark messages as read:", err));
         
-        // Play sound for received messages
         const incomingMessages = messages?.filter(msg => 
           msg.senderId !== currentUser.id && 
           (Date.now() - getMessageDate(msg.timestamp).getTime() < 2000)
@@ -419,7 +435,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
   
   const handleReaction = async (messageId: string, emoji: string) => {
     if (!chatId || !firestore || !currentUser) return;
-    const uid = auth?.currentUser?.uid ?? currentUser.id;
+    const uid = auth?.currentUser?.uid || currentUser.id;
     const msgRef = doc(firestore, 'chats', chatId, 'messages', messageId);
     const msg = messages?.find(m => m.id === messageId);
     if (!msg) return;
@@ -451,7 +467,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
     sounds.messageSent();
     setTyping(false);
     setNewMessage('');
-    setReplyingTo(null); // Clear reply context
+    setReplyingTo(null); 
     setTimeout(() => {
       scrollToBottom('smooth');
     }, 100);
@@ -473,17 +489,13 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
       const task = uploadBytesResumable(fileStorageRef, file);
       uploadTaskRef.current = task;
 
-
       task.on('state_changed',
         (snapshot) => {
           const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
           setUploadProgress(Math.round(progress));
         },
         (error) => {
-          console.error('Storage upload error code:', error.code);
-          console.error('Storage upload error message:', error.message);
-          console.error('Storage upload error details:', error);
-          toast({ title: 'Upload Failed', description: `${error.code}: ${error.message}`, variant: 'destructive' });
+          toast({ title: 'Upload Failed', description: error.message, variant: 'destructive' });
           setIsUploading(false);
           uploadTaskRef.current = null;
         },
@@ -653,6 +665,56 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
         </div>
       )}
 
+      {missedCalls.length > 0 && (
+        <div className="border-b border-white/10 bg-red-500/10 backdrop-blur-md">
+          {missedCalls.map(call => (
+            <div 
+              key={call.id}
+              className="p-3 flex items-center justify-between animate-fade-in"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+                  <PhoneMissed className="h-5 w-5 text-red-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-red-400">
+                    Missed voice call
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {formatDistanceToNow(getMessageDate(call.timestamp), { addSuffix: true })}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-green-500 hover:bg-green-500/10 rounded-full h-8 px-3"
+                  onClick={() => startCall(chatPartner.id)}
+                >
+                  <Phone className="h-4 w-4 mr-1.5" />
+                  Call back
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 rounded-full hover:bg-white/10"
+                  onClick={async () => {
+                    if (firestore) {
+                      await updateDoc(doc(firestore, 'notifications', call.id), { 
+                        readBy: arrayUnion(currentUser.id) 
+                      });
+                    }
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
        <div className="flex-1 flex flex-col overflow-hidden relative">
         {pinnedMessages.length > 0 && (
           <div className="border-b border-white/10 bg-primary/10 backdrop-blur-xl">
@@ -721,10 +783,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
                           )}>
                              {(msg as any).replyTo && (
                               <div className="mb-2 p-2 rounded-lg bg-black/20 
-                                              border-l-2 border-primary/50 cursor-pointer"
-                                   onClick={() => {
-                                     // TODO: Scroll to the replied message
-                                   }}>
+                                              border-l-2 border-primary/50 cursor-pointer">
                                 <p className="text-xs text-primary font-semibold">
                                   {(msg as any).replyTo.senderName}
                                 </p>
@@ -779,25 +838,21 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
                                         <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-[#1E1E2A] border border-white/10 shadow-md hover:bg-primary/20"><MoreVertical className="h-4 w-4 text-gray-400" /></Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-40 bg-[#1E1E2A] border-primary/20 text-white">
-                                        {/* Reply - available for ALL messages */}
                                         <DropdownMenuItem onClick={() => setReplyingTo(msg)} className="cursor-pointer">
                                             <Reply className="h-3 w-3 mr-2" />Reply
                                         </DropdownMenuItem>
                                         
-                                        {/* Pin - available for ALL messages */}
                                         <DropdownMenuItem onClick={() => handlePinMessage(msg.id)} className="cursor-pointer">
                                             <Pin className="h-3 w-3 mr-2" />
                                             {(msg as any).pinned ? 'Unpin' : 'Pin'}
                                         </DropdownMenuItem>
                                         
-                                        {/* Edit - only for own messages within 15 min */}
                                         {isCurrentUser && msg.type !== 'media' && isWithin15Minutes(msg) && (
                                             <DropdownMenuItem onClick={() => startEditing(msg)} className="cursor-pointer">
                                                 <Pencil className="h-3 w-3 mr-2" />Edit
                                             </DropdownMenuItem>
                                         )}
                                         
-                                        {/* Delete - only for own messages */}
                                         {isCurrentUser && (
                                             <DropdownMenuItem 
                                                 onClick={() => handleDeleteMessage(msg.id)} 
@@ -826,11 +881,11 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
                                 })}
                             </div>
                         )}
-                        <p className={cn("text-[10px] mt-1 flex items-center gap-1", isCurrentUser ? 'justify-end' : 'text-left', 'text-gray-500')}>
+                        <div className={cn("text-[10px] mt-1 flex items-center gap-1", isCurrentUser ? 'justify-end' : 'text-left', 'text-gray-500')}>
                             {format(date, 'p')}
                              {msg.edited && !msg.deleted && (<span className="italic text-gray-500">(edited)</span>)}
                             {isCurrentUser && <MessageTicks msg={msg} currentUserId={currentUser.id} partnerId={chatPartner.id} />}
-                        </p>
+                        </div>
                       </div>
                     </div>
                   </React.Fragment>

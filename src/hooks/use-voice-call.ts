@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, addDoc, onSnapshot, updateDoc, doc, arrayUnion } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, updateDoc, doc, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import { useFirebaseServices } from '@/firebase';
+import { sounds } from '@/lib/sounds';
+import type { User } from '@/lib/types';
 
-export function useVoiceCall(chatId: string | null, currentUserId: string) {
+export function useVoiceCall(chatId: string | null, currentUser: User | null) {
+  const currentUserId = currentUser?.id || '';
   const [isInCall, setIsInCall] = useState(false);
   const [isRinging, setIsRinging] = useState(false);
   const [incomingCall, setIncomingCall] = useState<any>(null);
@@ -77,13 +80,14 @@ export function useVoiceCall(chatId: string | null, currentUserId: string) {
       const callDoc = await addDoc(collection(firestore, 'calls'), {
         chatId,
         callerId: currentUserId,
+        callerName: currentUser?.name || 'Someone',
         recipientId,
         offer: {
           type: offer.type,
           sdp: offer.sdp
         },
         status: 'ringing',
-        timestamp: new Date(),
+        timestamp: serverTimestamp(),
         [`candidates_${currentUserId}`]: [],
         [`candidates_${recipientId}`]: []
       });
@@ -130,7 +134,8 @@ export function useVoiceCall(chatId: string | null, currentUserId: string) {
             type: answer.type,
             sdp: answer.sdp
           },
-          status: 'connected'
+          status: 'connected',
+          answeredAt: serverTimestamp()
         });
       }
 
@@ -207,6 +212,29 @@ export function useVoiceCall(chatId: string | null, currentUserId: string) {
           setIncomingCall(callData);
           setIsRinging(true);
           setCallStatus('ringing');
+        }
+
+        // Check for missed call
+        if (
+          change.type === 'modified' &&
+          callData.recipientId === currentUserId &&
+          callData.status === 'ended' &&
+          !isInCall &&
+          callData.answeredAt === undefined
+        ) {
+          // This was a missed call - create notification
+          addDoc(collection(firestore, 'notifications'), {
+            type: 'missed_call',
+            recipients: [currentUserId],
+            senderId: callData.callerId,
+            senderName: callData.callerName || 'Someone',
+            chatId: callData.chatId,
+            timestamp: serverTimestamp(),
+            readBy: [],
+            message: `Missed voice call from ${callData.callerName || 'Someone'}`,
+            url: `/support?chatId=${callData.chatId}`
+          });
+          sounds.notification();
         }
 
         // Call answered

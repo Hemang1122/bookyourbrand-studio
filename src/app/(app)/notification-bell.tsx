@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Check } from 'lucide-react';
+import { Bell, Check, PhoneMissed } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -117,6 +117,27 @@ export function NotificationBell() {
                 {sortedNotifications.map(notif => {
                   const timestampDate = notif.timestamp?.toDate ? notif.timestamp.toDate() : new Date(notif.timestamp || 0);
                   const isUnread = !(notif.readBy || []).includes(user.id);
+                  
+                  if (notif.type === 'missed_call') {
+                    return (
+                      <Link href={notif.url || '#'} key={notif.id} className="block">
+                        <div className={`flex items-center gap-3 p-4 ${isUnread ? 'bg-red-500/10' : ''} hover:bg-muted/50 border-l-2 ${isUnread ? 'border-red-500' : 'border-transparent'}`}>
+                          <div className="h-10 w-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+                            <PhoneMissed className="h-5 w-5 text-red-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-red-400">
+                              Missed call from {(notif as any).senderName || 'Someone'}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                {formatDistanceToNow(timestampDate, { addSuffix: true })}
+                            </p>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  }
+
                   return (
                     <Link href={notif.url || '#'} key={notif.id} className="block">
                       <div className={`p-4 ${isUnread ? 'bg-accent/50' : ''} hover:bg-muted/50`}>
