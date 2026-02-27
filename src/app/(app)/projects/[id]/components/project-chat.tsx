@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/firebase/provider';
 import { useFirebaseServices, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
@@ -15,6 +15,9 @@ import { sounds } from '@/lib/sounds';
 import type { ChatMessage, User, Client } from '@/lib/types';
 import Draggable from 'react-draggable';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useData } from '../../../data-provider';
+import { useSearchParams } from 'next/navigation';
+import { TypingIndicator } from './TypingIndicator';
 
 const EMOJI_OPTIONS = ['👍', '❤️', '😂', '😮', '🔥', '👏'];
 
@@ -40,8 +43,17 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
   
   const { user: currentUser } = useAuth();
   const { firestore, auth } = useFirebaseServices();
+  const { addNotification, markChatNotificationsAsRead } = useData();
+  const searchParams = useSearchParams();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const nodeRef = useRef(null);
+
+  // Check for deep-link to open chat
+  useEffect(() => {
+    if (searchParams.get('openChat') === 'true') {
+      setIsOpen(true);
+    }
+  }, [searchParams]);
 
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore || !projectId) return null;
@@ -66,7 +78,7 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
     }
   }, [messages, isOpen, isMinimized]);
 
-  // Mark messages as read
+  // Mark messages as read AND mark bell notifications as read
   useEffect(() => {
     if (!messages || !firestore || !currentUser || !isOpen || isMinimized) return;
     
@@ -82,7 +94,10 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
         await updateDoc(msgRef, { readBy: arrayUnion(authUid) });
       });
     }
-  }, [messages, firestore, currentUser, auth, projectId, isOpen, isMinimized]);
+
+    // Sync with main notification bell
+    markChatNotificationsAsRead(projectId);
+  }, [messages, firestore, currentUser, auth, projectId, isOpen, isMinimized, markChatNotificationsAsRead]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,10 +108,12 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
     }
 
     try {
+      const messageText = newMessage.trim();
+      
       await addDoc(
         collection(firestore, 'projects', projectId, 'chat-messages'),
         {
-          text: newMessage.trim(),
+          text: messageText,
           senderId: currentUser.id,
           senderName: currentUser.name,
           senderAvatar: currentUser.avatar,
@@ -105,6 +122,20 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
           reactions: {}
         }
       );
+
+      // Create notification for the main bell
+      const recipients = Array.from(new Set([client.id, ...teamMembers.map(m => m.id)]))
+        .filter(id => id !== currentUser.id);
+      
+      if (recipients.length > 0) {
+        addNotification(
+          `New message in project ${projectName}: ${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''}`,
+          `/projects/${projectId}?openChat=true`,
+          recipients,
+          'chat',
+          projectId
+        );
+      }
 
       sounds.messageSent();
       setNewMessage('');

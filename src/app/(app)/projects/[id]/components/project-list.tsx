@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Project, User } from '@/lib/types';
@@ -8,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Button } from '@/components/ui/button';
-import { useData } from '../../data-provider';
+import { useData } from '../../../data-provider';
 import { useAuth } from '@/firebase/provider';
 import { useMemo } from 'react';
 
