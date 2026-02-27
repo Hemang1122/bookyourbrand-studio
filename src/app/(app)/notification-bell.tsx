@@ -30,7 +30,7 @@ export function NotificationBell() {
 
   // Sort notifications once
   const sortedNotifications = useMemo(() => {
-    return allNotifications.sort((a, b) => {
+    return [...allNotifications].sort((a, b) => {
         const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp || 0);
         const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp || 0);
         return compareDesc(dateA, dateB);
@@ -38,31 +38,32 @@ export function NotificationBell() {
   }, [allNotifications]);
 
 
-  const unreadCount = useMemo(() => {
+  const unreadNotificationsCount = useMemo(() => {
     if (!user) return 0;
+    // We use readBy array from the data model to track read status per user
     return sortedNotifications.filter(n => !(n.readBy || []).includes(user.id)).length;
   }, [sortedNotifications, user]);
 
   useEffect(() => {
     // On the first run, the ref is undefined. We'll set it and skip playing a sound.
     if (prevUnreadCountRef.current === undefined) {
-      prevUnreadCountRef.current = unreadCount;
+      prevUnreadCountRef.current = unreadNotificationsCount;
       return;
     }
 
     // If the new unread count is greater than the previous one, it means a new notification has arrived.
-    if (unreadCount > prevUnreadCountRef.current) {
+    if (unreadNotificationsCount > prevUnreadCountRef.current) {
       sounds.notification();
     }
 
     // Update the ref to the current count for the next check.
-    prevUnreadCountRef.current = unreadCount;
-  }, [unreadCount]);
+    prevUnreadCountRef.current = unreadNotificationsCount;
+  }, [unreadNotificationsCount]);
 
 
   const handleOpenChange = (open: boolean) => {
     // When the popover is closed, mark notifications as read.
-    if (!open && unreadCount > 0) {
+    if (!open && unreadNotificationsCount > 0) {
       markNotificationsAsRead();
     }
   };
@@ -76,9 +77,9 @@ export function NotificationBell() {
         <PopoverTrigger asChild>
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-5 w-5" />
-            {!isLoading && unreadCount > 0 && (
-              <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 flex items-center justify-center text-[10px] font-bold text-white border-2 border-background">
-                {unreadCount > 9 ? '9+' : unreadCount}
+            {!isLoading && unreadNotificationsCount > 0 && (
+              <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 flex items-center justify-center text-[10px] font-bold text-white shadow-lg border border-background">
+                {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
               </div>
             )}
             <span className="sr-only">Toggle notifications</span>
@@ -87,7 +88,7 @@ export function NotificationBell() {
         <PopoverContent align="end" className="w-80 p-0">
           <div className="flex items-center justify-between p-4 border-b">
             <h3 className="font-medium">Notifications</h3>
-            {unreadCount > 0 && (
+            {unreadNotificationsCount > 0 && (
               <Button variant="link" size="sm" onClick={() => markNotificationsAsRead()} className="p-0 h-auto">
                 Mark all as read
               </Button>
