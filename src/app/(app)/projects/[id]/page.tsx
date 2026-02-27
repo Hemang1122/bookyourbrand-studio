@@ -20,7 +20,12 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { format } from 'date-fns';
+import dynamic from 'next/dynamic';
 
+const ProjectChatDynamic = dynamic(
+  () => import('./components/project-chat').then(mod => ({ default: mod.ProjectChat })),
+  { ssr: false }
+);
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -212,6 +217,15 @@ export default function ProjectDetailPage() {
            <FileManager projectId={project.id} />
         </TabsContent>
       </Tabs>
+
+      {project && (
+        <ProjectChatDynamic
+          projectId={project.id}
+          projectName={project.name}
+          teamMembers={displayTeamMembers}
+          client={project.client}
+        />
+      )}
     </div>
   );
 }
