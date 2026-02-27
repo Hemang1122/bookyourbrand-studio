@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import type { ChatMessage, User, Timestamp as FirebaseTimestamp } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Paperclip, FileText, Download, Loader2, Trash2, MoreVertical, Pencil, Smile, ArrowLeft, ArrowDown, Phone, Video, Reply, Pin, X, Mic, Play, Pause } from 'lucide-react';
+import { Send, Paperclip, FileText, Download, Loader2, Trash2, MoreVertical, Pencil, Smile, ArrowLeft, ArrowDown, Phone, Video, Reply, Pin, X, Mic, Play, Pause, PhoneOff, PhoneIncoming } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -30,6 +30,7 @@ import { Logo } from '@/components/logo';
 import { Badge } from '@/components/ui/badge';
 import { sounds } from '@/lib/sounds';
 import { useVoiceRecorder } from '@/hooks/use-voice-recorder';
+import { useVoiceCall } from '@/hooks/use-voice-call';
 
 const getMessageDate = (timestamp: any): Date => {
   if (!timestamp) return new Date();
@@ -228,6 +229,17 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
     cancelRecording,
     resetRecorder
   } = useVoiceRecorder();
+
+  const {
+    isInCall,
+    isRinging,
+    incomingCall,
+    callStatus,
+    startCall,
+    answerCall,
+    rejectCall,
+    endCall
+  } = useVoiceCall(chatId, currentUser?.id || '');
 
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -531,6 +543,43 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
 
   return (
     <div className="flex h-full flex-col bg-gradient-to-b from-[#13131F] to-[#0F0F1A] text-white relative">
+      {isRinging && incomingCall && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-[#13131F] border border-primary/20 rounded-3xl p-8 max-w-sm w-full mx-4 text-center shadow-2xl">
+            <div className="mb-6">
+              <Avatar className="h-24 w-24 mx-auto mb-4 ring-4 ring-primary/20 ring-offset-4 ring-offset-[#13131F]">
+                <AvatarImage src={chatPartner.photoURL || PlaceHolderImages.find(p => p.id === chatPartner.avatar)?.imageUrl} />
+                <AvatarFallback className="text-2xl font-bold bg-gradient-to-br from-primary to-pink-500">{chatPartner.name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <h3 className="text-2xl font-bold text-white mb-2">
+                {chatPartner.name}
+              </h3>
+              <p className="text-primary flex items-center justify-center gap-2 font-medium">
+                <Phone className="h-4 w-4 animate-pulse" />
+                Incoming voice call...
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <Button
+                variant="outline"
+                className="flex-1 h-14 rounded-full border-red-500 text-red-500 hover:bg-red-500/10 hover:text-red-400 font-bold"
+                onClick={() => rejectCall(incomingCall.id)}
+              >
+                <PhoneOff className="h-5 w-5 mr-2" />
+                Decline
+              </Button>
+              <Button
+                className="flex-1 h-14 rounded-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-bold"
+                onClick={() => answerCall(incomingCall.id)}
+              >
+                <PhoneIncoming className="h-5 w-5 mr-2" />
+                Answer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="h-[70px] shrink-0 flex items-center px-4 bg-[#13131F]/80 backdrop-blur-xl border-b border-white/5 z-10">
         <Button variant="ghost" size="icon" className="mr-2 md:hidden" onClick={onBack}>
             <ArrowLeft />
@@ -552,7 +601,23 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
             </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white hover:bg-white/10"><Phone /></Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className={cn(
+                "text-gray-400 hover:text-white hover:bg-white/10",
+                isInCall && "text-green-500 bg-green-500/10"
+              )}
+              onClick={() => {
+                if (isInCall) {
+                  endCall();
+                } else {
+                  startCall(chatPartner.id);
+                }
+              }}
+            >
+              {isInCall ? <PhoneOff /> : <Phone />}
+            </Button>
             <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white hover:bg-white/10"><Video /></Button>
         </div>
       </header>
@@ -565,6 +630,29 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
           </p>
         </div>
       )}
+
+      {isInCall && (
+        <div className="p-3 text-center border-b border-white/5 bg-gradient-to-r from-green-600/20 to-green-500/20 backdrop-blur-md">
+          <div className="flex items-center justify-center gap-3">
+            <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse" />
+            <p className="text-sm text-green-400 font-semibold uppercase tracking-wider">
+              {callStatus === 'calling' && 'Calling...'}
+              {callStatus === 'ringing' && 'Ringing...'}
+              {callStatus === 'connected' && 'Voice call active'}
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-8 px-3 rounded-full ml-4"
+              onClick={endCall}
+            >
+              <PhoneOff className="h-4 w-4 mr-2" />
+              End Call
+            </Button>
+          </div>
+        </div>
+      )}
+
        <div className="flex-1 flex flex-col overflow-hidden relative">
         {pinnedMessages.length > 0 && (
           <div className="border-b border-white/10 bg-primary/10 backdrop-blur-xl">

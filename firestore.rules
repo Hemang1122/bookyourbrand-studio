@@ -91,11 +91,11 @@ service cloud.firestore {
                           (
                             resource.data.senderId == request.auth.uid &&
                             request.resource.data.diff(resource.data).affectedKeys()
-                                .hasOnly(['deleted', 'readBy'])
+                                .hasOnly(['deleted', 'readBy', 'pinned', 'text', 'edited', 'editedAt', 'reactions'])
                            ) || 
                            (
                              request.resource.data.diff(resource.data).affectedKeys()
-                                .hasOnly(['readBy'])
+                                .hasOnly(['readBy', 'reactions', 'pinned'])
                            )
                          );
         allow delete: if request.time > timestamp.date(2020, 9, 10);
@@ -179,6 +179,18 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow read, update: if isSignedIn() &&
                           request.auth.uid in resource.data.recipients;
+    }
+
+    // ── CALLS COLLECTION (WEBRTC SIGNALING) ──────────────────
+    match /calls/{callId} {
+      allow create: if isSignedIn();
+      allow read: if isSignedIn() && 
+                     (resource.data.callerId == request.auth.uid ||
+                      resource.data.recipientId == request.auth.uid);
+      allow update: if isSignedIn() &&
+                       (resource.data.callerId == request.auth.uid ||
+                        resource.data.recipientId == request.auth.uid);
+      allow delete: if isAdmin();
     }
   } // end match /databases
 } // end service
