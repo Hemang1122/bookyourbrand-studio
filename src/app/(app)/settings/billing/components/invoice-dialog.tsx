@@ -1,3 +1,4 @@
+
 'use client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -144,7 +145,7 @@ export function InvoiceDialog({ client, packageName, open, onOpenChange }: Invoi
     doc.setFont('times', 'italic');
     doc.setFontSize(22);
     doc.setTextColor(0, 0, 0);
-    doc.text('Arpit Lalani', signatureX + 2, signatureY);
+    doc.text('Preeti Lalani', signatureX + 2, signatureY);
     
     // Line under signature
     doc.setDrawColor(200, 200, 200);

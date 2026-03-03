@@ -1,3 +1,4 @@
+
 'use client';
 
 import { AdminDashboard } from './components/admin-dashboard';
@@ -149,7 +150,7 @@ export default function DashboardPage() {
                 WebkitTextFillColor: 'transparent',
                 fontWeight: '600'
               }}>
-                Arpit Lalani
+                Preeti Lalani
               </p>
               <p className="text-xs text-purple-400/70 mt-0.5">
                 CEO & Founder, BookYourBrands
@@ -175,7 +176,7 @@ export default function DashboardPage() {
           // @ts-ignore
           WebkitTextFillColor: 'transparent',
         }}>
-          Arpit Lalani
+          Preeti Lalani
         </p>
         <p className="text-xs text-purple-400/70 mt-0.5">
           CEO & Founder, BookYourBrands

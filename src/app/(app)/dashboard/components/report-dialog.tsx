@@ -131,7 +131,7 @@ export function ReportDialog({ open, onOpenChange, sessions, totalTime, reportDa
 
     doc.setFont('times', 'italic');
     doc.setFontSize(16);
-    doc.text('Arpit Lalani', pageWidth - margin, footerY - 20, { align: 'right' });
+    doc.text('Preeti Lalani', pageWidth - margin, footerY - 20, { align: 'right' });
     
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
@@ -209,5 +209,3 @@ export function ReportDialog({ open, onOpenChange, sessions, totalTime, reportDa
     </Dialog>
   );
 }
-
-    

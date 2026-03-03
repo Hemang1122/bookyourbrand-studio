@@ -1,3 +1,4 @@
+
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -192,6 +193,7 @@ export function ScrumExportDialog({ updates, users, children }: ScrumExportDialo
         }
       });
       
+      doc.text('Preeti Lalani', pageWidth - margin, doc.internal.pageSize.getHeight() - 100, { align: 'right' });
       doc.save(`scrum_report_${format(selectedDate!, 'yyyy-MM-dd')}.pdf`);
     } catch (err) {
       console.error("PDF ERROR:", err);

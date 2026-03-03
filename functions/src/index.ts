@@ -283,7 +283,7 @@ export const onProjectStatusCompleted = onDocumentUpdated(
             <div style="text-align:center;margin-top:32px;">
               <p style="color:#4B5563;font-size:13px;margin:0;">© 2026 BookYourBrands. All rights reserved.</p>
               <p style="color:#4B5563;font-size:12px;margin:8px 0 0;">
-                Founded by <span style="color:#9CA3AF;">Arpit Lalani</span>
+                Founded by <span style="color:#9CA3AF;">Preeti Lalani</span>
               </p>
             </div>
           </div>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -122,7 +123,7 @@ function LoginPageContent() {
             <a href="https://www.instagram.com/bookyourbrands/" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors"><Instagram className="h-5 w-5" /></a>
             <a href="https://www.youtube.com/@Bookyourbrands" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors"><Youtube className="h-5 w-5" /></a>
         </div>
-        <p className="font-signature text-2xl">Arpit Lalani</p>
+        <p className="font-signature text-2xl">Preeti Lalani</p>
         <p className="text-sm tracking-wider">Founder and CEO</p>
       </div>
     </main>

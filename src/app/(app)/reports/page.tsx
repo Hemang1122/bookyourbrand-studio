@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -43,7 +44,7 @@ const BusinessAnalytics = ({ tasks, projects, clients }: { tasks: Task[], projec
         { label: 'Total Revenue', value: `₹${totalRevenue.toLocaleString('en-IN')}`, icon: IndianRupee, color: '#10B981', change: '+12%' },
         { label: 'Total Clients', value: clients.length.toString(), icon: Users, color: '#7C3AED', change: '+8%' },
         { label: 'Total Projects', value: projects.length.toString(), icon: FolderKanban, color: '#3B82F6', change: '+24%' },
-        { label: 'Completed Tasks', value: tasks.filter(t => t.status === 'Completed').length.toString(), icon: '#EC4899', change: '+18%' },
+        { label: 'Completed Tasks', value: tasks.filter(t => t.status === 'Completed').length.toString(), icon: IndianRupee, color: '#EC4899', change: '+18%' },
     ];
     
     const executiveSummary = `This report provides a comprehensive overview of BookYourBrands' performance, analyzing key metrics across revenue, client acquisition, and operational efficiency. The data highlights a strong growth trajectory and identifies key areas for strategic focus to maintain momentum.`;
@@ -301,7 +302,7 @@ export default function ReportsPage() {
         doc.setFont('times', 'italic');
         doc.setFontSize(22);
         doc.setTextColor(0, 0, 0);
-        doc.text('Arpit Lalani', margin, y);
+        doc.text('Preeti Lalani', margin, y);
         doc.setDrawColor(150);
         doc.setLineWidth(1);
         doc.line(margin, y + 10, margin + 150, y + 10);
