@@ -27,32 +27,63 @@ export default function MigrationPage() {
   const { toast } = useToast();
 
   const handleMigrate = async () => {
-    if (!firestore || !user) return;
+    console.log('Migration button clicked!');
+    console.log('Firestore Status:', firestore ? 'Connected' : 'Missing');
+    console.log('User Status:', user ? `Role: ${user.role}, ID: ${user.id}` : 'Not logged in');
+
+    if (!firestore) {
+      console.error('Migration halted: Firestore not initialized');
+      alert('Database connection is not ready. Please refresh and try again.');
+      return;
+    }
+
+    if (!user) {
+      console.error('Migration halted: User not logged in');
+      alert('Your session has expired. Please log in again.');
+      return;
+    }
+
+    if (user.role !== 'admin') {
+      console.error('Migration halted: Permission denied', user.role);
+      alert('Only administrators can perform system migrations.');
+      return;
+    }
 
     const confirm = window.confirm(
-      'Are you sure you want to migrate all clients from the old billing system to the new package system? This action will update all client and user records.'
+      'Are you sure you want to migrate all clients from the old billing system to the new package system?\n\nThis will:\n- Convert all existing plans to new packages\n- Count existing projects as usage\n- Give all clients 30 days validity\n\nClick OK to proceed.'
     );
 
-    if (!confirm) return;
+    if (!confirm) {
+      console.log('Migration cancelled by user');
+      return;
+    }
 
+    console.log('Starting migration orchestration...');
     setIsMigrating(true);
     setResults(null);
+    setProgress({ current: 0, total: 0, name: 'Initializing...' });
 
     try {
       const migrationResults = await migrateAllClients(
         firestore,
         user.id,
         (current, total, name) => {
+          console.log(`Migration Progress: ${current}/${total} - Current Client: ${name}`);
           setProgress({ current, total, name });
         }
       );
 
+      console.log('Migration completed successfully!', migrationResults);
       setResults(migrationResults);
+      
       toast({
-        title: 'Migration Complete',
-        description: `${migrationResults.succeeded} clients migrated successfully!`
+        title: 'Migration Complete!',
+        description: `Successfully migrated ${migrationResults.succeeded} out of ${migrationResults.total} clients.`
       });
     } catch (error: any) {
+      console.error('Critical Migration Failure:', error);
+      alert(`Migration failed: ${error.message}`);
+      
       toast({
         title: 'Migration Failed',
         description: error.message,
@@ -60,6 +91,7 @@ export default function MigrationPage() {
       });
     } finally {
       setIsMigrating(false);
+      console.log('Migration process lifecycle ended');
     }
   };
 
@@ -117,7 +149,31 @@ export default function MigrationPage() {
           <p className="text-muted-foreground mb-8 max-w-md mx-auto">
             The migration will process all clients in the system. This process is non-destructive and can be monitored in real-time.
           </p>
-          <Button onClick={handleMigrate} className="w-full sm:w-64 bg-gradient-to-r from-purple-600 to-pink-500 border-0" size="lg">
+          
+          {/* Debug Status Panel */}
+          <div className="mb-8 p-4 bg-black/40 rounded-xl text-left border border-white/5 font-mono text-xs space-y-2 max-w-sm mx-auto">
+            <p className="text-gray-500 uppercase font-bold text-[10px] mb-2 tracking-wider">System Diagnostic</p>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400">Database:</span>
+              <span className={firestore ? "text-green-400" : "text-red-400"}>{firestore ? "Connected" : "Disconnected"}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400">Auth Session:</span>
+              <span className={user ? "text-green-400" : "text-red-400"}>{user ? "Active" : "None"}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400">Role:</span>
+              <span className={user?.role === 'admin' ? "text-green-400" : "text-amber-400"}>{user?.role || "Unknown"}</span>
+            </div>
+          </div>
+
+          <Button 
+            onClick={handleMigrate} 
+            className="w-full sm:w-64 bg-gradient-to-r from-purple-600 to-pink-500 border-0 shadow-lg hover:shadow-purple-500/20" 
+            size="lg"
+            disabled={!firestore || !user || user.role !== 'admin'}
+          >
+            <RefreshCw className="mr-2 h-5 w-5" />
             Start Migration Tool
           </Button>
         </Card>
@@ -135,7 +191,7 @@ export default function MigrationPage() {
                 <span className="text-muted-foreground">Processing: <span className="text-white font-medium">{progress.name}</span></span>
                 <span className="text-primary font-bold">{progress.current} / {progress.total}</span>
               </div>
-              <Progress value={(progress.current / progress.total) * 100} className="h-3" />
+              <Progress value={progress.total > 0 ? (progress.current / progress.total) * 100 : 0} className="h-3" />
             </div>
             <p className="text-sm text-muted-foreground text-center">
               Please do not refresh or close this browser tab until the process completes.
