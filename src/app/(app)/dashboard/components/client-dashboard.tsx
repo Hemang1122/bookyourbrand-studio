@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -10,8 +11,8 @@ import { AddProjectDialog } from '../../projects/components/add-project-dialog';
 import { useData } from '../../data-provider';
 import { useAuth } from '@/firebase/provider';
 import { useMemo } from 'react';
-import { UpgradeDialog } from '../../settings/billing/components/upgrade-dialog';
 import { useRouter } from 'next/navigation';
+import { format, formatDistanceToNow } from 'date-fns';
 
 export function ClientDashboard() {
   const { user } = useAuth();
@@ -160,26 +161,28 @@ export function ClientDashboard() {
                     const completedTasks = projectTasks.filter(t => t.status === 'Completed').length;
                     const progress = projectTasks.length > 0 ? (completedTasks / projectTasks.length) * 100 : 0;
                     return (
-                    <div key={project.id} className="space-y-2 p-4 rounded-xl border border-white/5 hover:border-purple-500/20 transition-all bg-black/20">
-                        <div className="flex justify-between items-center mb-2">
-                            <div>
-                                <h3 className="font-semibold text-white">{project.name}</h3>
-                                <p className="text-xs text-muted-foreground">Deadline: {format(new Date(project.deadline), 'PP')}</p>
+                    <Link key={project.id} href={`/projects/${project.id}`} className="block group">
+                        <div className="space-y-2 p-4 rounded-xl border border-white/5 group-hover:border-purple-500/20 transition-all bg-black/20">
+                            <div className="flex justify-between items-center mb-2">
+                                <div>
+                                    <h3 className="font-semibold text-white group-hover:text-primary transition-colors">{project.name}</h3>
+                                    <p className="text-xs text-muted-foreground">Deadline: {format(new Date(project.deadline), 'PP')}</p>
+                                </div>
+                                <Badge variant={project.status === 'Completed' ? 'secondary' : 'default'} className="bg-purple-500/10 text-purple-400 border-purple-500/20">
+                                    {project.status}
+                                </Badge>
                             </div>
-                            <Badge variant={project.status === 'Completed' ? 'secondary' : 'default'} className="bg-purple-500/10 text-purple-400 border-purple-500/20">
-                                {project.status}
-                            </Badge>
+                            <div className="flex items-center gap-4 pt-2">
+                                <Progress value={progress} className="h-1.5 bg-white/5" />
+                                <span className="text-xs font-mono text-muted-foreground">{Math.round(progress)}%</span>
+                            </div>
+                            <div className="flex justify-end mt-2">
+                                <span className="flex items-center text-xs text-gray-400 group-hover:text-white transition-colors">
+                                    Details <ChevronRight className="ml-1 h-3 w-3" />
+                                </span>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-4 pt-2">
-                            <Progress value={progress} className="h-1.5 bg-white/5" />
-                            <span className="text-xs font-mono text-muted-foreground">{Math.round(progress)}%</span>
-                        </div>
-                        <div className="flex justify-end mt-2">
-                            <Button variant="ghost" size="sm" className="h-7 text-xs text-gray-400 hover:text-white" asChild>
-                                <Link href={`/projects/${project.id}`}>Details <ChevronRight className="ml-1 h-3 w-3" /></Link>
-                            </Button>
-                        </div>
-                    </div>
+                    </Link>
                     );
                 })}
                 </div>
