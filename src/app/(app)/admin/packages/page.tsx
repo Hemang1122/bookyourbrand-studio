@@ -1,4 +1,3 @@
-
 'use client';
 import { useState } from 'react';
 import { useAuth } from '@/firebase/provider';
@@ -20,6 +19,7 @@ import { Plus, Package as PackageIcon, Users, TrendingUp, Edit, Trash2, Check, X
 import { PREDEFINED_PACKAGES } from '@/lib/packages';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 
 export default function AdminPackagesPage() {
   const { user } = useAuth();
@@ -348,7 +348,7 @@ export default function AdminPackagesPage() {
                     </TableCell>
                     <TableCell className="text-gray-400">
                       {client.currentPackage?.expiryDate ? 
-                        format(new Date(client.currentPackage.expiryDate), 'PP') : 
+                        format(new Date(client.currentPackage.expiryDate.toDate ? client.currentPackage.expiryDate.toDate() : client.currentPackage.expiryDate), 'PP') : 
                         'No expiry'
                       }
                     </TableCell>
