@@ -2,8 +2,7 @@
 import { Separator } from '@/components/ui/separator';
 import { SettingsForm } from './components/settings-form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import BillingPage from './billing/page';
-import { CreditCard, User, Share2, Bell } from 'lucide-react';
+import { User, Share2, Bell } from 'lucide-react';
 import { useAuth } from '@/firebase/provider';
 import { SocialConnectCard } from './components/social-connect-card';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -63,7 +62,6 @@ export default function SettingsPage() {
   const TABS = [
     { value: 'profile', label: 'Profile', icon: User, roles: ['admin', 'team', 'client'] },
     { value: 'notifications', label: 'Notifications', icon: Bell, roles: ['admin', 'team', 'client'] },
-    { value: 'billing', label: 'Billing', icon: CreditCard, roles: ['admin', 'client'] },
     { value: 'social-connect', label: 'Social Connect', icon: Share2, roles: ['client'] },
   ];
   
@@ -93,11 +91,6 @@ export default function SettingsPage() {
          <TabsContent value="notifications">
             <NotificationSettings />
         </TabsContent>
-        {user.role !== 'team' && (
-          <TabsContent value="billing">
-              <BillingPage />
-          </TabsContent>
-        )}
         {user.role === 'client' && (
           <TabsContent value="social-connect">
               <SocialConnectCard />

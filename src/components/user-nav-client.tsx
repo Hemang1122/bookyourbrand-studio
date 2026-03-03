@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -13,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { CreditCard, LogOut, Settings, User as UserIcon } from 'lucide-react';
+import { LogOut, Settings, User as UserIcon } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useRouter } from 'next/navigation';
 import { useFirebaseServices } from '@/firebase';
@@ -80,14 +79,6 @@ export function UserNavClient() {
               <span>Profile</span>
             </Link>
           </DropdownMenuItem>
-           {appUser?.role !== 'team' && (
-            <DropdownMenuItem asChild>
-               <Link href="/settings/billing">
-                <CreditCard className="mr-2 h-4 w-4" />
-                <span>Billing</span>
-              </Link>
-            </DropdownMenuItem>
-           )}
           <DropdownMenuItem asChild>
             <Link href="/settings">
               <Settings className="mr-2 h-4 w-4" />
