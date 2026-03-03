@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useAuth } from '@/firebase/provider';
 import { useData } from '../data-provider';
 import { useFirebaseServices } from '@/firebase';
-import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 
 export default function PackagesPage() {
   const { user } = useAuth();
-  const { clients, selectPackage } = useData();
+  const { clients } = useData();
   const { firestore } = useFirebaseServices();
   const { toast } = useToast();
   
@@ -38,7 +38,7 @@ export default function PackagesPage() {
     return basePrice + extras;
   };
 
-  const handleSelectPackage = async () => {
+  const handleActivatePackage = async () => {
     if (!firestore || !selectedPackageId || !selectedReels || !selectedDuration || !user) {
       toast({ title: 'Error', description: 'Please complete package configuration', variant: 'destructive' });
       return;
@@ -46,60 +46,59 @@ export default function PackagesPage() {
 
     setIsSubmitting(true);
     try {
-      const startDate = new Date();
-      const expiryDate = new Date();
-      expiryDate.setDate(expiryDate.getDate() + 30);
-
+      const orderId = `ORD${Date.now()}${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
       const total = calculateTotal();
       const pkg = PREDEFINED_PACKAGES.find(p => p.id === selectedPackageId);
 
-      const newPackage = {
+      // 1. Create a pending order in Firestore so the callback knows what to activate
+      const pendingOrder = {
+        orderId,
         clientId: user.id,
         packageName: pkg?.name || 'Unknown',
         numberOfReels: selectedReels,
         duration: selectedDuration,
         price: total,
         reelsUsed: 0,
-        startDate,
-        expiryDate,
-        status: 'active' as const,
+        status: 'pending',
         includeAIVoice,
         includeStockFootage,
         createdAt: serverTimestamp()
       };
+      
+      await setDoc(doc(firestore, 'pending-orders', orderId), pendingOrder);
 
-      // Add to client-packages collection
-      await addDoc(collection(firestore, 'client-packages'), newPackage);
-
-      // Update client document
-      const clientRef = doc(firestore, 'clients', user.id);
-      await updateDoc(clientRef, { 
-        currentPackage: newPackage,
-        reelsLimit: selectedReels,
-        packageName: newPackage.packageName,
-        reelsCreated: 0
+      // 2. Initiate PhonePe payment
+      const response = await fetch('/api/phonepe/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          amount: total,
+          customerPhone: '9999999999', // Fallback
+          customerName: user.name || 'Customer'
+        })
       });
 
-      // Also update users collection for consistency
-      const userRef = doc(firestore, 'users', user.id);
-      await updateDoc(userRef, { 
-        packageName: newPackage.packageName,
-        reelsLimit: selectedReels
-      });
+      const data = await response.json();
 
-      toast({ 
-        title: 'Success!', 
-        description: `${pkg?.name} package activated successfully!` 
-      });
+      if (data.success && data.paymentUrl) {
+        toast({
+          title: 'Redirecting to Payment',
+          description: 'Please complete the payment on PhonePe',
+        });
+        
+        // Redirect to PhonePe payment link
+        window.location.href = data.paymentUrl;
+      } else {
+        throw new Error(data.error || 'Failed to initiate payment');
+      }
 
-      // Refresh the page or update state to show new package
-      window.location.reload();
     } catch (error: any) {
-      console.error('Package selection error:', error);
-      toast({ 
-        title: 'Error', 
-        description: error.message, 
-        variant: 'destructive' 
+      console.error('Payment error:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to initiate payment. Please try again.',
+        variant: 'destructive'
       });
     } finally {
       setIsSubmitting(false);
@@ -236,7 +235,7 @@ export default function PackagesPage() {
                 </div>
                 <Button 
                   className="w-full h-12 text-lg bg-gradient-to-r from-purple-600 to-pink-500 hover:opacity-90 border-0" 
-                  onClick={handleSelectPackage}
+                  onClick={handleActivatePackage}
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
