@@ -1,15 +1,14 @@
-
 'use client';
 
 import { useData } from '../../data-provider';
-import { useMemo, useState, useEffect } from 'react';
-import { subDays, isAfter, format, isSameDay } from 'date-fns';
+import { useMemo, useState } from 'react';
+import { subDays, isAfter, isSameDay } from 'date-fns';
 import { Users, FolderKanban, CheckCircle2, Activity, TrendingUp, CalendarDays, Video, Zap, FolderPlus, UserPlus, BarChart3, MessageSquare } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 
@@ -79,6 +78,7 @@ export function AdminDashboard() {
             icon: Users,
             color: '#7C3AED',
             gradient: 'from-purple-600/20 to-purple-900/10',
+            href: '/clients'
             },
             {
             label: 'Active Projects', 
@@ -87,6 +87,7 @@ export function AdminDashboard() {
             icon: FolderKanban,
             color: '#3B82F6',
             gradient: 'from-blue-600/20 to-blue-900/10',
+            href: '/projects'
             },
             {
             label: 'Tasks Completed',
@@ -95,6 +96,7 @@ export function AdminDashboard() {
             icon: CheckCircle2,
             color: '#10B981',
             gradient: 'from-emerald-600/20 to-emerald-900/10',
+            href: '/projects'
             },
             {
             label: 'Team Activity',
@@ -103,14 +105,17 @@ export function AdminDashboard() {
             icon: Activity,
             color: '#EC4899',
             gradient: 'from-pink-600/20 to-pink-900/10',
+            href: '/scrum'
             },
         ].map((stat, i) => (
-            <div key={stat.label}
+            <Link 
+                key={stat.label} 
+                href={stat.href}
                 className={`animate-fade-up stagger-${i + 2}
                             rounded-2xl p-5 border
                             bg-gradient-to-br ${stat.gradient}
                             hover:scale-[1.02] transition-all
-                            duration-300 cursor-default group`}
+                            duration-300 cursor-pointer group`}
                 style={{borderColor: stat.color + '30'}}>
             
             <div className="flex items-start justify-between mb-4">
@@ -135,7 +140,7 @@ export function AdminDashboard() {
             <p className="text-xs text-muted-foreground">
                 {stat.sub}
             </p>
-            </div>
+            </Link>
         ))}
         </div>
       
@@ -215,11 +220,15 @@ export function AdminDashboard() {
                 </p>
               ) : (
                 scheduledProjects.map(p => (
-                  <div key={p.id} className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-white/5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
+                  <Link 
+                    key={p.id} 
+                    href={`/projects/${p.id}`}
+                    className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-white/5 hover:border-purple-500/30 transition-all group"
+                  >
+                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0 group-hover:scale-125 transition-transform" />
                     <p className="text-xs text-white truncate flex-1">{p.name}</p>
                     <span className="text-xs text-muted-foreground shrink-0">{p.clientName}</span>
-                  </div>
+                  </Link>
                 ))
               )}
             </div>

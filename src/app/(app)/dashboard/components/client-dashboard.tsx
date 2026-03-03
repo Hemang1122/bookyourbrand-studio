@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -73,7 +72,10 @@ export function ClientDashboard() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
          {/* Package Status Card */}
-         <Card className="md:col-span-2 bg-gradient-to-br from-purple-900/20 to-pink-900/10 border-purple-500/20 relative overflow-hidden group">
+         <Card 
+          className="md:col-span-2 bg-gradient-to-br from-purple-900/20 to-pink-900/10 border-purple-500/20 relative overflow-hidden group cursor-pointer hover:border-purple-500/40 transition-all"
+          onClick={() => router.push('/packages')}
+         >
           <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full opacity-10 blur-2xl bg-primary group-hover:opacity-20 transition-opacity" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div>
@@ -102,14 +104,14 @@ export function ClientDashboard() {
                         <span className="text-muted-foreground">
                             {myClientRecord.currentPackage.duration}s duration per reel
                         </span>
-                        <Button variant="ghost" size="sm" className="h-7 text-primary hover:bg-primary/10 px-2" onClick={() => router.push('/packages')}>
+                        <div className="flex items-center text-primary font-medium">
                             View Details <ChevronRight className="ml-1 h-3 w-3" />
-                        </Button>
+                        </div>
                     </div>
                 </div>
             ) : (
                 <div className="text-center py-4">
-                    <Button onClick={() => router.push('/packages')} size="sm" className="bg-primary/20 text-white border border-primary/30 hover:bg-primary/30">
+                    <Button size="sm" className="bg-primary/20 text-white border border-primary/30 hover:bg-primary/30">
                         Choose a Package
                     </Button>
                 </div>
@@ -117,27 +119,31 @@ export function ClientDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-[#13131F] border-white/5">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Active Projects</CardTitle>
-            <FolderKanban className="h-4 w-4 text-purple-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-white">{activeProjects}</div>
-            <p className="text-xs text-muted-foreground mt-1">Currently in editing</p>
-          </CardContent>
-        </Card>
+        <Link href="/projects" className="block h-full">
+          <Card className="bg-[#13131F] border-white/5 h-full hover:border-purple-500/30 transition-all group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-400">Active Projects</CardTitle>
+              <FolderKanban className="h-4 w-4 text-purple-400 group-hover:scale-110 transition-transform" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-white">{activeProjects}</div>
+              <p className="text-xs text-muted-foreground mt-1">Currently in editing</p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card className="bg-[#13131F] border-white/5">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-400">Delivered</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-white">{completedProjects}</div>
-            <p className="text-xs text-muted-foreground mt-1">Projects approved</p>
-          </CardContent>
-        </Card>
+        <Link href="/projects" className="block h-full">
+          <Card className="bg-[#13131F] border-white/5 h-full hover:border-green-500/30 transition-all group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-400">Delivered</CardTitle>
+              <CheckCircle2 className="h-4 w-4 text-green-400 group-hover:scale-110 transition-transform" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-white">{completedProjects}</div>
+              <p className="text-xs text-muted-foreground mt-1">Projects approved</p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -185,6 +191,9 @@ export function ClientDashboard() {
                     </Link>
                     );
                 })}
+                <Button variant="outline" className="w-full mt-4 border-white/10 hover:bg-white/5 text-white" asChild>
+                    <Link href="/projects">View All Projects →</Link>
+                </Button>
                 </div>
             ) : (
                 <div className="text-center py-12">
