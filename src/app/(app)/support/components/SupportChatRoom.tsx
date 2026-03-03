@@ -639,7 +639,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
         <div className="p-3 text-center border-b border-white/5 bg-gradient-to-r from-primary/10 to-pink-500/10 relative">
           <div className="absolute left-4 top-1/2 -translate-y-1/2 h-2.5 w-2.5 rounded-full bg-primary animate-pulse" style={{boxShadow: '0 0 10px #7C3AED'}} />
           <p className="font-signature text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-pink-500">
-            BookYourBrands support team will respond within 10 mins max.
+            BookYourBrands support team will respond within 24 hours.
           </p>
         </div>
       )}

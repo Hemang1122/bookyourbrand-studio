@@ -221,7 +221,7 @@ export function ClientDashboard() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <p className="text-xs text-muted-foreground">
-                        Our support team typically responds to project queries within 10 minutes during business hours.
+                        Our support team typically responds to project queries within 24 hours during business hours.
                     </p>
                     <Button variant="outline" className="w-full border-white/10 hover:bg-white/5 text-white" asChild>
                         <Link href="/support">Open Support Chat</Link>
