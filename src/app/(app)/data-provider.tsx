@@ -1,8 +1,7 @@
-
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus, TimerSession, Chat, ChatMessage, ClientDocument } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus, TimerSession, Chat, ChatMessage, ClientDocument, ClientPackage } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -37,6 +36,7 @@ type DataContextType = {
   createUser: (userData: { name: string; role: 'client' | 'team', realEmail?: string; }) => Promise<any>;
   deleteUser: (userId: string) => Promise<any>;
   updateClient: (clientId: string, clientData: Partial<Client>) => Promise<void>;
+  selectPackage: (packageData: Omit<ClientPackage, 'id' | 'startDate' | 'reelsUsed' | 'status' | 'clientId'>) => Promise<void>;
   updateTeamMember: (userId: string, memberData: Partial<User>) => void;
   addScrumUpdate: (update: Omit<ScrumUpdate, 'id' | 'timestamp'>) => void;
   addTimerSession: (session: Omit<TimerSession, 'id'>) => void;
@@ -576,6 +576,65 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     }
   }
 
+  const selectPackage = async (packageData: Omit<ClientPackage, 'id' | 'startDate' | 'reelsUsed' | 'status' | 'clientId'>) => {
+    if (!firestore || !currentUser || !authUid) return;
+    
+    const clientRef = doc(firestore, 'clients', authUid);
+    const userRef = doc(firestore, 'users', authUid);
+    
+    const newPackage: ClientPackage = {
+      id: uuidv4(),
+      clientId: authUid,
+      ...packageData,
+      reelsUsed: 0,
+      startDate: Timestamp.now(),
+      status: 'active',
+    };
+
+    try {
+      await runTransaction(firestore, async (transaction) => {
+        const clientDoc = await transaction.get(clientRef);
+        if (!clientDoc.exists()) throw "Client not found";
+        
+        const currentData = clientDoc.data() as Client;
+        const history = currentData.packageHistory || [];
+        if (currentData.currentPackage) {
+          history.push({ ...currentData.currentPackage, status: 'expired' });
+        }
+
+        transaction.update(clientRef, {
+          currentPackage: newPackage,
+          packageHistory: history,
+          packageName: newPackage.packageName as PackageName,
+          reelsLimit: newPackage.numberOfReels,
+          maxDuration: newPackage.duration,
+          reelsCreated: 0 
+        });
+
+        transaction.update(userRef, {
+          packageName: newPackage.packageName as PackageName,
+          reelsLimit: newPackage.numberOfReels
+        });
+      });
+
+      toast({ title: "Package Activated", description: `You have successfully selected the ${newPackage.packageName} plan.` });
+      router.push('/dashboard');
+      
+      const admins = usersData?.filter(u => u.role === 'admin') || [];
+      const adminIds = admins.map(a => a.id).filter(id => id !== authUid);
+      if (adminIds.length > 0) {
+        addNotification(
+          `${currentUser.name} has selected a new package: ${newPackage.packageName}`,
+          `/clients`,
+          adminIds,
+          'system'
+        );
+      }
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to select package", variant: 'destructive' });
+    }
+  };
+
   const updateTeamMember = (userId: string, memberData: Partial<User>) => {
     if (!firestore) return;
     const userRef = doc(firestore, 'users', userId);
@@ -764,6 +823,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         createUser,
         deleteUser,
         updateClient,
+        selectPackage,
         updateTeamMember,
         addScrumUpdate,
         addTimerSession,

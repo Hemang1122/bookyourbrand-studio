@@ -14,6 +14,7 @@ import {
   BarChart,
   MessageSquare,
   FileText,
+  CreditCard,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -30,6 +31,7 @@ import { Badge } from './ui/badge';
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'team', 'client'] },
   { href: '/projects', icon: FolderKanban, label: 'Projects', roles: ['admin', 'team', 'client'] },
+  { href: '/packages', icon: CreditCard, label: 'Packages', roles: ['client'] },
   { href: '/clients', icon: Briefcase, label: 'Clients', roles: ['admin'] },
   { href: '/team', icon: Users, label: 'Team', roles: ['admin'] },
   { href: '/documents', icon: FileText, label: 'Documents', roles: ['client'] },

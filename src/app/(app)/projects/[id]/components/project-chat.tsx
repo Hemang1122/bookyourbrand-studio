@@ -43,7 +43,7 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
   
   const { user: currentUser } = useAuth();
   const { firestore, auth } = useFirebaseServices();
-  const { addNotification, markChatNotificationsAsRead } = useData();
+  const { addNotification, markChatNotificationsAsRead, users } = useData();
   const searchParams = useSearchParams();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const nodeRef = useRef(null);
@@ -124,7 +124,10 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
       );
 
       // Create notification for the main bell
-      const recipients = Array.from(new Set([client.id, ...teamMembers.map(m => m.id)]))
+      // Ensure all admins are notified plus the participants
+      const adminIds = (users || []).filter(u => u.role === 'admin').map(u => u.id);
+      const participantIds = [client.id, ...teamMembers.map(m => m.id)];
+      const recipients = Array.from(new Set([...participantIds, ...adminIds]))
         .filter(id => id !== currentUser.id);
       
       if (recipients.length > 0) {
@@ -248,7 +251,7 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
                         </Avatar>
                       )}
                       
-                      <div className={cn('flex flex-col max-w-[75%]', isCurrentUser ? 'items-end' : 'items-start')}>
+                      <div className={cn('flex flex-col gap-1 max-w-[75%]', isCurrentUser ? 'items-end' : 'items-start')}>
                         {!isCurrentUser && (
                           <p className="text-[10px] text-gray-400 mb-1">{sender?.name}</p>
                         )}

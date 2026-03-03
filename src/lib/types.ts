@@ -23,7 +23,40 @@ export type User = {
   reelsLimit?: number;
 };
 
-export type PackageName = 'Bronze' | 'Silver' | 'Gold' | 'Advanced Editing' | 'Podcast';
+export type PackageName = 'Bronze' | 'Silver' | 'Gold' | 'Diamond' | 'Advanced Editing' | 'Podcast' | 'Custom';
+
+export interface Package {
+  id: string;
+  name: PackageName;
+  icon?: string;
+  reelOptions: number[]; // [10, 15, 30]
+  durationOptions: number[]; // [30, 45, 60, 90] in seconds
+  prices: {
+    [reels: number]: {
+      [duration: number]: number;
+    };
+  };
+  features?: string[];
+  customPricing?: boolean;
+}
+
+export interface ClientPackage {
+  id: string;
+  clientId: string;
+  packageName: string;
+  numberOfReels: number;
+  duration: number;
+  price: number;
+  reelsUsed: number;
+  startDate: Timestamp;
+  expiryDate?: Timestamp;
+  status: 'active' | 'expired' | 'cancelled';
+  customDetails?: string;
+  extras?: {
+    aiVoiceOver?: boolean;
+    stockFootage?: boolean;
+  };
+}
 
 export type SocialConnection = {
   connected: boolean;
@@ -63,6 +96,8 @@ export type Client = {
     facebook?: SocialConnection;
   };
   realEmail?: string;
+  currentPackage?: ClientPackage;
+  packageHistory?: ClientPackage[];
 };
 
 export type ProjectStatus = 'Active' | 'On Hold' | 'Completed' | 'In Progress' | 'Rework' | 'Approved';
