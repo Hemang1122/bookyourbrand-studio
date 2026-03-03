@@ -19,9 +19,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon, AlertCircle } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { format, isSameDay, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-
+import { Input } from '@/components/ui/input';
 
 type ManageTeamDialogProps = {
   project: Project;
@@ -32,6 +32,7 @@ export function ManageTeamDialog({ project, children }: ManageTeamDialogProps) {
   const [open, setOpen] = useState(false);
   const [team, setTeam] = useState<string[]>(project.team_ids);
   const [startDate, setStartDate] = useState<Date | undefined>(project.startDate ? new Date(project.startDate) : new Date());
+  const [deadline, setDeadline] = useState<string>(project.deadline || '');
   const { teamMembers, updateProjectTeam, updateProject, projects } = useData();
   const { toast } = useToast();
 
@@ -46,13 +47,17 @@ export function ManageTeamDialog({ project, children }: ManageTeamDialogProps) {
       toast({ title: 'Error', description: 'Please select a start date.', variant: 'destructive' });
       return;
     }
+    if (!deadline) {
+      toast({ title: 'Error', description: 'Please set a project deadline.', variant: 'destructive' });
+      return;
+    }
 
     const formattedStartDate = format(startDate, 'yyyy-MM-dd');
 
     // Check assignment limits
     for (const memberId of team) {
       const projectsAssignedToday = projects.filter(p => 
-        p.id !== project.id && // Exclude the current project if it already has this start date
+        p.id !== project.id && 
         p.team_ids.includes(memberId) &&
         p.startDate === formattedStartDate
       ).length;
@@ -64,14 +69,17 @@ export function ManageTeamDialog({ project, children }: ManageTeamDialogProps) {
           description: `${member?.name || 'A team member'} is already assigned to 5 projects starting on this date.`,
           variant: 'destructive',
         });
-        return; // Stop the update
+        return; 
       }
     }
     
     updateProjectTeam(project.id, team);
-    updateProject(project.id, { startDate: formattedStartDate });
+    updateProject(project.id, { 
+      startDate: formattedStartDate,
+      deadline: deadline
+    });
 
-    toast({ title: 'Project Updated', description: `The team and start date for "${project.name}" have been updated.` });
+    toast({ title: 'Project Updated', description: `The team, start date, and deadline for "${project.name}" have been updated.` });
     setOpen(false);
   };
 
@@ -81,7 +89,7 @@ export function ManageTeamDialog({ project, children }: ManageTeamDialogProps) {
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Manage Team for {project.name}</DialogTitle>
-          <DialogDescription>Assign team members and set the project start date.</DialogDescription>
+          <DialogDescription>Assign team members and set the project timeline.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
            <Alert>
@@ -91,6 +99,19 @@ export function ManageTeamDialog({ project, children }: ManageTeamDialogProps) {
                 A team member can be assigned a maximum of 5 new projects per day.
               </AlertDescription>
             </Alert>
+
+          <div className="space-y-2">
+            <Label htmlFor="deadline">Project Deadline *</Label>
+            <Input
+              id="deadline"
+              type="date"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              min={new Date().toISOString().split('T')[0]}
+              className="bg-black/20 border-primary/20"
+            />
+          </div>
+
           <div className="space-y-2">
             <Label>Assign Team Members</Label>
             <MultiSelect

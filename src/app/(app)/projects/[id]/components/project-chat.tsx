@@ -1,15 +1,16 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/firebase/provider';
-import { useFirebaseServices, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebaseServices, useCollection, useMemoFirebase, useUserStatus } from '@/firebase';
 import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, MessageSquare, X, Minus, Maximize2, Smile } from 'lucide-react';
+import { Send, MessageSquare, X, Minus, Maximize2, Smile, Paperclip, Mic, Trash2, Play, Pause, Loader2, FileText, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { sounds } from '@/lib/sounds';
 import type { ChatMessage, User, Client } from '@/lib/types';
@@ -17,7 +18,7 @@ import Draggable from 'react-draggable';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useData } from '../../../data-provider';
 import { useSearchParams } from 'next/navigation';
-import { TypingIndicator } from './TypingIndicator';
+import { useVoiceRecorder } from '@/hooks/use-voice-recorder';
 
 const EMOJI_OPTIONS = ['👍', '❤️', '😂', '😮', '🔥', '👏'];
 
@@ -27,6 +28,52 @@ const getMessageDate = (timestamp: any): Date => {
   if (timestamp instanceof Date) return timestamp;
   if (typeof timestamp === 'string' || typeof timestamp === 'number') return new Date(timestamp);
   return new Date();
+};
+
+const VoiceNotePlayer = ({ audioUrl, duration, isCurrentUser }: { audioUrl: string; duration: number; isCurrentUser: boolean; }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const handleEnded = () => { setIsPlaying(false); setCurrentTime(0); };
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('ended', handleEnded);
+    return () => { audio.removeEventListener('timeupdate', handleTimeUpdate); audio.removeEventListener('ended', handleEnded); };
+  }, []);
+
+  const togglePlay = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (isPlaying) { audio.pause(); setIsPlaying(false); }
+    else { audio.play(); setIsPlaying(true); }
+  };
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-lg min-w-[200px]">
+      <audio ref={audioRef} src={audioUrl} preload="metadata" />
+      <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 shrink-0" onClick={togglePlay}>
+        {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+      </Button>
+      <div className="flex-1">
+        <div className="h-1 bg-white/20 rounded-full overflow-hidden">
+          <div className={cn("h-full rounded-full transition-all", isCurrentUser ? 'bg-white' : 'bg-primary')} style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+      <span className="text-xs font-mono shrink-0">{formatTime(isPlaying ? currentTime : duration)}</span>
+    </div>
+  );
 };
 
 interface ProjectChatProps {
@@ -40,13 +87,27 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [newMessage, setNewMessage] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { user: currentUser } = useAuth();
-  const { firestore, auth } = useFirebaseServices();
+  const { firestore, auth, firebaseApp } = useFirebaseServices();
   const { addNotification, markChatNotificationsAsRead, users } = useData();
   const searchParams = useSearchParams();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const nodeRef = useRef(null);
+  const clientStatus = useUserStatus(client.id);
+
+  const {
+    isRecording: voiceRecording,
+    recordingDuration: voiceDuration,
+    audioBlob: voiceBlob,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+    resetRecorder
+  } = useVoiceRecorder();
 
   // Check for deep-link to open chat
   useEffect(() => {
@@ -65,20 +126,20 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
 
   const { data: messages } = useCollection<ChatMessage>(messagesQuery);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
     if (viewport) {
       viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (messages && isOpen && !isMinimized) {
       scrollToBottom();
     }
-  }, [messages, isOpen, isMinimized]);
+  }, [messages, isOpen, isMinimized, scrollToBottom]);
 
-  // Mark messages as read AND mark bell notifications as read
+  // Mark messages as read
   useEffect(() => {
     if (!messages || !firestore || !currentUser || !isOpen || isMinimized) return;
     
@@ -95,7 +156,6 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
       });
     }
 
-    // Sync with main notification bell
     markChatNotificationsAsRead(projectId);
   }, [messages, firestore, currentUser, auth, projectId, isOpen, isMinimized, markChatNotificationsAsRead]);
 
@@ -103,9 +163,7 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
     e.preventDefault();
     if (!newMessage.trim() || !firestore || !currentUser) return;
 
-    if (currentUser.role === 'team') {
-      return;
-    }
+    if (currentUser.role === 'team') return;
 
     try {
       const messageText = newMessage.trim();
@@ -119,12 +177,11 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
           senderAvatar: currentUser.avatar,
           timestamp: serverTimestamp(),
           readBy: [currentUser.id],
-          reactions: {}
+          reactions: {},
+          type: 'text'
         }
       );
 
-      // Create notification for the main bell
-      // Ensure all admins are notified plus the participants
       const adminIds = (users || []).filter(u => u.role === 'admin').map(u => u.id);
       const participantIds = [client.id, ...teamMembers.map(m => m.id)];
       const recipients = Array.from(new Set([...participantIds, ...adminIds]))
@@ -145,6 +202,126 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
       setTimeout(scrollToBottom, 100);
     } catch (error) {
       console.error('Failed to send message:', error);
+    }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !firestore || !currentUser || !projectId) return;
+
+    if (currentUser.role === 'team') {
+      toast({ title: 'Permission Denied', description: 'Editors can only read messages in project chats', variant: 'destructive' });
+      return;
+    }
+
+    const storage = getStorage(firebaseApp);
+    const timestamp = Date.now();
+    const fileName = `${timestamp}-${file.name}`;
+    const fileStorageRef = storageRef(storage, `project-uploads/${projectId}/${fileName}`);
+
+    setIsUploading(true);
+
+    try {
+      const uploadTask = uploadBytesResumable(fileStorageRef, file);
+
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(Math.round(progress));
+        },
+        (error) => {
+          toast({ title: 'Upload Failed', description: error.message, variant: 'destructive' });
+          setIsUploading(false);
+        },
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+
+          await addDoc(collection(firestore, 'projects', projectId, 'chat-messages'), {
+            text: file.name,
+            senderId: currentUser.id,
+            senderName: currentUser.name,
+            senderAvatar: currentUser.avatar,
+            timestamp: serverTimestamp(),
+            type: 'media',
+            mediaURL: downloadURL,
+            mediaType: file.type,
+            fileName: file.name,
+            fileSize: file.size,
+            readBy: [currentUser.id],
+            reactions: {}
+          });
+
+          sounds.messageSent();
+          setIsUploading(false);
+          setUploadProgress(0);
+          setTimeout(scrollToBottom, 100);
+        }
+      );
+    } catch (error: any) {
+      toast({ title: 'Upload Failed', description: error.message, variant: 'destructive' });
+      setIsUploading(false);
+    }
+  };
+
+  const formatDuration = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleSendVoiceNote = async () => {
+    if (!voiceBlob || !firestore || !currentUser || !projectId) return;
+
+    if (currentUser.role === 'team') {
+      toast({ title: 'Permission Denied', description: 'Editors can only read messages', variant: 'destructive' });
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      const storage = getStorage(firebaseApp);
+      const timestamp = Date.now();
+      const fileName = `voice-note-${timestamp}.webm`;
+      const fileStorageRef = storageRef(storage, `project-uploads/${projectId}/${fileName}`);
+
+      const uploadTask = uploadBytesResumable(fileStorageRef, voiceBlob);
+
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(Math.round(progress));
+        },
+        (error) => {
+          toast({ title: 'Upload Failed', description: error.message, variant: 'destructive' });
+          setIsUploading(false);
+        },
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+
+          await addDoc(collection(firestore, 'projects', projectId, 'chat-messages'), {
+            text: `🎤 Voice message (${formatDuration(voiceDuration)})`,
+            senderId: currentUser.id,
+            senderName: currentUser.name,
+            senderAvatar: currentUser.avatar,
+            timestamp: serverTimestamp(),
+            type: 'voice',
+            mediaURL: downloadURL,
+            duration: voiceDuration,
+            readBy: [currentUser.id],
+            reactions: {}
+          });
+
+          sounds.messageSent();
+          setIsUploading(false);
+          setUploadProgress(0);
+          resetRecorder();
+          setTimeout(scrollToBottom, 100);
+        }
+      );
+    } catch (error: any) {
+      toast({ title: 'Upload Failed', description: error.message, variant: 'destructive' });
+      setIsUploading(false);
     }
   };
 
@@ -199,12 +376,20 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
       >
         <div className="drag-handle cursor-move flex items-center justify-between p-4 border-b border-white/10 bg-gradient-to-r from-primary/10 to-pink-500/10 rounded-t-2xl">
           <div className="flex items-center gap-3">
-            <MessageSquare className="h-5 w-5 text-primary" />
+            <div className="relative">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={client.photoURL || PlaceHolderImages.find(p => p.id === client.avatar)?.imageUrl} />
+                <AvatarFallback>{client.name?.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <div className={cn("absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-[#13131F]", clientStatus?.isOnline ? "bg-green-500" : "bg-gray-500")} />
+            </div>
             <div>
-              <p className="font-semibold text-sm text-white truncate max-w-[200px]">
+              <p className="font-semibold text-sm text-white truncate max-w-[180px]">
                 {projectName}
               </p>
-              <p className="text-xs text-gray-400">Project Chat</p>
+              <p className="text-[10px] text-gray-400">
+                {clientStatus?.isOnline ? 'Active now' : 'Offline'}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -265,7 +450,45 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
                                 : 'bg-[#1E1E2A] border border-white/10 text-gray-200 rounded-bl-sm'
                             )}
                           >
-                            <p>{msg.text}</p>
+                            {msg.type === 'media' && msg.mediaURL && (
+                              <div className="space-y-2">
+                                {(msg as any).mediaType?.startsWith('image/') ? (
+                                  <a href={msg.mediaURL} target="_blank" rel="noopener noreferrer">
+                                    <img src={msg.mediaURL} alt={(msg as any).fileName} className="max-w-full rounded-lg cursor-pointer" />
+                                  </a>
+                                ) : (msg as any).mediaType?.startsWith('video/') ? (
+                                  <video src={msg.mediaURL} controls className="max-w-full rounded-lg" />
+                                ) : (
+                                  <a 
+                                    href={msg.mediaURL} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 p-2 bg-black/20 rounded-lg hover:bg-black/30"
+                                  >
+                                    <FileText className="h-4 w-4" />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-semibold truncate">{(msg as any).fileName}</p>
+                                      <p className="text-[10px] opacity-60">
+                                        {((msg as any).fileSize / 1024).toFixed(1)} KB
+                                      </p>
+                                    </div>
+                                    <Download className="h-4 w-4" />
+                                  </a>
+                                )}
+                              </div>
+                            )}
+
+                            {msg.type === 'voice' && msg.mediaURL && (
+                              <VoiceNotePlayer 
+                                audioUrl={msg.mediaURL} 
+                                duration={msg.duration || 0}
+                                isCurrentUser={isCurrentUser}
+                              />
+                            )}
+
+                            {msg.text && (msg.type !== 'media' || (msg as any).mediaType?.startsWith('image/') === false) && (
+                              <p>{msg.text}</p>
+                            )}
                           </div>
 
                           <div className={cn(
@@ -327,28 +550,65 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
               </div>
             </ScrollArea>
 
-            <div className="p-4 border-t border-white/5 bg-black/20">
+            <div className="p-3 border-t border-white/10 bg-black/20">
               {currentUser?.role === 'team' ? (
                 <div className="text-center text-[11px] text-gray-500 font-medium bg-white/5 py-2 rounded-lg border border-white/5">
                   👀 Read-only mode - Team members cannot send messages
                 </div>
+              ) : voiceRecording ? (
+                <div className="flex w-full items-center space-x-2 animate-in fade-in slide-in-from-bottom-2">
+                  <Button type="button" variant="ghost" size="icon" className="text-red-500 hover:bg-red-500/20" onClick={cancelRecording}>
+                    <Trash2 className="h-5 w-5" />
+                  </Button>
+                  <div className="flex-1 flex items-center justify-center gap-3 bg-red-500/10 rounded-full h-10 border border-red-500/30">
+                    <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse" />
+                    <span className="text-red-500 font-mono font-bold text-sm">{formatDuration(voiceDuration)}</span>
+                  </div>
+                  <Button type="button" size="icon" className="rounded-full h-10 w-10 bg-gradient-to-br from-green-600 to-green-500" onClick={stopRecording}>
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : voiceBlob ? (
+                <div className="flex w-full items-center space-x-2">
+                  <Button type="button" variant="ghost" size="icon" onClick={resetRecorder}><X className="h-5 w-5" /></Button>
+                  <div className="flex-1 flex items-center gap-3 bg-green-500/10 rounded-full h-10 px-4 border border-green-500/30">
+                    <Play className="h-4 w-4 text-green-500" />
+                    <span className="text-green-500 font-mono text-xs">{formatDuration(voiceDuration)}</span>
+                  </div>
+                  <Button type="button" size="icon" className="rounded-full h-10 w-10 bg-gradient-to-br from-primary to-pink-500" onClick={handleSendVoiceNote} disabled={isUploading}>
+                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  </Button>
+                </div>
               ) : (
                 <form onSubmit={handleSendMessage} className="flex gap-2">
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*,.pdf,.doc,.docx" onChange={handleFileSelect} />
+                  <Button type="button" variant="ghost" size="icon" className="h-10 w-10 text-gray-400 hover:text-white" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+                  </Button>
                   <Input
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder="Type a message..."
                     className="flex-1 bg-black/40 border-white/10 rounded-full h-10 px-4 text-sm focus:ring-primary/50 focus:border-primary/50"
                   />
-                  <Button
-                    type="submit"
-                    size="icon"
-                    disabled={!newMessage.trim()}
-                    className="rounded-full h-10 w-10 bg-gradient-to-br from-primary to-pink-500 shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all shrink-0"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
+                  {newMessage.trim() ? (
+                    <Button type="submit" size="icon" disabled={!newMessage.trim()} className="rounded-full h-10 w-10 bg-gradient-to-br from-primary to-pink-500 shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all shrink-0">
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Button type="button" size="icon" onClick={startRecording} className="rounded-full h-10 w-10 bg-gradient-to-br from-primary to-pink-500 shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all shrink-0">
+                      <Mic className="h-4 w-4" />
+                    </Button>
+                  )}
                 </form>
+              )}
+              {isUploading && (
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary transition-all" style={{ width: `${uploadProgress}%` }} />
+                  </div>
+                  <span className="text-[10px] text-gray-500">{uploadProgress}%</span>
+                </div>
               )}
             </div>
           </>
