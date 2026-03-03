@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -17,6 +16,7 @@ import {
   FileText,
   CreditCard,
   Package,
+  RefreshCw,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -35,6 +35,7 @@ const navItems = [
   { href: '/projects', icon: FolderKanban, label: 'Projects', roles: ['admin', 'team', 'client'] },
   { href: '/packages', icon: CreditCard, label: 'Packages', roles: ['client'] },
   { href: '/admin/packages', icon: Package, label: 'Package Mgmt', roles: ['admin'] },
+  { href: '/admin/migration', icon: RefreshCw, label: 'Migration Tool', roles: ['admin'] },
   { href: '/clients', icon: Briefcase, label: 'Clients', roles: ['admin'] },
   { href: '/team', icon: Users, label: 'Team', roles: ['admin'] },
   { href: '/documents', icon: FileText, label: 'Documents', roles: ['client'] },
