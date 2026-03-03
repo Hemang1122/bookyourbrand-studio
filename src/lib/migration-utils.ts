@@ -1,76 +1,67 @@
 import { Firestore, collection, getDocs, doc, updateDoc, addDoc, serverTimestamp, query, where } from 'firebase/firestore';
 import { Client, PackageName } from './types';
 
-// Mapping old plans to new packages
-const PLAN_TO_PACKAGE_MAP: Record<string, {
+/**
+ * Determines the appropriate new package configuration based on the legacy billing system.
+ * Based on:
+ * - Bronze: 10/15/30 reels @ 30s -> ₹2,500 / ₹3,450 / ₹6,300
+ * - Silver: 10/15/30 reels @ 60s -> ₹5,000 / ₹7,200 / ₹13,800
+ * - Gold: 10/15/30 reels @ 90s -> ₹7,000 / ₹10,200 / ₹19,800
+ * - Advanced Editing: 10/15/30 reels @ 60s -> ₹15,000 / ₹22,200 / ₹43,800
+ */
+const determinePackageFromOldBilling = (client: Client): {
   packageName: PackageName;
   reels: number;
   duration: number;
   price: number;
-}> = {
-  'Starter Plan': {
-    packageName: 'Bronze',
-    reels: 10,
-    duration: 30,
-    price: 2500
-  },
-  'Growth Plan': {
-    packageName: 'Silver',
-    reels: 15,
-    duration: 45,
-    price: 5700
-  },
-  'Pro Plan': {
-    packageName: 'Gold',
-    reels: 30,
-    duration: 60,
-    price: 13800
-  },
-  'Enterprise Plan': {
-    packageName: 'Diamond',
-    reels: 30,
-    duration: 90,
-    price: 21300
-  }
-};
+} => {
+  const reelsLimit = client.reelsLimit || 0;
+  const plan = (client as any).plan || client.packageName || '';
+  const planLower = plan.toLowerCase();
 
-// Fallback: if we don't know the plan name, use reelsLimit
-const REEL_LIMIT_TO_PACKAGE: Record<number, {
-  packageName: PackageName;
-  reels: number;
-  duration: number;
-  price: number;
-}> = {
-  3: {
+  // Advanced Editing (highest tier)
+  if (planLower.includes('advanced') || 
+      planLower.includes('premium') ||
+      reelsLimit >= 30) {
+    return {
+      packageName: 'Advanced Editing',
+      reels: 30,
+      duration: 60,
+      price: 43800
+    };
+  }
+
+  // Gold (90 seconds)
+  if (planLower.includes('gold') || 
+      planLower.includes('pro') ||
+      reelsLimit >= 15) {
+    return {
+      packageName: 'Gold',
+      reels: 30,
+      duration: 60,
+      price: 13800
+    };
+  }
+
+  // Silver (60 seconds)
+  if (planLower.includes('silver') || 
+      planLower.includes('growth') ||
+      reelsLimit >= 10) {
+    return {
+      packageName: 'Silver',
+      reels: 15,
+      duration: 45,
+      price: 5700
+    };
+  }
+
+  // Bronze (default/fallback)
+  return {
     packageName: 'Bronze',
     reels: 10,
     duration: 30,
     price: 2500
-  },
-  5: {
-    packageName: 'Silver',
-    reels: 15,
-    duration: 45,
-    price: 4000
-  },
-  10: {
-    packageName: 'Gold',
-    reels: 30,
-    duration: 60,
-    price: 13800
-  },
-  15: {
-    packageName: 'Silver',
-    reels: 15,
-    duration: 45,
-    price: 5700
-  },
-  30: {
-    packageName: 'Gold',
-    reels: 30,
-    duration: 60,
-    price: 13800
-  }
+  };
 };
 
 export async function migrateClientToNewPackageSystem(
@@ -87,29 +78,8 @@ export async function migrateClientToNewPackageSystem(
       };
     }
 
-    // Determine package based on old system
-    let packageConfig;
-    
-    // Try to match by plan name first
-    // Note: client might have 'packageName' string in old system as well
-    const oldPlanName = (client as any).plan || client.packageName;
-
-    if (oldPlanName && PLAN_TO_PACKAGE_MAP[oldPlanName]) {
-      packageConfig = PLAN_TO_PACKAGE_MAP[oldPlanName];
-    } 
-    // Fallback to reelsLimit
-    else if (client.reelsLimit && REEL_LIMIT_TO_PACKAGE[client.reelsLimit]) {
-      packageConfig = REEL_LIMIT_TO_PACKAGE[client.reelsLimit];
-    }
-    // Default to Bronze if nothing matches
-    else {
-      packageConfig = {
-        packageName: 'Bronze' as PackageName,
-        reels: 10,
-        duration: 30,
-        price: 2500
-      };
-    }
+    // Determine package based on old billing system
+    const packageConfig = determinePackageFromOldBilling(client);
 
     const startDate = new Date();
     const expiryDate = new Date();
@@ -133,7 +103,7 @@ export async function migrateClientToNewPackageSystem(
       expiryDate,
       status: 'active' as const,
       migratedFrom: {
-        oldPlan: oldPlanName || 'Unknown',
+        oldPlan: (client as any).plan || client.packageName || 'Unknown',
         oldReelsLimit: client.reelsLimit || 0,
         projectCount
       },
@@ -153,7 +123,7 @@ export async function migrateClientToNewPackageSystem(
       reelsCreated: projectCount,
       // Keep old data for reference but mark as migrated
       oldBillingSystem: {
-        plan: oldPlanName || null,
+        plan: (client as any).plan || null,
         reelsLimit: client.reelsLimit || null,
         migratedAt: serverTimestamp()
       }

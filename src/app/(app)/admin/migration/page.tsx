@@ -6,10 +6,12 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { AlertCircle, CheckCircle2, XCircle, RefreshCw, ArrowLeft } from 'lucide-react';
+import { AlertCircle, CheckCircle2, XCircle, RefreshCw, ArrowLeft, Loader2 } from 'lucide-react';
 import { migrateAllClients } from '@/lib/migration-utils';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 export default function MigrationPage() {
   const { user } = useAuth();
@@ -87,7 +89,7 @@ export default function MigrationPage() {
             <ul className="space-y-2 text-sm text-gray-300">
               <li className="flex items-start gap-2">
                 <span className="text-orange-400 mt-1">•</span>
-                <span>Converts legacy <strong>Starter/Growth/Pro</strong> plans to the new <strong>Bronze/Silver/Gold</strong> tiers.</span>
+                <span>Converts legacy <strong>Starter/Growth/Pro</strong> plans to the new tiers based on historical pricing.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-orange-400 mt-1">•</span>
@@ -194,5 +196,3 @@ export default function MigrationPage() {
     </div>
   );
 }
-
-import { Loader2 } from 'lucide-react';

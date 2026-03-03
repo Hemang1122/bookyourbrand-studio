@@ -9,8 +9,9 @@ import { useData } from '../../data-provider';
 import { UpgradeDialog } from './components/upgrade-dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { ArrowUpCircle, Sparkles } from 'lucide-react';
+import { ArrowUpCircle, Sparkles, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Badge } from '@/components/ui/badge';
 
 const PackageCard = ({ pkg }: { pkg: any }) => (
     <Card className="flex flex-col bg-[#13131F] border-white/5 overflow-hidden">
@@ -70,7 +71,7 @@ const PackageCard = ({ pkg }: { pkg: any }) => (
 
 function ClientSubscriptionCard() {
     const { user } = useAuth();
-    const { clients, projects, isLoading } = useData();
+    const { clients, isLoading } = useData();
     const router = useRouter();
 
     const myClientRecord = useMemo(() => {
@@ -142,9 +143,34 @@ function ClientSubscriptionCard() {
 
 export default function BillingPage() {
     const { user } = useAuth();
+    const router = useRouter();
 
     return (
         <div className="container mx-auto py-10 max-w-6xl space-y-12">
+            <div className="mb-8 p-6 bg-gradient-to-r from-primary/20 to-pink-500/20 border-2 border-primary/40 rounded-2xl">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+                    <div>
+                        <h2 className="text-2xl font-bold mb-2 text-white">🎉 New Package System Available!</h2>
+                        <p className="text-gray-300">
+                            We've upgraded to a new flexible package system with more options and better value for your brand.
+                        </p>
+                    </div>
+                    <Button 
+                        size="lg" 
+                        className="bg-gradient-to-r from-primary to-pink-500 hover:opacity-90 border-0 shadow-lg shrink-0"
+                        onClick={() => router.push('/packages')}
+                    >
+                        Explore New Packages <ChevronRight className="ml-2 h-5 w-5" />
+                    </Button>
+                </div>
+            </div>
+
+            <div className="mb-6 p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+                <p className="text-sm text-orange-400">
+                    ⚠️ This is the legacy billing information page. Please use the new package system above for the latest offers and features.
+                </p>
+            </div>
+
             {user?.role === 'client' && (
                 <ClientSubscriptionCard />
             )}
