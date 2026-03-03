@@ -1,4 +1,3 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -17,6 +16,12 @@ service cloud.firestore {
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              getUserData().role == 'admin';
     }
+    
+    function isAdminOrTeam() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             (getUserData().role == 'admin' || getUserData().role == 'team');
+    }
 
     function isParticipant(chatId) {
       return isSignedIn() &&
@@ -28,31 +33,41 @@ service cloud.firestore {
     function isOwner(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }
+    
+    function isChatOwner(chatId) {
+      return isSignedIn() && 
+             (chatId.matches('^' + request.auth.uid + '_.*') || 
+              chatId.matches('.*_' + request.auth.uid + '$') ||
+              chatId.matches('.*_' + request.auth.uid + '_.*'));
+    }
 
     // ── USERS COLLECTION ──────────────────────────────────────
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
       allow delete: if false;
     }
     
     // ── CLIENTS COLLECTION ───────────────────────────────────
     match /clients/{clientId} {
       allow get: if isAdmin() || isOwner(clientId);
-      allow list: if isAdmin();
-      allow write: if isAdmin();
+      allow list: if isSignedIn();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || isOwner(clientId);
+      allow delete: if isAdmin();
     }
 
     match /clientDocuments/{documentId} {
-      allow read: if isAdmin() || resource.data.clientId == request.auth.uid;
+      allow list: if isSignedIn();
+      allow get: if isAdmin() || resource.data.clientId == request.auth.uid;
       allow create: if isAdmin() || request.resource.data.clientId == request.auth.uid;
       allow delete: if isAdmin() || resource.data.clientId == request.auth.uid;
       allow update: if isAdmin();
     }
 
     match /client-packages/{packageId} {
-      allow list: if isAdmin();
+      allow list: if isSignedIn();
       allow get: if isSignedIn() && 
                     (isAdmin() || resource.data.clientId == request.auth.uid);
       allow create: if isAdmin();
@@ -62,63 +77,73 @@ service cloud.firestore {
 
     // ── CHATS COLLECTION (Support) ───────────────────────────
     match /chats/{chatId} {
-      allow list: if isSignedIn() && request.auth.uid in request.query.where.participants;
-      allow get: if isParticipant(chatId);
-      allow create: if isAdmin() &&
+      allow list: if isSignedIn();
+      allow get: if isChatOwner(chatId) || isParticipant(chatId);
+      allow create: if isSignedIn() &&
                        request.resource.data.createdBy == request.auth.uid &&
-                       request.auth.uid in request.resource.data.participants;
-      allow update: if isParticipant(chatId) &&
-                       (
-                         !('participants' in request.resource.data) ||
-                         isAdmin()
-                       );
+                       request.auth.uid in request.resource.data.participants &&
+                       isChatOwner(chatId);
+      allow update: if isSignedIn() &&
+                       !request.resource.data.diff(resource.data).affectedKeys()
+                           .hasAny(['participants']) ||
+                       isAdmin();
       allow delete: if isAdmin();
 
       match /messages/{messageId} {
-        allow read, list: if isParticipant(chatId);
-        allow create: if isParticipant(chatId) &&
+        allow read, list: if isChatOwner(chatId) || isParticipant(chatId);
+        allow create: if (isChatOwner(chatId) || isParticipant(chatId)) &&
                          request.resource.data.senderId == request.auth.uid;
-        allow update: if isParticipant(chatId) &&
+        allow update: if (isChatOwner(chatId) || isParticipant(chatId)) &&
                          (
-                          (
-                            resource.data.senderId == request.auth.uid &&
-                            request.resource.data.diff(resource.data).affectedKeys()
-                                .hasOnly(['deleted', 'readBy', 'pinned', 'text', 'edited', 'editedAt', 'reactions'])
-                           ) || 
+                           (
+                             resource.data.senderId == request.auth.uid &&
+                             request.resource.data.diff(resource.data).affectedKeys()
+                                 .hasOnly(['deleted', 'text', 'mediaURL', 'readBy',
+                                           'edited', 'editedAt', 'reactions', 
+                                           'replyTo', 'pinned'])
+                           ) ||
                            (
                              request.resource.data.diff(resource.data).affectedKeys()
-                                .hasOnly(['readBy', 'reactions', 'pinned'])
+                                 .hasOnly(['readBy'])
+                           ) ||
+                           (
+                             request.resource.data.diff(resource.data).affectedKeys()
+                                 .hasOnly(['reactions'])
+                           ) ||
+                           (
+                             request.resource.data.diff(resource.data).affectedKeys()
+                                 .hasOnly(['pinned'])
                            )
                          );
-        allow delete: if request.time > timestamp.date(2020, 9, 10);
+        allow delete: if false;
       }
 
       match /readReceipts/{userId} {
-        allow read: if isParticipant(chatId);
-        allow write: if isParticipant(chatId) && isOwner(userId);
+        allow read: if isChatOwner(chatId) || isParticipant(chatId);
+        allow write: if (isChatOwner(chatId) || isParticipant(chatId)) && isOwner(userId);
       }
     }
-
 
     // ── PROJECTS COLLECTION ───────────────────────────────────
     match /projects/{projectId} {
       allow list: if isSignedIn();
       allow get: if isSignedIn() &&
-                 (
-                   isAdmin() ||
-                   resource.data.client.id == request.auth.uid ||
-                   request.auth.uid in resource.data.team_ids
-                 );
-      allow create: if isSignedIn() &&
                     (
                       isAdmin() ||
-                      request.resource.data.client.id == request.auth.uid
-                    );
-      allow update: if isSignedIn() &&
-                    (
-                      isAdmin() ||
+                      resource.data.client.id == request.auth.uid ||
                       request.auth.uid in resource.data.team_ids
                     );
+      allow create: if isSignedIn() &&
+                       (
+                         isAdmin() ||
+                         request.resource.data.client.id == request.auth.uid
+                       );
+      allow update: if isSignedIn() &&
+                       (
+                         isAdmin() ||
+                         resource.data.client.id == request.auth.uid ||
+                         request.auth.uid in resource.data.team_ids
+                       );
       allow delete: if isAdmin();
 
       // ── PROJECT CHAT SUBCOLLECTION ──────────────────────────
@@ -144,37 +169,40 @@ service cloud.firestore {
       }
     }
 
-
     // ── OTHER COLLECTIONS ───────────────────────────────────
     match /tasks/{taskId} {
-      allow read, write: if isSignedIn() &&
-                         (
-                           isAdmin() ||
-                           get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.client.id == request.auth.uid ||
-                           request.auth.uid in get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.team_ids
-                         );
+      allow list: if isSignedIn();
+      allow get, create, update, delete: if isSignedIn() &&
+                                            (
+                                              isAdmin() ||
+                                              get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.client.id == request.auth.uid ||
+                                              request.auth.uid in get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.team_ids
+                                            );
     }
 
     match /files/{fileId} {
-      allow list: if isAdmin();
-      allow get, write: if isSignedIn() &&
-                         (
-                           isAdmin() ||
-                           get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.client.id == request.auth.uid ||
-                           request.auth.uid in get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.team_ids
-                         );
+      allow list: if isSignedIn();
+      allow get, create, update, delete: if isSignedIn() &&
+                                            (
+                                              isAdmin() ||
+                                              get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.client.id == request.auth.uid ||
+                                              request.auth.uid in get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.team_ids
+                                            );
     }
 
     match /scrum-updates/{updateId} {
-      allow read, list: if isAdmin();
+      allow list: if isAdminOrTeam();
+      allow read: if isAdminOrTeam();
       allow create: if isSignedIn() &&
-                    request.resource.data.userId == request.auth.uid;
+                       request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
     
     match /timer-sessions/{sessionId} {
-      allow list:   if isSignedIn();
-      allow get:    if isSignedIn() && 
-                       (isAdmin() || resource.data.userId == request.auth.uid);
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && 
+                    (isAdmin() || resource.data.userId == request.auth.uid);
       allow create: if isSignedIn() &&
                        request.resource.data.userId == request.auth.uid;
       allow update: if isSignedIn() &&
@@ -183,12 +211,23 @@ service cloud.firestore {
     }
 
     match /notifications/{notificationId} {
+      allow list: if isSignedIn();
       allow create: if isSignedIn();
-      allow read, update: if isSignedIn() &&
-                          request.auth.uid in resource.data.recipients;
+      allow read: if isSignedIn() &&
+                     (
+                       isAdmin() ||
+                       request.auth.uid in resource.data.recipients
+                     );
+      allow update: if isSignedIn() &&
+                       (
+                         isAdmin() ||
+                         request.auth.uid in resource.data.recipients
+                       );
+      allow delete: if isAdmin();
     }
 
     match /calls/{callId} {
+      allow list: if isSignedIn();
       allow create: if isSignedIn();
       allow read: if isSignedIn() && 
                      (resource.data.callerId == request.auth.uid ||
@@ -196,6 +235,34 @@ service cloud.firestore {
       allow update: if isSignedIn() &&
                        (resource.data.callerId == request.auth.uid ||
                         resource.data.recipientId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // ── ORDERS/PAYMENTS COLLECTION ───────────────────────────
+    match /orders/{orderId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && 
+                    (isAdmin() || resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() &&
+                       request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /payments/{paymentId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && 
+                    (isAdmin() || resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() &&
+                       request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /packages/{packageId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
       allow delete: if isAdmin();
     }
   }
