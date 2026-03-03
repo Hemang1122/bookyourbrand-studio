@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Project, User, ProjectStatus } from '@/lib/types';
@@ -12,56 +13,28 @@ import { cn } from '@/lib/utils';
 import { ArrowRight, FolderKanban } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-
+import { Badge } from '@/components/ui/badge';
 
 const getStatusBadgeClasses = (status: ProjectStatus) => {
     switch (status) {
         case 'Active':
-            return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
+            return 'bg-blue-500/90 hover:bg-blue-500 text-white border-0';
         case 'In Progress':
-            return 'bg-purple-500/20 text-purple-400 border border-purple-500/30';
+            return 'bg-purple-500/90 hover:bg-purple-500 text-white border-0';
         case 'Approved':
         case 'Completed':
-            return 'bg-green-500/20 text-green-400 border border-green-500/30';
+            return 'bg-green-500/90 hover:bg-green-500 text-white border-0';
         case 'Rework':
-            return 'bg-orange-500/20 text-orange-400 border border-orange-500/30';
+            return 'bg-orange-500/90 hover:bg-orange-500 text-white border-0';
         case 'On Hold':
-             return 'bg-gray-500/20 text-gray-400 border border-gray-500/30';
+             return 'bg-gray-500/90 hover:bg-gray-500 text-white border-0';
         default:
             return 'bg-secondary text-secondary-foreground';
     }
 }
 
-
-export function ProjectList({ statusFilter, searchQuery }: { statusFilter: ProjectStatus | 'All'; searchQuery: string; }) {
-  const { projects, users, isLoading } = useData();
-  const { user } = useAuth();
-
-  const filteredProjects = useMemo(() => {
-    if (!user || !projects) return [];
-    
-    let userProjects = projects;
-    if (user.role === 'client') {
-      userProjects = projects.filter(p => p.client.id === user.id);
-    } else if (user.role === 'team') {
-      userProjects = projects.filter(p => p.team_ids && p.team_ids.includes(user.id));
-    }
-
-    let statusFilteredProjects = userProjects;
-    if (statusFilter !== 'All') {
-      statusFilteredProjects = userProjects.filter(p => p.status === statusFilter);
-    }
-
-    if (!searchQuery) {
-        return statusFilteredProjects;
-    }
-
-    return statusFilteredProjects.filter(p => 
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      p.client.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-  }, [projects, user, statusFilter, searchQuery]);
+export function ProjectList({ projects, isLoading }: { projects: Project[]; isLoading?: boolean; }) {
+  const { users } = useData();
 
   if (isLoading) {
     return (
@@ -88,16 +61,16 @@ export function ProjectList({ statusFilter, searchQuery }: { statusFilter: Proje
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {filteredProjects.map((project) => {
+      {projects.map((project) => {
         const coverImage = PlaceHolderImages.find(img => img.id === project.coverImage);
         const teamMembers: Partial<User>[] = users.filter(u => project.team_ids && project.team_ids.includes(u.id));
         const primaryEditor = teamMembers[0];
 
         return (
           <Link href={`/projects/${project.id}`} key={project.id} className="block">
-            <Card className="group rounded-2xl overflow-hidden bg-[#13131F] border border-white/5 hover:border-purple-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/10 hover:-translate-y-1">
+            <Card className="group h-full rounded-2xl overflow-hidden bg-[#13131F] border border-white/5 hover:border-purple-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/10 hover:-translate-y-1">
                 <div className="relative h-48 w-full">
-                  {coverImage && (
+                  {coverImage ? (
                     <Image
                       src={coverImage.imageUrl}
                       alt={project.name}
@@ -106,22 +79,31 @@ export function ProjectList({ statusFilter, searchQuery }: { statusFilter: Proje
                       className="object-cover"
                       data-ai-hint={coverImage.imageHint}
                     />
+                  ) : (
+                    <div className="w-full h-full bg-muted flex items-center justify-center">
+                        <FolderKanban className="h-12 w-12 text-muted-foreground/20" />
+                    </div>
                   )}
                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                   <Badge 
+                    className={cn(
+                      "absolute top-3 right-3 font-semibold",
+                      getStatusBadgeClasses(project.status)
+                    )}
+                  >
+                    {project.status}
+                  </Badge>
                 </div>
-              <CardContent className="p-4">
-                <div className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors mb-2", getStatusBadgeClasses(project.status))}>
-                  {project.status}
-                </div>
-                <h3 className="text-base font-semibold text-white truncate">{project.name}</h3>
-                <p className="text-sm text-muted-foreground">{project.client.name}</p>
+              <CardContent className="p-6">
+                <h3 className="text-xl font-semibold text-white truncate group-hover:text-purple-300 transition-colors mb-2">{project.name}</h3>
+                <p className="text-sm text-muted-foreground mb-4">For: {project.client.name}</p>
 
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
+                <div className="flex items-center justify-between pt-4 border-t border-white/5">
                     <div className="flex items-center gap-2">
                         {primaryEditor ? (
                             <>
                                 <Avatar className="h-6 w-6">
-                                    <AvatarFallback className="text-xs bg-gradient-to-br from-purple-500/30 to-pink-500/30 text-purple-200">
+                                    <AvatarFallback className="text-[10px] bg-gradient-to-br from-purple-500/30 to-pink-500/30 text-purple-200">
                                         {primaryEditor.name?.charAt(0).toUpperCase()}
                                     </AvatarFallback>
                                 </Avatar>
@@ -135,7 +117,7 @@ export function ProjectList({ statusFilter, searchQuery }: { statusFilter: Proje
                     </div>
                     
                     <span className="text-xs font-medium text-purple-400 group-hover:text-pink-400 transition-colors flex items-center gap-1">
-                        View Project 
+                        View Details 
                         <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
                     </span>
                 </div>
@@ -144,7 +126,7 @@ export function ProjectList({ statusFilter, searchQuery }: { statusFilter: Proje
           </Link>
         );
       })}
-       {filteredProjects.length === 0 && (
+       {projects.length === 0 && (
           <div className="md:col-span-2 lg:col-span-3 flex flex-col items-center justify-center py-20 text-center">
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 bg-purple-500/10 border border-purple-500/20">
                 <FolderKanban className="h-8 w-8 text-purple-400" />
