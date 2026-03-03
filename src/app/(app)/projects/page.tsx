@@ -11,6 +11,7 @@ import { type ProjectStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card } from '@/components/ui/card';
 
 const statusFilters: (ProjectStatus | 'All')[] = ['All', 'Active', 'In Progress', 'Rework', 'Completed', 'Approved', 'On Hold'];
 
@@ -174,23 +175,30 @@ export default function ProjectsPage() {
         </div>
       </div>
       
-       <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
+       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         {[
-          { label: 'Total', count: projectCounts.totalCount, color: 'text-white' },
-          { label: 'Active', count: projectCounts.activeCount, color: 'text-blue-400' },
-          { label: 'In Progress', count: projectCounts.inProgressCount, color: 'text-purple-400' },
-          { label: 'Rework', count: projectCounts.reworkCount, color: 'text-orange-400' },
-          { label: 'Completed', count: projectCounts.completedCount + projectCounts.approvedCount, color: 'text-green-400' },
-          { label: 'On Hold', count: projectCounts.onHoldCount, color: 'text-gray-400' },
+          { label: 'Total', count: projectCounts.totalCount, color: 'text-white', value: 'All' as const },
+          { label: 'Active', count: projectCounts.activeCount, color: 'text-blue-400', value: 'Active' as const },
+          { label: 'In Progress', count: projectCounts.inProgressCount, color: 'text-purple-400', value: 'In Progress' as const },
+          { label: 'Rework', count: projectCounts.reworkCount, color: 'text-orange-400', value: 'Rework' as const },
+          { label: 'Completed', count: projectCounts.completedCount + projectCounts.approvedCount, color: 'text-green-400', value: 'Completed' as const },
+          { label: 'On Hold', count: projectCounts.onHoldCount, color: 'text-gray-400', value: 'On Hold' as const },
         ].map(stat => (
-          <div key={stat.label} className="rounded-xl p-3 text-center bg-[#13131F] border border-white/5">
-            <p className={cn("text-xl font-bold", stat.color)}>
+          <Card 
+            key={stat.label} 
+            className={cn(
+              "p-3 text-center bg-[#13131F] border transition-all cursor-pointer hover:border-purple-500/30 hover:scale-[1.02]",
+              activeFilter === stat.value ? "border-purple-500/50 bg-purple-500/5 shadow-lg shadow-purple-500/10" : "border-white/5"
+            )}
+            onClick={() => setActiveFilter(stat.value)}
+          >
+            <p className={cn("text-2xl font-bold", stat.color)}>
               {stat.count}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
               {stat.label}
             </p>
-          </div>
+          </Card>
         ))}
       </div>
 
