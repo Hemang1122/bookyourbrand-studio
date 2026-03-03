@@ -48,14 +48,14 @@ export interface ClientPackage {
   duration: number;
   price: number;
   reelsUsed: number;
-  startDate: Timestamp;
-  expiryDate?: Timestamp;
+  startDate: Date | any;
+  expiryDate?: Date | any;
   status: 'active' | 'expired' | 'cancelled';
   customDetails?: string;
-  extras?: {
-    aiVoiceOver?: boolean;
-    stockFootage?: boolean;
-  };
+  includeAIVoice?: boolean;
+  includeStockFootage?: boolean;
+  createdBy?: string;
+  createdAt?: any;
 }
 
 export type SocialConnection = {

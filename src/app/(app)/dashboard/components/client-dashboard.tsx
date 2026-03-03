@@ -1,8 +1,7 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { FolderKanban, Clock, CheckCircle2, Plus, Film } from 'lucide-react';
+import { FolderKanban, Clock, CheckCircle2, Plus, Film, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,9 +11,11 @@ import { useData } from '../../data-provider';
 import { useAuth } from '@/firebase/provider';
 import { useMemo } from 'react';
 import { UpgradeDialog } from '../../settings/billing/components/upgrade-dialog';
+import { useRouter } from 'next/navigation';
 
 export function ClientDashboard() {
   const { user } = useAuth();
+  const router = useRouter();
   const { projects, tasks, addProject, isLoading, clients } = useData();
 
   const myClientRecord = useMemo(() => {
@@ -29,170 +30,205 @@ export function ClientDashboard() {
             <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold tracking-tight">Client Dashboard</h2>
             </div>
-            <Card>
-                <CardHeader>
-                    <CardTitle>My Projects Overview</CardTitle>
-                    <CardDescription>Track the progress of your ongoing projects.</CardDescription>
-                </CardHeader>
-                <CardContent className="text-center py-8">
-                     <p className="text-muted-foreground mb-4">Loading client data...</p>
-                </CardContent>
-            </Card>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {[1,2,3,4].map(i => <Card key={i} className="h-32 animate-pulse bg-muted/50" />)}
+            </div>
         </div>
       )
   }
 
   const myProjects = projects ? projects.filter(p => p.client.id === myClientRecord?.id) : [];
   const activeProjects = myProjects.filter(p => p.status === 'Active' || p.status === 'In Progress').length;
-  const completedProjects = myProjects.filter(p => p.status === 'Completed').length;
+  const completedProjects = myProjects.filter(p => p.status === 'Completed' || p.status === 'Approved').length;
   const safeTasks = tasks || [];
   
-  const activeProjectCount = (projects || []).filter(p => p.client.id === myClientRecord.id && p.status !== 'Completed' && p.status !== 'Approved').length;
   const reelsLimit = myClientRecord.reelsLimit || 0;
-  const canAddProject = activeProjectCount < reelsLimit;
-
+  const reelsUsed = myClientRecord.currentPackage?.reelsUsed || 0;
+  const canAddProject = reelsUsed < reelsLimit;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Client Dashboard</h2>
-          <p className="text-muted-foreground">Welcome to your personal dashboard.</p>
+          <h2 className="text-2xl font-bold tracking-tight text-white">Client Dashboard</h2>
+          <p className="text-muted-foreground">Manage your video projects and track editing progress.</p>
         </div>
         <div className="flex items-center gap-2">
             {canAddProject ? (
               <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
-                <Button>
+                <Button className="bg-gradient-to-r from-purple-600 to-pink-500 border-0 shadow-lg">
                     <Plus className="mr-2 h-4 w-4" />
-                    Add Project
+                    New Project
                 </Button>
               </AddProjectDialog>
             ) : (
-              <UpgradeDialog client={myClientRecord}>
-                 <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Upgrade Plan
-                </Button>
-              </UpgradeDialog>
+              <Button onClick={() => router.push('/packages')} className="bg-primary hover:bg-primary/90">
+                <Plus className="mr-2 h-4 w-4" />
+                Upgrade Plan
+              </Button>
             )}
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-         <Card>
+         {/* Package Status Card */}
+         <Card className="md:col-span-2 bg-gradient-to-br from-purple-900/20 to-pink-900/10 border-purple-500/20 relative overflow-hidden group">
+          <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full opacity-10 blur-2xl bg-primary group-hover:opacity-20 transition-opacity" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Subscription</CardTitle>
-            <Film className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold mb-2">{myClientRecord.packageName || 'N/A'} Plan</div>
-            <div className="rounded-xl p-4 bg-white/[0.03] border border-white/5">
-                <div className="flex justify-between mb-2">
-                    <span className="text-sm text-muted-foreground">Active Projects</span>
-                    <span className="text-sm font-bold text-white">
-                        {activeProjectCount} / {reelsLimit === 9999 ? 'Unlimited' : reelsLimit}
-                    </span>
-                </div>
-                <Progress value={reelsLimit === 9999 ? 5 : Math.min(100, (activeProjectCount / reelsLimit) * 100)} className="h-1.5"/>
-                <p className="text-xs text-muted-foreground mt-2">
-                    {reelsLimit === 9999 ? 'Unlimited projects on Enterprise plan'
-                    : `${reelsLimit - activeProjectCount} projects remaining`}
-                </p>
+            <div>
+                <CardTitle className="text-sm font-medium text-purple-300">Active Subscription</CardTitle>
+                <CardDescription className="text-white text-lg font-bold">
+                    {myClientRecord.currentPackage?.packageName || 'No Active Plan'}
+                </CardDescription>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
-            <FolderKanban className="h-4 w-4 text-muted-foreground" />
+            <Badge variant={myClientRecord.currentPackage?.status === 'active' ? 'default' : 'secondary'} className="bg-primary/20 text-primary border-primary/30">
+                {myClientRecord.currentPackage?.status || 'Inactive'}
+            </Badge>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeProjects}</div>
-            <p className="text-xs text-muted-foreground">{myProjects.length} total projects</p>
+          <CardContent className="pt-4">
+            {myClientRecord.currentPackage ? (
+                <div className="space-y-4">
+                    <div>
+                        <div className="flex justify-between text-sm mb-2">
+                            <span className="text-muted-foreground">Usage Allowance</span>
+                            <span className="font-bold text-white">
+                                {reelsUsed} / {reelsLimit} Reels
+                            </span>
+                        </div>
+                        <Progress value={(reelsUsed / reelsLimit) * 100} className="h-2 bg-white/5" />
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                        <span className="text-muted-foreground">
+                            {myClientRecord.currentPackage.duration}s duration per reel
+                        </span>
+                        <Button variant="ghost" size="sm" className="h-7 text-primary hover:bg-primary/10 px-2" onClick={() => router.push('/packages')}>
+                            View Details <ChevronRight className="ml-1 h-3 w-3" />
+                        </Button>
+                    </div>
+                </div>
+            ) : (
+                <div className="text-center py-4">
+                    <Button onClick={() => router.push('/packages')} size="sm" className="bg-primary/20 text-white border border-primary/30 hover:bg-primary/30">
+                        Choose a Package
+                    </Button>
+                </div>
+            )}
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-[#13131F] border-white/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Projects on Hold</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-gray-400">Active Projects</CardTitle>
+            <FolderKanban className="h-4 w-4 text-purple-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{myProjects.filter(p => p.status === 'On Hold').length}</div>
-            <p className="text-xs text-muted-foreground">Waiting for feedback or assets</p>
+            <div className="text-3xl font-bold text-white">{activeProjects}</div>
+            <p className="text-xs text-muted-foreground mt-1">Currently in editing</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-[#13131F] border-white/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed Projects</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-gray-400">Delivered</CardTitle>
+            <CheckCircle2 className="h-4 w-4 text-green-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{completedProjects}</div>
-            <p className="text-xs text-muted-foreground">Successfully delivered</p>
+            <div className="text-3xl font-bold text-white">{completedProjects}</div>
+            <p className="text-xs text-muted-foreground mt-1">Projects approved</p>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>My Projects Overview</CardTitle>
-              <CardDescription>Track the progress of your ongoing projects.</CardDescription>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2 bg-[#13131F] border-white/5">
+            <CardHeader>
+            <div className="flex items-center justify-between">
+                <div>
+                <CardTitle className="text-white">Recent Projects</CardTitle>
+                <CardDescription>Track the progress of your ongoing video edits.</CardDescription>
+                </div>
+                <Button variant="ghost" size="sm" className="text-primary" asChild>
+                    <Link href="/projects">View All</Link>
+                </Button>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {myProjects.length > 0 ? (
-            <div className="space-y-6">
-              {myProjects.map(project => {
-                const projectTasks = safeTasks.filter(t => t.projectId === project.id);
-                const completedTasks = projectTasks.filter(t => t.status === 'Completed').length;
-                const progress = projectTasks.length > 0 ? (completedTasks / projectTasks.length) * 100 : 0;
-                return (
-                  <div key={project.id} className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <h3 className="font-semibold">{project.name}</h3>
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={`/projects/${project.id}`}>View Details</Link>
-                      </Button>
+            </CardHeader>
+            <CardContent>
+            {myProjects.length > 0 ? (
+                <div className="space-y-6">
+                {myProjects.slice(0, 5).map(project => {
+                    const projectTasks = safeTasks.filter(t => t.projectId === project.id);
+                    const completedTasks = projectTasks.filter(t => t.status === 'Completed').length;
+                    const progress = projectTasks.length > 0 ? (completedTasks / projectTasks.length) * 100 : 0;
+                    return (
+                    <div key={project.id} className="space-y-2 p-4 rounded-xl border border-white/5 hover:border-purple-500/20 transition-all bg-black/20">
+                        <div className="flex justify-between items-center mb-2">
+                            <div>
+                                <h3 className="font-semibold text-white">{project.name}</h3>
+                                <p className="text-xs text-muted-foreground">Deadline: {format(new Date(project.deadline), 'PP')}</p>
+                            </div>
+                            <Badge variant={project.status === 'Completed' ? 'secondary' : 'default'} className="bg-purple-500/10 text-purple-400 border-purple-500/20">
+                                {project.status}
+                            </Badge>
+                        </div>
+                        <div className="flex items-center gap-4 pt-2">
+                            <Progress value={progress} className="h-1.5 bg-white/5" />
+                            <span className="text-xs font-mono text-muted-foreground">{Math.round(progress)}%</span>
+                        </div>
+                        <div className="flex justify-end mt-2">
+                            <Button variant="ghost" size="sm" className="h-7 text-xs text-gray-400 hover:text-white" asChild>
+                                <Link href={`/projects/${project.id}`}>Details <ChevronRight className="ml-1 h-3 w-3" /></Link>
+                            </Button>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <Progress value={progress} className="w-full" />
-                      <span className="text-sm font-medium text-muted-foreground">{Math.round(progress)}%</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <div>Status: <Badge variant="outline">{project.status}</Badge></div>
-                      <span>Due: {new Date(project.deadline).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground mb-4">You have no projects yet.</p>
-              {canAddProject ? (
-                  <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add First Project
+                    );
+                })}
+                </div>
+            ) : (
+                <div className="text-center py-12">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-white/5 mb-4">
+                    <Film className="h-6 w-6 text-gray-500" />
+                </div>
+                <p className="text-muted-foreground mb-6">You haven't started any projects yet.</p>
+                {canAddProject && (
+                    <AddProjectDialog onProjectAdd={addProject} client={myClientRecord}>
+                        <Button className="bg-primary">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Start Your First Project
+                        </Button>
+                    </AddProjectDialog>
+                )}
+                </div>
+            )}
+            </CardContent>
+        </Card>
+
+        <div className="space-y-6">
+            <Card className="bg-[#13131F] border-white/5">
+                <CardHeader>
+                    <CardTitle className="text-sm text-white">Need Help?</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <p className="text-xs text-muted-foreground">
+                        Our support team typically responds to project queries within 10 minutes during business hours.
+                    </p>
+                    <Button variant="outline" className="w-full border-white/10 hover:bg-white/5 text-white" asChild>
+                        <Link href="/support">Open Support Chat</Link>
                     </Button>
-                  </AddProjectDialog>
-              ) : (
-                  <UpgradeDialog client={myClientRecord}>
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Upgrade to Add Project
-                    </Button>
-                  </UpgradeDialog>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-primary/20 to-pink-500/10 border-primary/20">
+                <CardHeader>
+                    <CardTitle className="text-sm text-white font-bold">Pro Tip</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-xs text-gray-300 leading-relaxed">
+                        Uploading high-quality raw footage and detailed guidelines helps our editors deliver your first draft faster!
+                    </p>
+                </CardContent>
+            </Card>
+        </div>
+      </div>
     </div>
   );
 }

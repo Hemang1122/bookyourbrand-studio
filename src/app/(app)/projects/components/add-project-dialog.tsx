@@ -1,4 +1,3 @@
-
 'use client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -27,6 +26,8 @@ import { useData } from '../../data-provider';
 import { useAuth } from '@/firebase/provider';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { UpgradeDialog } from '../../settings/billing/components/upgrade-dialog';
+import { useFirebaseServices } from '@/firebase';
+import { checkPackageLimit, incrementPackageUsage } from '@/lib/package-utils';
 
 type AddProjectDialogProps = {
   onProjectAdd: (project: Omit<Project, 'id' | 'coverImage'>) => void;
@@ -45,6 +46,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
   const { teamMembers, clients } = useData();
+  const { firestore } = useFirebaseServices();
 
   const teamMemberOptions = teamMembers.map(tm => ({ value: tm.id, label: tm.name }));
   const isClientUser = currentUser?.role === 'client';
@@ -56,28 +58,26 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
     clientForProject = clients.find(c => c.id === selectedClientId);
   }
   
-  const reelsCreated = clientForProject?.reelsCreated || 0;
-  const canAddProject = currentUser?.role === 'admin' || (clientForProject ? reelsCreated < (clientForProject.reelsLimit || 0) : false);
-
-  const handleAddProject = () => {
-    if (!canAddProject) {
-        toast({ title: 'Limit Reached', description: 'This client has reached their project limit. Please upgrade their plan.', variant: 'destructive'});
+  const handleAddProject = async () => {
+    if (!firestore || !currentUser || !clientForProject) {
+        toast({ title: 'Error', description: 'Information missing. Please try again.', variant: 'destructive' });
         return;
+    }
+
+    // Check if client can create a project based on package limits
+    const packageCheck = await checkPackageLimit(firestore, clientForProject.id);
+    if (!packageCheck.canCreate) {
+      toast({ 
+        title: 'Cannot Create Project', 
+        description: packageCheck.message, 
+        variant: 'destructive' 
+      });
+      return;
     }
 
     if (!name || !description || !deadline) {
       toast({ title: 'Error', description: 'Name, description, and deadline are required.', variant: 'destructive' });
       return;
-    }
-
-    if (!currentUser) {
-        toast({ title: "Error", description: "You must be logged in to create a project.", variant: 'destructive'});
-        return;
-    }
-    
-    if (!clientForProject) {
-        toast({ title: 'Error', description: 'Please select a client.', variant: 'destructive' });
-        return;
     }
 
     if (!isClientUser && team_ids.length === 0) {
@@ -91,24 +91,40 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
       name,
       description,
       guidelines,
-      startDate: format(new Date(), 'yyyy-MM-dd'), // Set a default start date
+      startDate: format(new Date(), 'yyyy-MM-dd'),
       deadline: format(deadline, 'yyyy-MM-dd'),
       client: clientForProject,
       team_ids: selectedTeamIds,
-      status: 'Active',
+      status: 'Active' as const,
     };
 
-    onProjectAdd(newProject);
-    toast({ title: 'Project Added', description: `"${name}" has been created.` });
-    setOpen(false);
-    // Reset fields
-    setName('');
-    setDescription('');
-    setGuidelines('');
-    setDeadline(undefined);
-    setSelectedClientId(preselectedClient?.id);
-    setTeamIds([]);
+    try {
+      // Create project
+      onProjectAdd(newProject);
+      
+      // Increment package usage
+      const result = await incrementPackageUsage(firestore, clientForProject.id);
+      if (result.success) {
+        toast({ 
+          title: 'Project Created', 
+          description: result.message 
+        });
+      }
+
+      setOpen(false);
+      // Reset fields
+      setName('');
+      setDescription('');
+      setGuidelines('');
+      setDeadline(undefined);
+      setSelectedClientId(preselectedClient?.id);
+      setTeamIds([]);
+    } catch (error: any) {
+      console.error("Project creation failed", error);
+    }
   };
+
+  const currentClientData = clients.find(c => c.id === (isClientUser ? currentUser?.id : selectedClientId));
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -119,27 +135,21 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
           <DialogDescription>Fill in the details for the new project. You can set the start date after creation.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-            {!isClientUser && !selectedClientId && (
-                <Alert variant="default">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Select a Client</AlertTitle>
-                    <AlertDescription>Please select a client to view their subscription status.</AlertDescription>
-                </Alert>
+            {selectedClientId && !currentClientData?.currentPackage && (
+              <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+                <p className="text-sm text-orange-400">
+                  ⚠️ This client has no active package. They need to select a package first.
+                </p>
+              </div>
             )}
 
-            {clientForProject && !canAddProject && (
-                <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Project Limit Reached</AlertTitle>
-                    <AlertDescription className="flex items-center justify-between">
-                        <span>This client has reached their project limit.</span>
-                         {isClientUser && clientForProject && (
-                            <UpgradeDialog client={clientForProject}>
-                                <Button variant="secondary" size="sm">Upgrade</Button>
-                            </UpgradeDialog>
-                        )}
-                    </AlertDescription>
-                </Alert>
+            {currentClientData?.currentPackage && (
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <p className="text-sm text-blue-400">
+                  Package: <strong>{currentClientData.currentPackage.packageName}</strong> · 
+                  Remaining: <strong>{currentClientData.currentPackage.numberOfReels - currentClientData.currentPackage.reelsUsed} reels</strong>
+                </p>
+              </div>
             )}
 
           <div className="space-y-2">
@@ -201,7 +211,9 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleAddProject} disabled={!canAddProject}>Add Project</Button>
+          <Button onClick={handleAddProject} disabled={!currentClientData?.currentPackage || (currentClientData.currentPackage.reelsUsed >= currentClientData.currentPackage.numberOfReels)}>
+            Add Project
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

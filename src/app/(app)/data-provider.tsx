@@ -26,6 +26,7 @@ type DataContextType = {
   clientDocuments: ClientDocument[];
   notifications: Notification[];
   timerSessions: TimerSession[];
+  clientPackages: ClientPackage[];
   chats: Chat[];
   getOrCreateChat: (partnerId: string) => Promise<string | null>;
   sendMessage: (chatId: string, messageText: string, mediaUrl?: string, replyTo?: ChatMessage['replyTo']) => void;
@@ -90,6 +91,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
   const { data: files, isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? query(collection(firestore, 'files')) : null, [firestore]));
   const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
+  const { data: clientPackages, isLoading: clientPackagesLoading } = useCollection<ClientPackage>(useMemoFirebase(() => firestore ? query(collection(firestore, 'client-packages'), orderBy('createdAt', 'desc')) : null, [firestore]));
   
   const { data: clientDocuments, isLoading: documentsLoading } = useCollection<ClientDocument>(useMemoFirebase(() => firestore ? collection(firestore, 'clientDocuments') : null, [firestore]));
 
@@ -161,7 +163,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }, [chatsData, firestore, authUid]);
 
 
-  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading || chatsLoading || documentsLoading;
+  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading || chatsLoading || documentsLoading || clientPackagesLoading;
   
   const teamEditorMapping = useMemo(() => {
     if (!usersData) return new Map<string, string>();
@@ -816,6 +818,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         getOrCreateChat,
         sendMessage,
         timerSessions: timerSessions || [],
+        clientPackages: clientPackages || [],
         addProject, 
         addTask, 
         updateProjectTeam, 
