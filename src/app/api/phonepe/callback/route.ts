@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { phonePeConfig } from '@/lib/phonepe-config';
-import { generatePhonePeChecksum } from '@/lib/phonepe-helper';
+import { getPhonePeAccessToken } from '@/lib/phonepe-helper';
 import axios from 'axios';
 import * as admin from 'firebase-admin';
 import path from 'path';
 import fs from 'fs';
 
-// Initialize Firebase Admin singleton
+// Initialize Firebase Admin for server-side updates
 function initAdmin() {
   if (admin.apps.length > 0) return admin.firestore();
   
@@ -18,10 +18,13 @@ function initAdmin() {
         credential: admin.credential.cert(serviceAccount)
       });
     } else {
-      console.warn('service-accounts.json not found. Admin SDK not initialized.');
+      // Fallback for production/environment based init
+      if (!admin.apps.length) {
+        admin.initializeApp();
+      }
     }
   } catch (err) {
-    console.error('Firebase Admin init error:', err);
+    console.error('Admin Init Error:', err);
   }
   return admin.firestore();
 }
@@ -29,94 +32,130 @@ function initAdmin() {
 export async function POST(request: NextRequest) {
   try {
     const db = initAdmin();
-    const body = await request.json();
-    console.log('PhonePe callback received:', body);
-
-    const { transactionId, merchantId } = body;
-
-    if (!transactionId || !merchantId) {
-      return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
+    
+    // PhonePe might send data in body or as query params depending on the flow
+    let transactionId: string | null = null;
+    
+    try {
+      const body = await request.json();
+      transactionId = body.transactionId || body.merchantOrderId;
+    } catch (e) {
+      // If JSON parsing fails, try query params (Standard for some redirect flows)
+      const searchParams = request.nextUrl.searchParams;
+      transactionId = searchParams.get('transactionId') || searchParams.get('merchantOrderId');
     }
 
-    // Check transaction status with PhonePe for security
-    const statusEndpoint = `/v3/transaction/${merchantId}/status/${transactionId}`;
-    const checksum = generatePhonePeChecksum('', statusEndpoint);
+    if (!transactionId) {
+      console.error('Callback Error: No transaction ID found in request');
+      return NextResponse.json({ success: false, error: 'No transaction ID' }, { status: 400 });
+    }
 
+    console.log(`Processing callback for transaction: ${transactionId}`);
+
+    // 1. Verify Payment Status with PhonePe directly (Server-to-Server)
+    const accessToken = await getPhonePeAccessToken();
     const statusResponse = await axios.get(
-      `${phonePeConfig.API_URL}/transaction/${merchantId}/status/${transactionId}`,
+      `${phonePeConfig.API_URL}/checkout/v2/status/${transactionId}`,
       {
         headers: {
-          'Content-Type': 'application/json',
-          'X-VERIFY': checksum,
-          'X-MERCHANT-ID': merchantId
+          'Authorization': `O-Bearer ${accessToken}`,
+          'X-CLIENT-ID': phonePeConfig.CLIENT_ID
         }
       }
     );
 
-    const responseData = statusResponse.data;
+    const result = statusResponse.data;
+    console.log('PhonePe Verification Result:', result);
 
-    if (responseData.success && responseData.code === 'PAYMENT_SUCCESS' && responseData.data) {
-      const { transactionId: orderId, amount } = responseData.data;
-      
-      // Fetch the pending order details
-      const orderRef = db.collection('pending-orders').doc(orderId);
+    // 2. If Payment is Successful, Activate Package
+    if (result.success && (result.state === 'COMPLETED' || result.code === 'PAYMENT_SUCCESS')) {
+      // Find the corresponding pending order
+      const orderRef = db.collection('pending-orders').doc(transactionId);
       const orderDoc = await orderRef.get();
       
       if (!orderDoc.exists) {
-        return NextResponse.json({ success: false, error: 'Order record not found' }, { status: 404 });
+        console.error(`Order ${transactionId} not found in database`);
+        return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
       }
 
-      const orderData = orderDoc.data();
-      if (!orderData) throw new Error('Order data is empty');
+      const orderData = orderDoc.data()!;
+      
+      // If already processed, don't duplicate
+      if (orderData.status === 'paid') {
+        return NextResponse.json({ success: true, message: 'Already processed' });
+      }
 
-      // Update Client and User documents
       const clientId = orderData.clientId;
-      const clientRef = db.collection('clients').doc(clientId);
-      const userRef = db.collection('users').doc(clientId);
-
       const batch = db.batch();
       
       const expiryDate = new Date();
-      expiryDate.setDate(expiryDate.getDate() + 30);
+      expiryDate.setDate(expiryDate.getDate() + 30); // 30 days validity
 
       const activePackage = {
-        ...orderData,
-        status: 'active',
+        clientId: orderData.clientId,
+        packageName: orderData.packageName,
+        numberOfReels: orderData.numberOfReels,
+        duration: orderData.duration,
+        price: orderData.price,
+        reelsUsed: 0,
         startDate: admin.firestore.FieldValue.serverTimestamp(),
         expiryDate: admin.firestore.Timestamp.fromDate(expiryDate),
+        status: 'active',
         paymentId: transactionId,
-        paymentAmount: amount / 100
+        paymentAmount: (result.amount || result.data?.amount || 0) / 100,
+        includeAIVoice: orderData.includeAIVoice || false,
+        includeStockFootage: orderData.includeStockFootage || false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
       };
 
-      batch.update(clientRef, {
-        currentPackage: activePackage,
+      // 1. Add to client-packages history collection
+      const packageRef = db.collection('client-packages').doc();
+      batch.set(packageRef, activePackage);
+
+      // 2. Update Client Profile with current package snapshot
+      batch.update(db.collection('clients').doc(clientId), {
+        currentPackage: { ...activePackage, id: packageRef.id },
         reelsLimit: orderData.numberOfReels,
         packageName: orderData.packageName,
-        reelsCreated: 0
+        maxDuration: orderData.duration,
+        reelsCreated: 0 // Reset usage counter for new package
       });
 
-      batch.update(userRef, {
+      // 3. Sync primary User document for UI dashboard
+      batch.update(db.collection('users').doc(clientId), {
         packageName: orderData.packageName,
         reelsLimit: orderData.numberOfReels
       });
 
+      // 4. Mark pending order as completed
       batch.update(orderRef, { 
         status: 'paid', 
+        packageId: packageRef.id,
         paidAt: admin.firestore.FieldValue.serverTimestamp() 
       });
 
+      // 5. Create a system notification for the client
+      const notificationRef = db.collection('notifications').doc();
+      batch.set(notificationRef, {
+        message: `Your ${orderData.packageName} package has been activated! You can now start creating up to ${orderData.numberOfReels} reels.`,
+        url: '/dashboard',
+        recipients: [clientId],
+        readBy: [],
+        type: 'system',
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+      });
+
       await batch.commit();
+      console.log(`Successfully activated package for client ${clientId}`);
 
       return NextResponse.json({ success: true, message: 'Package activated' });
-    } else {
-      return NextResponse.json({ success: false, message: 'Payment verification failed' });
     }
 
+    console.warn(`Payment failed or pending for ${transactionId}:`, result.state);
+    return NextResponse.json({ success: false, message: 'Payment not completed' });
+
   } catch (error: any) {
-    console.error('PhonePe callback processing error:', error.message);
-    return NextResponse.json(
-      { success: false, error: 'Internal processing failed' },
-      { status: 500 }
-    );
+    console.error('Callback Critical Error:', error.response?.data || error.message);
+    return NextResponse.json({ success: false, error: 'Internal server error processing callback' }, { status: 500 });
   }
 }
