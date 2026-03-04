@@ -4,14 +4,14 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Loader2, Sparkles } from 'lucide-react';
-import { useAuth, useFirebaseServices } from '@/firebase';
-import { collection, addDoc, query, where, getDocs, updateDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { useAuth } from '@/firebase/provider';
+import { db } from '@/firebase/config';
+import { collection, addDoc, query, where, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 
 function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
-  const { firestore } = useFirebaseServices();
   
   const orderId = searchParams.get('orderId');
   const txnId = searchParams.get('txnId');
@@ -19,47 +19,33 @@ function PaymentSuccessContent() {
   
   const [isActivating, setIsActivating] = useState(true);
   const [activationComplete, setActivationComplete] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const activatePackage = async () => {
-      if (!firestore || !orderId || !user) {
-        if (!firestore) console.error('Firestore not initialized');
+      if (!orderId || !user) {
         setIsActivating(false);
         return;
       }
 
       try {
-        console.log('Starting activation for order:', orderId);
-
         // 1. Save payment record
-        await addDoc(collection(firestore, 'payments'), {
+        await addDoc(collection(db, 'payments'), {
           orderId,
           userId: user.id,
           amount: parseFloat(amount || '0'),
           status: 'success',
           method: 'mock',
           transactionId: txnId,
-          paidAt: serverTimestamp(),
-          createdAt: serverTimestamp()
+          paidAt: serverTimestamp()
         });
 
         // 2. Update order status
-        const ordersRef = collection(firestore, 'orders');
+        const ordersRef = collection(db, 'orders');
         const q = query(ordersRef, where('orderId', '==', orderId));
         const querySnapshot = await getDocs(q);
         
         if (!querySnapshot.empty) {
           const orderDoc = querySnapshot.docs[0];
-          const orderData = orderDoc.data();
-
-          if (orderData.status === 'paid') {
-            console.log('Order already processed');
-            setActivationComplete(true);
-            setIsActivating(false);
-            return;
-          }
-
           await updateDoc(orderDoc.ref, {
             status: 'paid',
             paidAt: serverTimestamp(),
@@ -67,6 +53,7 @@ function PaymentSuccessContent() {
           });
 
           // 3. Activate package for the client
+          const orderData = orderDoc.data();
           const expiryDate = new Date();
           expiryDate.setDate(expiryDate.getDate() + 30); // 30 days validity
 
@@ -78,7 +65,7 @@ function PaymentSuccessContent() {
             price: parseFloat(amount || '0'),
             reelsUsed: 0,
             startDate: serverTimestamp(),
-            expiryDate: Timestamp.fromDate(expiryDate),
+            expiryDate: expiryDate,
             status: 'active',
             paymentId: txnId,
             includeAIVoice: orderData.packageDetails?.includeAIVoice || false,
@@ -87,10 +74,10 @@ function PaymentSuccessContent() {
           };
 
           // Add to client-packages collection
-          const packageRef = await addDoc(collection(firestore, 'client-packages'), packageData);
+          const packageRef = await addDoc(collection(db, 'client-packages'), packageData);
 
           // Update client's current package
-          await updateDoc(doc(firestore, 'clients', user.id), {
+          await updateDoc(doc(db, 'clients', user.id), {
             currentPackage: { ...packageData, id: packageRef.id },
             reelsLimit: packageData.numberOfReels,
             packageName: packageData.packageName,
@@ -98,30 +85,26 @@ function PaymentSuccessContent() {
             reelsCreated: 0
           });
 
-          // Update user document for dashboard sync
-          await updateDoc(doc(firestore, 'users', user.id), {
+          // Update user document
+          await updateDoc(doc(db, 'users', user.id), {
             packageName: packageData.packageName,
             reelsLimit: packageData.numberOfReels
           });
 
           console.log('Package activated successfully!');
-          setActivationComplete(true);
-        } else {
-          console.warn('No matching order found for ID:', orderId);
-          setError('Order details could not be found.');
         }
 
+        setActivationComplete(true);
         setIsActivating(false);
 
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error activating package:', error);
-        setError(error.message || 'An unexpected error occurred during activation.');
         setIsActivating(false);
       }
     };
 
     activatePackage();
-  }, [firestore, orderId, user, amount, txnId]);
+  }, [orderId, user, amount, txnId]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0F0F1A] to-[#1a0533] p-4">
@@ -134,15 +117,6 @@ function PaymentSuccessContent() {
             <h1 className="text-2xl font-bold text-white mb-2">Activating Your Package...</h1>
             <p className="text-gray-400 text-sm">Please wait while we set up your account</p>
           </>
-        ) : error ? (
-          <>
-            <div className="mx-auto w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6">
-              <span className="text-4xl">⚠️</span>
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Activation Issue</h1>
-            <p className="text-red-400 text-sm mb-8">{error}</p>
-            <Button onClick={() => router.push('/dashboard')} className="w-full">Return to Dashboard</Button>
-          </>
         ) : (
           <>
             <div className="mx-auto w-24 h-24 bg-green-500/10 rounded-full flex items-center justify-center mb-6 border-4 border-green-500/20 animate-in zoom-in">
@@ -151,20 +125,20 @@ function PaymentSuccessContent() {
             
             <div className="mb-6">
               <Sparkles className="h-8 w-8 text-yellow-400 mx-auto mb-2 animate-pulse" />
-              <h1 className="text-3xl font-bold text-white mb-2">Success!</h1>
-              <p className="text-green-400 font-medium">Your package is now active</p>
+              <h1 className="text-3xl font-bold text-white mb-2">Payment Successful!</h1>
+              <p className="text-green-400 font-medium">Your package has been activated</p>
             </div>
             
             <div className="bg-black/20 rounded-lg p-4 mb-6 space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Order ID:</span>
-                <span className="text-white font-mono truncate max-w-[150px]">{orderId}</span>
+                <span className="text-gray-400">Order ID:</span>
+                <span className="text-white font-mono text-xs">{orderId?.substring(0, 20)}...</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Transaction:</span>
-                <span className="text-white font-mono truncate max-w-[150px]">{txnId}</span>
+                <span className="text-gray-400">Transaction ID:</span>
+                <span className="text-white font-mono text-xs">{txnId?.substring(0, 20)}...</span>
               </div>
-              <div className="flex justify-between pt-2">
+              <div className="flex justify-between">
                 <span className="text-gray-400">Amount Paid:</span>
                 <span className="text-green-400 font-bold text-xl">₹{amount}</span>
               </div>
@@ -173,16 +147,16 @@ function PaymentSuccessContent() {
             {activationComplete && (
               <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 mb-6">
                 <p className="text-green-200 text-sm">
-                  ✓ Quota updated! You can now start creating reels.
+                  ✓ Package activated successfully! You can now start creating reels.
                 </p>
               </div>
             )}
 
             <Button
               onClick={() => router.push('/dashboard')}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-500 text-white py-6 text-lg hover:from-purple-700 hover:to-pink-600 transition-all shadow-lg"
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-500 text-white py-6 text-lg hover:from-purple-700 hover:to-pink-600"
             >
-              Start Creating
+              Go to Dashboard
             </Button>
           </>
         )}
@@ -194,8 +168,8 @@ function PaymentSuccessContent() {
 export default function PaymentSuccessPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-[#0F0F1A]">
-        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0F0F1A] to-[#1a0533]">
+        <Loader2 className="h-8 w-8 text-white animate-spin" />
       </div>
     }>
       <PaymentSuccessContent />

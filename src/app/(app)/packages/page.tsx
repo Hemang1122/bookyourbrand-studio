@@ -57,7 +57,7 @@ export default function PackagesPage() {
         includeStockFootage
       };
 
-      // Create PENDING order document in Firestore first
+      // Create PENDING order document in Firestore
       await addDoc(collection(firestore, 'orders'), {
         orderId,
         userId: user.id,
@@ -68,8 +68,8 @@ export default function PackagesPage() {
         createdAt: serverTimestamp()
       });
 
-      // Initiate MOCK payment
-      const response = await fetch('/api/payment/mock-initiate', {
+      // Initiate REAL PhonePe Payment
+      const response = await fetch('/api/phonepe/initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -77,17 +77,17 @@ export default function PackagesPage() {
           amount: total,
           userId: user.id,
           customerName: user.name || 'Client',
-          packageDetails
+          customerPhone: (user as any).phone || '9999999999'
         })
       });
 
       const data = await response.json();
 
       if (data.success && data.paymentUrl) {
-        toast({ title: 'Redirecting...', description: 'Taking you to secure checkout.' });
+        toast({ title: 'Secure Redirect', description: 'Taking you to PhonePe to complete payment.' });
         window.location.href = data.paymentUrl;
       } else {
-        throw new Error(data.error || 'Failed to initiate mock payment');
+        throw new Error(data.error || 'Failed to connect to PhonePe');
       }
 
     } catch (error: any) {
@@ -294,7 +294,7 @@ export default function PackagesPage() {
                 </Button>
                 <div className="flex items-center justify-center gap-2 text-[10px] text-gray-500 uppercase tracking-widest">
                   <ShieldCheck className="h-3 w-3" />
-                  Test payment mode active
+                  Secure Transaction SSL Encrypted
                 </div>
               </div>
             </div>

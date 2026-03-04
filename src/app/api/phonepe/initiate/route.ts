@@ -1,60 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { phonePeConfig } from '@/lib/phonepe-config';
-import { getPhonePeAccessToken } from '@/lib/phonepe-helper';
+import { encodePayload, generatePhonePeChecksum } from '@/lib/phonepe-helper';
 import axios from 'axios';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { orderId, amount, customerPhone, customerName } = body;
+    const { orderId, amount, customerPhone, customerName, userId } = body;
 
-    // 1. Get Access Token
-    const accessToken = await getPhonePeAccessToken();
-
-    // 2. Prepare Checkout Payload
-    const paymentPayload = {
-      merchantOrderId: orderId,
+    // 1. Construct Request Payload
+    const payload = {
+      merchantId: phonePeConfig.MERCHANT_ID,
+      merchantTransactionId: orderId,
+      merchantUserId: userId,
       amount: amount * 100, // Convert to paise
-      expireAfter: 3600, // 1 hour
-      metaInfo: {
-        udf1: customerName || 'Customer',
-        udf2: customerPhone || '9999999999',
-        udf3: 'Agency Package Purchase'
+      redirectUrl: phonePeConfig.REDIRECT_URL,
+      redirectMode: 'POST',
+      callbackUrl: phonePeConfig.CALLBACK_URL,
+      mobileNumber: customerPhone || '9999999999',
+      paymentInstrument: {
+        type: 'PAY_PAGE'
       }
     };
 
-    // 3. Initiate Checkout
+    // 2. Encode and Generate Checksum
+    const base64Payload = encodePayload(payload);
+    const endpoint = '/pg/v1/pay';
+    const xVerify = generatePhonePeChecksum(base64Payload, endpoint);
+
+    // 3. Initiate Request to PhonePe
     const response = await axios.post(
-      `${phonePeConfig.API_URL}/checkout/v2/pay`,
-      paymentPayload,
+      `${phonePeConfig.API_URL}${endpoint}`,
+      { request: base64Payload },
       {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `O-Bearer ${accessToken}`,
-          'X-CLIENT-ID': phonePeConfig.CLIENT_ID
+          'X-VERIFY': xVerify,
+          'accept': 'application/json'
         }
       }
     );
 
-    if (response.data && response.data.redirectUrl) {
-      // The redirectUrl might be relative in sandbox, normalize it
-      let paymentUrl = response.data.redirectUrl;
-      if (!paymentUrl.startsWith('http')) {
-        const baseUrl = phonePeConfig.API_URL.replace('/apis/pg-sandbox', '');
-        paymentUrl = `${baseUrl}${paymentUrl}`;
-      }
-
+    if (response.data && response.data.success) {
       return NextResponse.json({
         success: true,
-        paymentUrl: paymentUrl,
-        orderId: response.data.orderId
+        paymentUrl: response.data.data.instrumentResponse.redirectInfo.url,
+        orderId: orderId
       });
     } else {
-      throw new Error('Invalid response from PhonePe gateway');
+      throw new Error(response.data?.message || 'PhonePe initiation failed');
     }
 
   } catch (error: any) {
-    console.error('PhonePe Initiation Error:', error.response?.data || error.message);
+    console.error('PhonePe Error:', error.response?.data || error.message);
     return NextResponse.json(
       { 
         success: false, 
