@@ -6,18 +6,29 @@ import * as admin from 'firebase-admin';
 import path from 'path';
 import fs from 'fs';
 
-if (!admin.apps.length) {
-  const serviceAccountPath = path.join(process.cwd(), 'service-accounts.json');
-  const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-  });
+// Initialize Firebase Admin singleton
+function initAdmin() {
+  if (admin.apps.length > 0) return admin.firestore();
+  
+  try {
+    const serviceAccountPath = path.join(process.cwd(), 'service-accounts.json');
+    if (fs.existsSync(serviceAccountPath)) {
+      const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+    } else {
+      console.warn('service-accounts.json not found. Admin SDK not initialized.');
+    }
+  } catch (err) {
+    console.error('Firebase Admin init error:', err);
+  }
+  return admin.firestore();
 }
-
-const db = admin.firestore();
 
 export async function POST(request: NextRequest) {
   try {
+    const db = initAdmin();
     const body = await request.json();
     console.log('PhonePe callback received:', body);
 
@@ -27,7 +38,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Check transaction status with PhonePe for security (Server-to-Server verification)
+    // Check transaction status with PhonePe for security
     const statusEndpoint = `/v3/transaction/${merchantId}/status/${transactionId}`;
     const checksum = generatePhonePeChecksum('', statusEndpoint);
 
@@ -42,49 +53,46 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    console.log('Status check response:', statusResponse.data);
+    const responseData = statusResponse.data;
 
-    if (statusResponse.data.success && statusResponse.data.code === 'PAYMENT_SUCCESS') {
-      const { transactionId: orderId, amount } = statusResponse.data.data;
+    if (responseData.success && responseData.code === 'PAYMENT_SUCCESS' && responseData.data) {
+      const { transactionId: orderId, amount } = responseData.data;
       
-      // 1. Fetch the pending order details from Firestore
+      // Fetch the pending order details
       const orderRef = db.collection('pending-orders').doc(orderId);
       const orderDoc = await orderRef.get();
       
       if (!orderDoc.exists) {
-        console.error('Order not found in Firestore:', orderId);
-        return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
+        return NextResponse.json({ success: false, error: 'Order record not found' }, { status: 404 });
       }
 
       const orderData = orderDoc.data();
-      if (!orderData) return NextResponse.json({ success: false }, { status: 500 });
+      if (!orderData) throw new Error('Order data is empty');
 
-      // 2. Update Client and User documents to activate the package
+      // Update Client and User documents
       const clientId = orderData.clientId;
       const clientRef = db.collection('clients').doc(clientId);
       const userRef = db.collection('users').doc(clientId);
 
       const batch = db.batch();
       
-      // Calculate expiry date (30 days from now)
       const expiryDate = new Date();
       expiryDate.setDate(expiryDate.getDate() + 30);
 
-      // Create new package entry for client record
       const activePackage = {
         ...orderData,
         status: 'active',
         startDate: admin.firestore.FieldValue.serverTimestamp(),
         expiryDate: admin.firestore.Timestamp.fromDate(expiryDate),
         paymentId: transactionId,
-        paymentAmount: amount / 100 // Convert from paise
+        paymentAmount: amount / 100
       };
 
       batch.update(clientRef, {
         currentPackage: activePackage,
         reelsLimit: orderData.numberOfReels,
         packageName: orderData.packageName,
-        reelsCreated: 0 // Reset usage counter on new package activation
+        reelsCreated: 0
       });
 
       batch.update(userRef, {
@@ -92,29 +100,22 @@ export async function POST(request: NextRequest) {
         reelsLimit: orderData.numberOfReels
       });
 
-      // Mark order as paid in history
-      batch.update(orderRef, { status: 'paid', paidAt: admin.firestore.FieldValue.serverTimestamp() });
+      batch.update(orderRef, { 
+        status: 'paid', 
+        paidAt: admin.firestore.FieldValue.serverTimestamp() 
+      });
 
       await batch.commit();
 
-      console.log(`Payment verified and package activated for client: ${clientId}`);
-
-      return NextResponse.json({
-        success: true,
-        message: 'Payment verified and package activated'
-      });
+      return NextResponse.json({ success: true, message: 'Package activated' });
     } else {
-      console.log('Payment failed or pending verification:', statusResponse.data);
-      return NextResponse.json({
-        success: false,
-        message: 'Payment verification failed'
-      });
+      return NextResponse.json({ success: false, message: 'Payment verification failed' });
     }
 
   } catch (error: any) {
-    console.error('PhonePe callback error:', error.response?.data || error.message);
+    console.error('PhonePe callback processing error:', error.message);
     return NextResponse.json(
-      { success: false, error: 'Callback processing failed' },
+      { success: false, error: 'Internal processing failed' },
       { status: 500 }
     );
   }

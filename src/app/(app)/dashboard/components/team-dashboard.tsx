@@ -1,7 +1,6 @@
-
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ListTodo, Clock, FolderKanban } from 'lucide-react';
 import { useData } from '../../data-provider';
 import { useAuth } from '@/firebase/provider';
@@ -10,7 +9,6 @@ import { WorkTimer } from './work-timer';
 import { EditorResponsibilityPanel } from './editor-responsibility-panel';
 import { ProjectCalendarCard } from './project-calendar-card';
 import { DailyStandupCard } from './daily-standup-card';
-
 
 export function TeamDashboard() {
   const { user } = useAuth();
@@ -38,17 +36,14 @@ export function TeamDashboard() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-6 items-start">
         <div className="space-y-6">
-            {/* Top section with Work Timer */}
             <div className="w-full max-w-md mx-auto">
                 <WorkTimer onTimeUpdate={setElapsedTime} />
             </div>
 
-            {/* Main content grid */}
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <h2 className="text-2xl font-bold tracking-tight">My Dashboard</h2>
                 </div>
-                {/* Stats Cards */}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -83,7 +78,6 @@ export function TeamDashboard() {
             </div>
         </div>
 
-        {/* Right Column (Sticky) */}
         <div className="sticky top-6 space-y-6">
           <EditorResponsibilityPanel elapsedTime={elapsedTime} />
           <DailyStandupCard />
