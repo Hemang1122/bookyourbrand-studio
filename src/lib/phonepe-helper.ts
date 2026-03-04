@@ -14,13 +14,19 @@ export async function getPhonePeAccessToken(): Promise<string> {
   }
 
   try {
-    console.log('Requesting new PhonePe access token (v2 OAuth)...');
-    
+    const clientId = process.env.PHONEPE_CLIENT_ID || phonePeConfig.CLIENT_ID;
+    const clientSecret = process.env.PHONEPE_CLIENT_SECRET || phonePeConfig.CLIENT_SECRET;
+
+    console.log('--- PhonePe Token Debug ---');
+    console.log('URL:', phonePeConfig.AUTH_URL);
+    console.log('CLIENT_ID exists:', !!clientId);
+    console.log('CLIENT_SECRET exists:', !!clientSecret);
+
     // OAuth standard requires x-www-form-urlencoded for the token endpoint
     const body = new URLSearchParams({
-      client_id: phonePeConfig.CLIENT_ID,
+      client_id: clientId,
       client_version: String(phonePeConfig.CLIENT_VERSION),
-      client_secret: phonePeConfig.CLIENT_SECRET,
+      client_secret: clientSecret,
       grant_type: "client_credentials",
     });
 
@@ -32,12 +38,13 @@ export async function getPhonePeAccessToken(): Promise<string> {
       body: body.toString(),
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      console.error("PhonePe Auth Error Details:", data);
-      throw new Error(data.message || 'Failed to authenticate with PhonePe');
+      const errorText = await response.text();
+      console.error("PHONEPE RAW ERROR:", errorText);
+      throw new Error(`PhonePe authentication failed: ${errorText}`);
     }
+
+    const data = await response.json();
 
     if (data.access_token) {
       cachedAccessToken = data.access_token;
@@ -51,7 +58,7 @@ export async function getPhonePeAccessToken(): Promise<string> {
     }
   } catch (error: any) {
     console.error('PhonePe OAuth Helper Failure:', error.message);
-    throw new Error('PhonePe authentication failed: ' + error.message);
+    throw error;
   }
 }
 
