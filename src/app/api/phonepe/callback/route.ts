@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { phonePeConfig } from '@/lib/phonepe-config';
-import { getPhonePeAccessToken } from '@/lib/phonepe-helper';
+import { generateChecksum } from '@/lib/phonepe-helper';
 import * as admin from 'firebase-admin';
 import path from 'path';
 import fs from 'fs';
+import axios from 'axios';
 
 // Initialize Firebase Admin safely
 function initAdmin() {
@@ -28,45 +29,53 @@ function initAdmin() {
 export async function POST(request: NextRequest) {
   try {
     const db = initAdmin();
-    const body = await request.json();
-    console.log('PhonePe v2 Callback Received:', body);
-
-    const { merchantOrderId, state, transactionId } = body;
-
-    if (!merchantOrderId || state !== 'COMPLETED') {
-       console.log('Transaction not completed or invalid payload');
-       return NextResponse.json({ success: false, message: 'Payment not completed' });
-    }
-
-    // 1. Securely verify transaction status with PhonePe
-    const accessToken = await getPhonePeAccessToken();
-    const statusUrl = `${phonePeConfig.STATUS_URL}/${merchantOrderId}/status`;
     
-    const statusCheckResponse = await fetch(statusUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `O-Bearer ${accessToken}`,
-        'X-CLIENT-ID': phonePeConfig.CLIENT_ID,
-        'Content-Type': 'application/json'
-      }
-    });
+    // PhonePe sends callback as application/x-www-form-urlencoded with 'response' field
+    const formData = await request.formData();
+    const responseBase64 = formData.get('response') as string;
 
-    if (!statusCheckResponse.ok) {
-      const errorText = await statusCheckResponse.text();
-      console.error('Status verification failed:', errorText);
-      return NextResponse.json({ success: false, message: 'Status verification failed' });
+    if (!responseBase64) {
+      console.log('No response field found in callback');
+      return NextResponse.json({ success: false, message: 'No response data' });
     }
 
-    const verification = await statusCheckResponse.json();
+    // Decode response
+    const decodedResponse = JSON.parse(Buffer.from(responseBase64, 'base64').toString('utf-8'));
+    console.log('PhonePe Callback Received:', decodedResponse);
+
+    const { success, code, data } = decodedResponse;
+    const merchantTransactionId = data?.merchantTransactionId;
+
+    if (!success || code !== 'PAYMENT_SUCCESS' || !merchantTransactionId) {
+       console.log('Transaction not successful:', code);
+       return NextResponse.json({ success: false, message: 'Payment not successful' });
+    }
+
+    // 1. Securely verify transaction status with PhonePe (Status API)
+    const endpoint = `/pg/v1/status/${phonePeConfig.MERCHANT_ID}/${merchantTransactionId}`;
+    const checksum = generateChecksum('', endpoint);
+    
+    const statusCheckResponse = await axios.get(
+      `${phonePeConfig.API_URL}${endpoint}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-VERIFY': checksum,
+          'X-MERCHANT-ID': phonePeConfig.MERCHANT_ID
+        }
+      }
+    );
+
+    const verification = statusCheckResponse.data;
     console.log('Status Verification Result:', verification);
 
-    if (verification.state === 'COMPLETED' && (verification.paymentState === 'COMPLETED' || verification.paymentState === 'SUCCESS')) {
+    if (verification.success && verification.code === 'PAYMENT_SUCCESS') {
       // 2. Find the order in Firestore
       const ordersRef = db.collection('orders');
-      const q = await ordersRef.where('orderId', '==', merchantOrderId).limit(1).get();
+      const q = await ordersRef.where('orderId', '==', merchantTransactionId).limit(1).get();
       
       if (q.empty) {
-        console.error('Order not found for verification:', merchantOrderId);
+        console.error('Order not found for verification:', merchantTransactionId);
         return NextResponse.json({ success: false, message: 'Order not found' });
       }
 
@@ -89,12 +98,12 @@ export async function POST(request: NextRequest) {
         packageName: orderData.packageDetails?.packageName || 'Standard',
         numberOfReels: orderData.packageDetails?.numberOfReels || 10,
         duration: orderData.packageDetails?.duration || 30,
-        price: (verification.amount || (orderData.amount * 100)) / 100,
+        price: orderData.amount,
         reelsUsed: 0,
         startDate: admin.firestore.FieldValue.serverTimestamp(),
         expiryDate: admin.firestore.Timestamp.fromDate(expiryDate),
         status: 'active',
-        paymentId: transactionId || verification.transactionId,
+        paymentId: data.transactionId,
         createdAt: admin.firestore.FieldValue.serverTimestamp()
       };
 
@@ -121,11 +130,11 @@ export async function POST(request: NextRequest) {
         status: 'paid', 
         packageId: packageRef.id,
         paidAt: admin.firestore.FieldValue.serverTimestamp(),
-        transactionId: transactionId || verification.transactionId
+        transactionId: data.transactionId
       });
 
       await batch.commit();
-      console.log('Package activated successfully via callback for order:', merchantOrderId);
+      console.log('Package activated successfully via callback for order:', merchantTransactionId);
       
       return NextResponse.json({ success: true });
     }
@@ -133,7 +142,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, message: 'Verification failed' });
 
   } catch (error: any) {
-    console.error('v2 Callback Error:', error.message);
+    console.error('Callback Error:', error.message);
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

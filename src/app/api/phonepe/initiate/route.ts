@@ -1,85 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { phonePeConfig } from '@/lib/phonepe-config';
-import { getPhonePeAccessToken } from '@/lib/phonepe-helper';
+import { generateChecksum, encodePayload } from '@/lib/phonepe-helper';
+import axios from 'axios';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { orderId, amount, customerPhone, customerName } = body;
 
-    console.log('=== PhonePe v2 Payment Initiation ===');
+    console.log('=== PhonePe Payment Initiation ===');
     console.log('Order ID:', orderId);
-    
-    // 1. Obtain OAuth Access Token
-    const accessToken = await getPhonePeAccessToken();
+    console.log('Amount:', amount, 'INR');
 
-    // 2. Construct v2 Checkout Payload
+    // Create payment payload for v1 Standard PG
     const paymentPayload = {
-      merchantOrderId: orderId,
+      merchantId: phonePeConfig.MERCHANT_ID,
+      merchantTransactionId: orderId,
+      merchantUserId: `USER_${Date.now()}`,
       amount: Math.round(amount * 100), // Convert to paise (must be integer)
-      expireAfter: 3600, // 1 hour
-      metaInfo: {
-        udf1: customerName || 'Client',
-        udf2: customerPhone || '9999999999',
-        udf3: 'Package Purchase'
-      },
-      paymentFlow: {
-        type: 'PG_CHECKOUT',
-        merchantUrls: {
-          redirectUrl: phonePeConfig.REDIRECT_URL,
-          callbackUrl: phonePeConfig.CALLBACK_URL
-        }
+      redirectUrl: phonePeConfig.REDIRECT_URL,
+      redirectMode: 'POST',
+      callbackUrl: phonePeConfig.CALLBACK_URL,
+      mobileNumber: customerPhone || '9999999999',
+      paymentInstrument: {
+        type: 'PAY_PAGE'
       }
     };
 
-    // 3. Initiate Checkout with O-Bearer token
-    const response = await fetch(phonePeConfig.PAY_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `O-Bearer ${accessToken}`,
-        'X-CLIENT-ID': phonePeConfig.CLIENT_ID
+    // Encode payload to base64
+    const base64Payload = encodePayload(paymentPayload);
+    
+    // Generate checksum
+    const endpoint = '/pg/v1/pay';
+    const checksum = generateChecksum(base64Payload, endpoint);
+
+    // Make API call to PhonePe
+    const response = await axios.post(
+      `${phonePeConfig.API_URL}/pg/v1/pay`,
+      {
+        request: base64Payload
       },
-      body: JSON.stringify(paymentPayload)
-    });
-
-    const responseText = await response.text();
-    console.log('PhonePe v2 Pay Response Status:', response.status);
-
-    if (response.ok) {
-      try {
-        const data = JSON.parse(responseText);
-        if (data.redirectUrl) {
-          return NextResponse.json({
-            success: true,
-            paymentUrl: data.redirectUrl,
-            orderId: orderId
-          });
-        } else {
-          console.error('PhonePe missing redirectUrl in response:', data);
-          return NextResponse.json({ success: false, error: 'Invalid PhonePe response', details: data }, { status: 500 });
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-VERIFY': checksum
         }
-      } catch (e) {
-        console.error('Failed to parse PhonePe pay response:', responseText);
-        return NextResponse.json({ success: false, error: 'Non-JSON response from PhonePe', details: responseText }, { status: 500 });
       }
-    } else {
-      console.error('PhonePe Initiation Error:', responseText);
+    );
+
+    console.log('PhonePe Response:', response.data);
+
+    if (response.data && response.data.success && response.data.data) {
+      const paymentUrl = response.data.data.instrumentResponse?.redirectInfo?.url;
+      
+      if (!paymentUrl) {
+        throw new Error('No payment URL in response');
+      }
+
       return NextResponse.json({
-        success: false,
-        error: 'PhonePe initiation failed',
-        details: responseText
-      }, { status: response.status });
+        success: true,
+        paymentUrl: paymentUrl,
+        orderId: orderId
+      });
+    } else {
+      throw new Error(response.data?.message || 'Invalid response from PhonePe');
     }
 
   } catch (error: any) {
-    console.error('=== PhonePe Initiation Exception ===');
-    console.error('Error:', error.message);
+    console.error('=== PhonePe Initiation Error ===');
+    const errorData = error.response?.data || error.message;
+    console.error('Details:', errorData);
     
     return NextResponse.json(
       { 
         success: false, 
-        error: error.message || 'Internal server error during initiation'
+        error: `PhonePe initiation failed: ${typeof errorData === 'object' ? JSON.stringify(errorData) : errorData}`
       },
       { status: 500 }
     );
