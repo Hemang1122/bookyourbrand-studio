@@ -46,7 +46,7 @@ export default function PackagesPage() {
 
     setIsSubmitting(true);
     try {
-      const orderId = `ORD${Date.now()}${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+      const orderId = `BYB${Date.now()}${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
       const total = calculateTotal();
       
       const packageDetails = {
@@ -57,7 +57,7 @@ export default function PackagesPage() {
         includeStockFootage
       };
 
-      // Create PENDING order document in Firestore
+      // 1. Create PENDING order document in Firestore for verification
       await addDoc(collection(firestore, 'orders'), {
         orderId,
         userId: user.id,
@@ -68,8 +68,8 @@ export default function PackagesPage() {
         createdAt: serverTimestamp()
       });
 
-      // Initiate REAL PhonePe Payment
-      const response = await fetch('/api/phonepe/initiate', {
+      // 2. Initiate Manual Payment Processing Flow
+      const response = await fetch('/api/payment/mock-initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -77,30 +77,26 @@ export default function PackagesPage() {
           amount: total,
           userId: user.id,
           customerName: user.name || 'Client',
-          customerPhone: (user as any).phone || '9999999999'
+          packageDetails
         })
       });
 
-      // Robust check for JSON content type to avoid "Unexpected end of JSON input"
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        console.error('SERVER RETURNED NON-JSON RESPONSE:', text);
-        throw new Error(`The server encountered an error and did not return a valid response. Please try again later.`);
+      if (!response.ok) {
+        throw new Error('Could not connect to payment gateway. Please try again.');
       }
 
       const data = await response.json();
 
       if (data.success && data.paymentUrl) {
-        toast({ title: 'Secure Redirect', description: 'Taking you to PhonePe to complete payment.' });
+        toast({ title: 'Redirecting...', description: 'Taking you to our secure payment portal.' });
         window.location.href = data.paymentUrl;
       } else {
-        throw new Error(data.error || 'Failed to connect to PhonePe');
+        throw new Error(data.error || 'Failed to connect to payment portal');
       }
 
     } catch (error: any) {
       console.error('Payment Flow Error:', error);
-      toast({ title: 'Payment Error', description: error.message, variant: 'destructive' });
+      toast({ title: 'Order Error', description: error.message, variant: 'destructive' });
       setIsSubmitting(false);
     }
   };
