@@ -1,12 +1,13 @@
 export const phonePeConfig = {
-  MERCHANT_ID: process.env.NEXT_PUBLIC_PHONEPE_MERCHANT_ID || 'M228A8WCV77ZS',
-  SALT_KEY: process.env.PHONEPE_SALT_KEY || '',
-  SALT_INDEX: process.env.NEXT_PUBLIC_PHONEPE_SALT_INDEX || '1',
+  MERCHANT_ID: 'M228A8WCV77ZS',
+  CLIENT_ID: 'M228A8WCV77ZS_2603040645',
+  CLIENT_SECRET: 'Y2MyMzQ0MTktNWU4Mi00Yzg4LTkzN2UtNDY2NTg1M2MwYmEw',
+  CLIENT_VERSION: '1',
   
-  // UAT for testing, Production for live
-  API_URL: process.env.NODE_ENV === 'production' 
-    ? 'https://mercury-t2.phonepe.com/v3'
-    : 'https://mercury-uat.phonepe.com/enterprise-sandbox/v3',
-    
-  CALLBACK_URL: process.env.NEXT_PUBLIC_PHONEPE_CALLBACK_URL || '',
+  // Sandbox/Test URLs
+  API_URL: 'https://api-preprod.phonepe.com/apis/pg-sandbox',
+  AUTH_URL: 'https://api-preprod.phonepe.com/apis/apphub/v1',
+  
+  REDIRECT_URL: (process.env.NEXT_PUBLIC_APP_URL || '') + '/api/phonepe/callback',
+  CALLBACK_URL: (process.env.NEXT_PUBLIC_APP_URL || '') + '/api/phonepe/callback',
 };
