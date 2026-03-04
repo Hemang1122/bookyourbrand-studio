@@ -19,6 +19,7 @@ export async function getPhonePeAccessToken(): Promise<string> {
 
     console.log('--- PhonePe Token Request ---');
     console.log('URL:', phonePeConfig.AUTH_URL);
+    console.log('Using Client ID:', clientId);
 
     // OAuth standard requires x-www-form-urlencoded for the token endpoint
     const body = new URLSearchParams({
@@ -36,13 +37,13 @@ export async function getPhonePeAccessToken(): Promise<string> {
       body: body.toString(),
     });
 
-    const responseText = await response.text();
-
     if (!response.ok) {
-      console.error("PHONEPE RAW OAUTH ERROR:", responseText);
-      throw new Error(`PhonePe authentication failed (${response.status}): ${responseText}`);
+      const errorText = await response.text();
+      console.error("PHONEPE RAW OAUTH ERROR:", errorText);
+      throw new Error(`PhonePe authentication failed (${response.status}): ${errorText}`);
     }
 
+    const responseText = await response.text();
     try {
       const data = JSON.parse(responseText);
       if (data.access_token) {
