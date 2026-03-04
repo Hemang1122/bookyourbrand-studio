@@ -1,10 +1,10 @@
 export const phonePeConfig = {
   MERCHANT_ID: 'M228A8WCV77ZS',
-  CLIENT_ID: 'M228A8WCV77ZS_2603040645',
-  CLIENT_SECRET: '9f146785-f533-4b52-800b-2dc5ba548da4',
-  CLIENT_VERSION: '1',
+  CLIENT_ID: process.env.PHONEPE_CLIENT_ID || 'SU2504151844154909484309',
+  CLIENT_SECRET: process.env.PHONEPE_CLIENT_SECRET || '9f146785-f533-4b52-800b-2dc5ba548da4',
+  CLIENT_VERSION: 1,
   
-  // Sandbox/Test URLs for OAuth and Checkout
+  // Sandbox/Test URLs for v2 OAuth and Checkout
   BASE_URL: 'https://api-preprod.phonepe.com/apis/pg-sandbox',
   
   get AUTH_URL() {

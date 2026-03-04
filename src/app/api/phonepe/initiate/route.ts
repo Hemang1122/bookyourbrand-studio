@@ -9,8 +9,9 @@ export async function POST(request: NextRequest) {
     const { orderId, amount, customerPhone, customerName } = body;
 
     console.log('=== PhonePe v2 Payment Initiation ===');
+    console.log('Order ID:', orderId);
     
-    // 1. Obtain OAuth Access Token
+    // 1. Obtain OAuth Access Token using the new server-side helper
     const accessToken = await getPhonePeAccessToken();
 
     // 2. Construct v2 Checkout Payload
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    console.log('PhonePe v2 Response:', response.data);
+    console.log('PhonePe v2 Pay Response:', response.data);
 
     if (response.data && response.data.redirectUrl) {
       return NextResponse.json({
@@ -58,15 +59,15 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error: any) {
-    console.error('=== PhonePe Initiation Error ===');
-    const errorData = error.response?.data;
+    console.error('=== PhonePe Initiation Failure ===');
+    const errorData = error.response?.data || { message: error.message };
     console.error('Details:', JSON.stringify(errorData, null, 2));
     
     return NextResponse.json(
       { 
         success: false, 
-        error: errorData?.message || error.message || 'Payment initiation failed',
-        code: errorData?.code
+        error: errorData.message || 'Payment initiation failed',
+        code: errorData.code
       },
       { status: 500 }
     );
