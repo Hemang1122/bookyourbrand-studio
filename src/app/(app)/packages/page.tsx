@@ -81,6 +81,14 @@ export default function PackagesPage() {
         })
       });
 
+      // Robust check for JSON content type
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('SERVER RETURNED NON-JSON RESPONSE:', text);
+        throw new Error(`The server encountered an error and did not return a valid response. Please try again later.`);
+      }
+
       const data = await response.json();
 
       if (data.success && data.paymentUrl) {
@@ -134,7 +142,7 @@ export default function PackagesPage() {
           <Card
             key={pkg.id}
             className={cn(
-              "relative p-8 cursor-pointer transition-all duration-300 bg-[#13131F] border-white/5 hover:border-primary/40 group",
+              "relative p-8 cursor-pointer transition-all duration-300 bg-[#13131F] border border-white/5 hover:border-primary/40 group",
               selectedPackageId === pkg.id && "ring-2 ring-primary border-primary shadow-2xl shadow-primary/20 scale-[1.02]"
             )}
             onClick={() => {
@@ -161,7 +169,7 @@ export default function PackagesPage() {
       </div>
 
       {selectedPkg && (
-        <Card className="p-8 bg-gradient-to-br from-[#13131F] to-[#0F0F1A] border-white/10 shadow-2xl animate-in fade-in slide-in-from-bottom-4">
+        <Card className="p-8 bg-gradient-to-br from-[#13131F] to-[#0F0F1A] border border-white/10 shadow-2xl animate-in fade-in slide-in-from-bottom-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             <div className="space-y-8">
               <div>

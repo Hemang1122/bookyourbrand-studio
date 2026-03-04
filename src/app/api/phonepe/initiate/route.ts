@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     console.log('=== PhonePe v2 Payment Initiation ===');
     console.log('Order ID:', orderId);
     
-    // 1. Obtain OAuth Access Token using the new server-side helper
+    // 1. Obtain OAuth Access Token using the server-side helper
     const accessToken = await getPhonePeAccessToken();
 
     // 2. Construct v2 Checkout Payload
@@ -42,20 +42,27 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'application/json',
           'Authorization': `O-Bearer ${accessToken}`,
           'X-CLIENT-ID': phonePeConfig.CLIENT_ID
-        }
+        },
+        // Ensure we handle non-2xx statuses without crashing
+        validateStatus: (status) => true 
       }
     );
 
-    console.log('PhonePe v2 Pay Response:', response.data);
+    console.log('PhonePe v2 Pay Response Status:', response.status);
 
-    if (response.data && response.data.redirectUrl) {
+    if (response.status === 200 && response.data && response.data.redirectUrl) {
       return NextResponse.json({
         success: true,
         paymentUrl: response.data.redirectUrl,
         orderId: orderId
       });
     } else {
-      throw new Error(response.data?.message || 'Invalid response from PhonePe Checkout');
+      console.error('PhonePe Initiation Error Payload:', JSON.stringify(response.data, null, 2));
+      return NextResponse.json({
+        success: false,
+        error: response.data?.message || 'Invalid response from PhonePe Checkout',
+        details: response.data
+      }, { status: response.status });
     }
 
   } catch (error: any) {

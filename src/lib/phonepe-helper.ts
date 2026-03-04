@@ -17,10 +17,8 @@ export async function getPhonePeAccessToken(): Promise<string> {
     const clientId = process.env.PHONEPE_CLIENT_ID || phonePeConfig.CLIENT_ID;
     const clientSecret = process.env.PHONEPE_CLIENT_SECRET || phonePeConfig.CLIENT_SECRET;
 
-    console.log('--- PhonePe Token Debug ---');
+    console.log('--- PhonePe Token Request ---');
     console.log('URL:', phonePeConfig.AUTH_URL);
-    console.log('CLIENT_ID exists:', !!clientId);
-    console.log('CLIENT_SECRET exists:', !!clientSecret);
 
     // OAuth standard requires x-www-form-urlencoded for the token endpoint
     const body = new URLSearchParams({
@@ -38,23 +36,28 @@ export async function getPhonePeAccessToken(): Promise<string> {
       body: body.toString(),
     });
 
+    const responseText = await response.text();
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("PHONEPE RAW ERROR:", errorText);
-      throw new Error(`PhonePe authentication failed: ${errorText}`);
+      console.error("PHONEPE RAW ERROR:", responseText);
+      throw new Error(`PhonePe authentication failed (${response.status}): ${responseText}`);
     }
 
-    const data = await response.json();
-
-    if (data.access_token) {
-      cachedAccessToken = data.access_token;
-      // Tokens are usually valid for 1 hour (3600s)
-      const expiresIn = data.expires_in || 3600;
-      tokenExpiry = Date.now() + (expiresIn * 1000);
-      console.log('PhonePe OAuth Token acquired successfully');
-      return cachedAccessToken;
-    } else {
-      throw new Error('No access_token in response');
+    try {
+      const data = JSON.parse(responseText);
+      if (data.access_token) {
+        cachedAccessToken = data.access_token;
+        // Tokens are usually valid for 1 hour (3600s)
+        const expiresIn = data.expires_in || 3600;
+        tokenExpiry = Date.now() + (expiresIn * 1000);
+        console.log('PhonePe OAuth Token acquired successfully');
+        return cachedAccessToken;
+      } else {
+        throw new Error('No access_token in response JSON');
+      }
+    } catch (parseError) {
+      console.error("FAILED TO PARSE PHONEPE RESPONSE AS JSON:", responseText);
+      throw new Error('PhonePe returned non-JSON response during authentication');
     }
   } catch (error: any) {
     console.error('PhonePe OAuth Helper Failure:', error.message);

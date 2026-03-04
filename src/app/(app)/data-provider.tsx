@@ -87,10 +87,39 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
   }, [firestore]);
   
-  const { data: projectsData, isLoading: projectsLoading } = useCollection<Project>(useMemoFirebase(() => firestore ? collection(firestore, 'projects') : null, [firestore]));
+  // ROLE-BASED PROJECT FETCH
+  const projectsQuery = useMemoFirebase(() => {
+    if (!firestore || !currentUser) return null;
+    const ref = collection(firestore, 'projects');
+    if (currentUser.role === 'admin') return ref;
+    if (currentUser.role === 'client') {
+      return query(ref, where('client.id', '==', currentUser.id));
+    }
+    if (currentUser.role === 'team') {
+      return query(ref, where('team_ids', 'array-contains', currentUser.id));
+    }
+    return null;
+  }, [firestore, currentUser?.id, currentUser?.role]);
+
+  const { data: projectsData, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
+
   const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
   const { data: files, isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? query(collection(firestore, 'files')) : null, [firestore]));
-  const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(useMemoFirebase(() => firestore ? collection(firestore, 'clients') : null, [firestore]));
+  
+  // ROLE-BASED CLIENT FETCH
+  const clientsQuery = useMemoFirebase(() => {
+    if (!firestore || !currentUser) return null;
+    const ref = collection(firestore, 'clients');
+    if (currentUser.role === 'admin') return ref;
+    if (currentUser.role === 'client') {
+      return query(ref, where('id', '==', currentUser.id));
+    }
+    // Team members might need to see clients to identify projects
+    return ref;
+  }, [firestore, currentUser?.id, currentUser?.role]);
+
+  const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(clientsQuery);
+
   const { data: clientPackages, isLoading: clientPackagesLoading } = useCollection<ClientPackage>(useMemoFirebase(() => firestore ? query(collection(firestore, 'client-packages'), orderBy('createdAt', 'desc')) : null, [firestore]));
   
   const { data: clientDocuments, isLoading: documentsLoading } = useCollection<ClientDocument>(useMemoFirebase(() => firestore ? collection(firestore, 'clientDocuments') : null, [firestore]));
@@ -236,7 +265,12 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   const tasks = useMemo(() => {
     if (!tasksData) return initialTasks;
-    return tasksData.map(t => {
+    
+    // Safety check: only show tasks for projects that are visible to the user
+    const accessibleProjectIds = new Set(projects.map(p => p.id));
+    const filteredTasksData = tasksData.filter(t => accessibleProjectIds.has(t.projectId));
+
+    return filteredTasksData.map(t => {
       const project = projects.find(p => p.id === t.projectId);
       const dueDate = t.dueDate || format(addWeeks(new Date(project?.startDate || Date.now()), 1), 'yyyy-MM-dd');
       
