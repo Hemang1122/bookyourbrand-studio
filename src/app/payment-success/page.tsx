@@ -3,144 +3,189 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, Loader2, ArrowRight, Sparkles } from 'lucide-react';
-import { useFirebaseServices } from '@/firebase';
-import { doc, updateDoc, addDoc, collection, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { useAuth } from '@/firebase/provider';
+import { CheckCircle, Loader2, Sparkles } from 'lucide-react';
+import { useAuth, useFirebaseServices } from '@/firebase';
+import { collection, addDoc, query, where, getDocs, updateDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore';
 
 function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { firestore } = useFirebaseServices();
   const { user } = useAuth();
+  const { firestore } = useFirebaseServices();
   
-  const [isActivating, setIsActivating] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   const orderId = searchParams.get('orderId');
   const txnId = searchParams.get('txnId');
-  const packageName = searchParams.get('packageName');
-  const reels = parseInt(searchParams.get('reels') || '0');
-  const duration = parseInt(searchParams.get('duration') || '0');
-  const amount = parseFloat(searchParams.get('amount') || '0');
+  const amount = searchParams.get('amount');
+  
+  const [isActivating, setIsActivating] = useState(true);
+  const [activationComplete, setActivationComplete] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function activatePackage() {
-      if (!firestore || !user || !orderId) return;
+    const activatePackage = async () => {
+      if (!firestore || !orderId || !user) {
+        if (!firestore) console.error('Firestore not initialized');
+        setIsActivating(false);
+        return;
+      }
 
       try {
-        console.log('Activating package for user:', user.id);
-        
-        const expiryDate = new Date();
-        expiryDate.setDate(expiryDate.getDate() + 30); // 30 days validity
+        console.log('Starting activation for order:', orderId);
 
-        const activePackage = {
-          clientId: user.id,
-          packageName: decodeURIComponent(packageName || 'Bronze'),
-          numberOfReels: reels,
-          duration: duration,
-          price: amount,
-          reelsUsed: 0,
-          startDate: serverTimestamp(),
-          expiryDate: Timestamp.fromDate(expiryDate),
-          status: 'active',
-          paymentId: txnId,
+        // 1. Save payment record
+        await addDoc(collection(firestore, 'payments'), {
+          orderId,
+          userId: user.id,
+          amount: parseFloat(amount || '0'),
+          status: 'success',
+          method: 'mock',
+          transactionId: txnId,
+          paidAt: serverTimestamp(),
           createdAt: serverTimestamp()
-        };
-
-        // 1. Add to client-packages collection
-        const pkgRef = await addDoc(collection(firestore, 'client-packages'), activePackage);
-
-        // 2. Update Client document
-        const clientRef = doc(firestore, 'clients', user.id);
-        await updateDoc(clientRef, {
-          currentPackage: { ...activePackage, id: pkgRef.id },
-          reelsLimit: reels,
-          packageName: activePackage.packageName,
-          maxDuration: duration,
-          reelsCreated: 0
         });
 
-        // 3. Update User document for UI sync
-        const userRef = doc(firestore, 'users', user.id);
-        await updateDoc(userRef, {
-          packageName: activePackage.packageName,
-          reelsLimit: reels
-        });
+        // 2. Update order status
+        const ordersRef = collection(firestore, 'orders');
+        const q = query(ordersRef, where('orderId', '==', orderId));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          const orderDoc = querySnapshot.docs[0];
+          const orderData = orderDoc.data();
+
+          if (orderData.status === 'paid') {
+            console.log('Order already processed');
+            setActivationComplete(true);
+            setIsActivating(false);
+            return;
+          }
+
+          await updateDoc(orderDoc.ref, {
+            status: 'paid',
+            paidAt: serverTimestamp(),
+            transactionId: txnId
+          });
+
+          // 3. Activate package for the client
+          const expiryDate = new Date();
+          expiryDate.setDate(expiryDate.getDate() + 30); // 30 days validity
+
+          const packageData = {
+            clientId: user.id,
+            packageName: orderData.packageDetails?.packageName || 'Custom Package',
+            numberOfReels: orderData.packageDetails?.numberOfReels || 10,
+            duration: orderData.packageDetails?.duration || 30,
+            price: parseFloat(amount || '0'),
+            reelsUsed: 0,
+            startDate: serverTimestamp(),
+            expiryDate: Timestamp.fromDate(expiryDate),
+            status: 'active',
+            paymentId: txnId,
+            includeAIVoice: orderData.packageDetails?.includeAIVoice || false,
+            includeStockFootage: orderData.packageDetails?.includeStockFootage || false,
+            createdAt: serverTimestamp()
+          };
+
+          // Add to client-packages collection
+          const packageRef = await addDoc(collection(firestore, 'client-packages'), packageData);
+
+          // Update client's current package
+          await updateDoc(doc(firestore, 'clients', user.id), {
+            currentPackage: { ...packageData, id: packageRef.id },
+            reelsLimit: packageData.numberOfReels,
+            packageName: packageData.packageName,
+            maxDuration: packageData.duration,
+            reelsCreated: 0
+          });
+
+          // Update user document for dashboard sync
+          await updateDoc(doc(firestore, 'users', user.id), {
+            packageName: packageData.packageName,
+            reelsLimit: packageData.numberOfReels
+          });
+
+          console.log('Package activated successfully!');
+          setActivationComplete(true);
+        } else {
+          console.warn('No matching order found for ID:', orderId);
+          setError('Order details could not be found.');
+        }
 
         setIsActivating(false);
-      } catch (err: any) {
-        console.error('Activation failed:', err);
-        setError(err.message);
+
+      } catch (error: any) {
+        console.error('Error activating package:', error);
+        setError(error.message || 'An unexpected error occurred during activation.');
         setIsActivating(false);
       }
-    }
+    };
 
     activatePackage();
-  }, [firestore, user, orderId, txnId, packageName, reels, duration, amount]);
-
-  if (isActivating) {
-    return (
-      <div className="min-h-screen bg-[#0F0F1A] flex flex-col items-center justify-center p-4">
-        <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
-        <h2 className="text-xl font-bold text-white">Activating Your Package...</h2>
-        <p className="text-gray-400 text-sm">Please do not close this window.</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-[#0F0F1A] flex flex-col items-center justify-center p-4">
-        <h2 className="text-xl font-bold text-red-400 mb-2">Activation Error</h2>
-        <p className="text-gray-400 text-sm mb-6">{error}</p>
-        <Button onClick={() => router.push('/dashboard')}>Back to Dashboard</Button>
-      </div>
-    );
-  }
+  }, [firestore, orderId, user, amount, txnId]);
 
   return (
-    <div className="min-h-screen bg-[#0F0F1A] flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-[#13131F] border border-white/10 rounded-3xl p-10 text-center shadow-2xl relative">
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 bg-green-500 rounded-full flex items-center justify-center shadow-xl shadow-green-500/20">
-          <CheckCircle2 className="h-12 w-12 text-white" />
-        </div>
-        
-        <div className="mt-8 space-y-6">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-black text-white">Payment Success!</h1>
-            <p className="text-gray-400">Your package has been activated and is ready to use.</p>
-          </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0F0F1A] to-[#1a0533] p-4">
+      <div className="bg-[#13131F] border border-green-500/20 rounded-2xl p-12 max-w-md w-full text-center shadow-2xl">
+        {isActivating ? (
+          <>
+            <div className="mx-auto w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mb-6">
+              <Loader2 className="h-10 w-10 text-green-400 animate-spin" />
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2">Activating Your Package...</h1>
+            <p className="text-gray-400 text-sm">Please wait while we set up your account</p>
+          </>
+        ) : error ? (
+          <>
+            <div className="mx-auto w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6">
+              <span className="text-4xl">⚠️</span>
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2">Activation Issue</h1>
+            <p className="text-red-400 text-sm mb-8">{error}</p>
+            <Button onClick={() => router.push('/dashboard')} className="w-full">Return to Dashboard</Button>
+          </>
+        ) : (
+          <>
+            <div className="mx-auto w-24 h-24 bg-green-500/10 rounded-full flex items-center justify-center mb-6 border-4 border-green-500/20 animate-in zoom-in">
+              <CheckCircle className="h-14 w-14 text-green-400" />
+            </div>
+            
+            <div className="mb-6">
+              <Sparkles className="h-8 w-8 text-yellow-400 mx-auto mb-2 animate-pulse" />
+              <h1 className="text-3xl font-bold text-white mb-2">Success!</h1>
+              <p className="text-green-400 font-medium">Your package is now active</p>
+            </div>
+            
+            <div className="bg-black/20 rounded-lg p-4 mb-6 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Order ID:</span>
+                <span className="text-white font-mono truncate max-w-[150px]">{orderId}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Transaction:</span>
+                <span className="text-white font-mono truncate max-w-[150px]">{txnId}</span>
+              </div>
+              <div className="flex justify-between pt-2">
+                <span className="text-gray-400">Amount Paid:</span>
+                <span className="text-green-400 font-bold text-xl">₹{amount}</span>
+              </div>
+            </div>
 
-          <div className="p-6 bg-black/40 rounded-2xl border border-white/5 space-y-3">
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-500">Transaction ID</span>
-              <span className="text-white font-mono text-xs">{txnId}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-500">Active Plan</span>
-              <span className="text-green-400 font-bold">{decodeURIComponent(packageName || '')}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-500">Reels Quota</span>
-              <span className="text-white font-bold">{reels} Reels</span>
-            </div>
-          </div>
+            {activationComplete && (
+              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 mb-6">
+                <p className="text-green-200 text-sm">
+                  ✓ Quota updated! You can now start creating reels.
+                </p>
+              </div>
+            )}
 
-          <div className="pt-4">
-            <Button 
+            <Button
               onClick={() => router.push('/dashboard')}
-              className="w-full h-14 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-500 text-white font-bold text-lg hover:scale-[1.02] transition-transform"
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-500 text-white py-6 text-lg hover:from-purple-700 hover:to-pink-600 transition-all shadow-lg"
             >
-              Go to Dashboard <ArrowRight className="ml-2 h-5 w-5" />
+              Start Creating
             </Button>
-          </div>
-          
-          <div className="flex items-center justify-center gap-2 text-xs text-purple-400 font-medium">
-            <Sparkles className="h-3 w-3" />
-            Happy Creating!
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -149,7 +194,7 @@ function PaymentSuccessContent() {
 export default function PaymentSuccessPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#0F0F1A] flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-[#0F0F1A]">
         <Loader2 className="h-8 w-8 text-primary animate-spin" />
       </div>
     }>

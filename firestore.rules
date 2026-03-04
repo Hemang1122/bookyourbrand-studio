@@ -70,7 +70,7 @@ service cloud.firestore {
       allow list: if isSignedIn();
       allow get: if isSignedIn() && 
                     (isAdmin() || resource.data.clientId == request.auth.uid);
-      allow create: if isAdmin();
+      allow create: if isSignedIn() || isAdmin();
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
@@ -243,9 +243,8 @@ service cloud.firestore {
       allow list: if isSignedIn();
       allow get: if isSignedIn() && 
                     (isAdmin() || resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn() &&
-                       request.resource.data.userId == request.auth.uid;
-      allow update: if isAdmin();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
       allow delete: if isAdmin();
     }
 
@@ -253,8 +252,7 @@ service cloud.firestore {
       allow list: if isSignedIn();
       allow get: if isSignedIn() && 
                     (isAdmin() || resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn() &&
-                       request.resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }

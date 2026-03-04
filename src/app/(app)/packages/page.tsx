@@ -12,6 +12,7 @@ import { Check, Loader2, Sparkles, Zap, ShieldCheck } from 'lucide-react';
 import { PREDEFINED_PACKAGES, ADDITIONAL_CHARGES } from '@/lib/packages';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function PackagesPage() {
   const { user } = useAuth();
@@ -48,7 +49,26 @@ export default function PackagesPage() {
       const orderId = `ORD${Date.now()}${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
       const total = calculateTotal();
       
-      // Use MOCK payment initiation API
+      const packageDetails = {
+        packageName: selectedPkg?.name,
+        numberOfReels: selectedReels,
+        duration: selectedDuration,
+        includeAIVoice,
+        includeStockFootage
+      };
+
+      // Create PENDING order document in Firestore first
+      await addDoc(collection(firestore, 'orders'), {
+        orderId,
+        userId: user.id,
+        clientId: user.id,
+        amount: total,
+        status: 'pending',
+        packageDetails,
+        createdAt: serverTimestamp()
+      });
+
+      // Initiate MOCK payment
       const response = await fetch('/api/payment/mock-initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -57,13 +77,7 @@ export default function PackagesPage() {
           amount: total,
           userId: user.id,
           customerName: user.name || 'Client',
-          packageDetails: {
-            packageName: selectedPkg?.name,
-            numberOfReels: selectedReels,
-            duration: selectedDuration,
-            includeAIVoice,
-            includeStockFootage
-          }
+          packageDetails
         })
       });
 
@@ -71,7 +85,6 @@ export default function PackagesPage() {
 
       if (data.success && data.paymentUrl) {
         toast({ title: 'Redirecting...', description: 'Taking you to secure checkout.' });
-        // Redirect to the mock payment gateway page
         window.location.href = data.paymentUrl;
       } else {
         throw new Error(data.error || 'Failed to initiate mock payment');
@@ -263,7 +276,7 @@ export default function PackagesPage() {
 
               <div className="mt-10 space-y-4">
                 <Button 
-                  className="w-full h-16 text-lg font-black bg-gradient-to-r from-primary to-pink-500 hover:scale-[1.02] transition-transform shadow-xl shadow-primary/30 rounded-2xl border-0 group" 
+                  className="w-full h-16 text-lg font-black bg-gradient-to-r from-purple-600 to-pink-500 hover:scale-[1.02] transition-transform shadow-xl shadow-purple-500/30 rounded-2xl border-0 group" 
                   onClick={handleActivatePackage}
                   disabled={isSubmitting}
                 >

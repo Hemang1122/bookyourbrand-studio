@@ -12,9 +12,6 @@ function MockPaymentContent() {
   const amount = searchParams.get('amount');
   const userId = searchParams.get('userId');
   const name = searchParams.get('name');
-  const packageName = searchParams.get('packageName');
-  const reels = searchParams.get('reels');
-  const duration = searchParams.get('duration');
   
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -24,8 +21,8 @@ function MockPaymentContent() {
     // Simulate gateway processing delay
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Construct the success URL with all meta-data so the success page can perform the Firestore update
-    const successUrl = `/payment-success?orderId=${orderId}&txnId=MOCK_${Date.now()}&amount=${amount}&packageName=${encodeURIComponent(packageName || '')}&reels=${reels}&duration=${duration}`;
+    // Construct the success URL
+    const successUrl = `/payment-success?orderId=${orderId}&txnId=MOCK_${Date.now()}&amount=${amount}`;
     router.push(successUrl);
   };
 
@@ -54,10 +51,6 @@ function MockPaymentContent() {
           <div className="flex justify-between items-center text-sm">
             <span className="text-gray-500">Customer</span>
             <span className="text-white font-medium">{decodeURIComponent(name || 'Valued Client')}</span>
-          </div>
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-500">Package</span>
-            <span className="text-purple-400 font-bold">{decodeURIComponent(packageName || 'Bronze')}</span>
           </div>
           <div className="flex justify-between items-center text-sm">
             <span className="text-gray-500">Order ID</span>
