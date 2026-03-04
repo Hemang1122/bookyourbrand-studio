@@ -226,6 +226,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       return task;
     });
   }, [tasksData, projects, currentUser, usersData, anonymizeUser]);
+
+  const scrumUpdates = useMemo(() => scrumUpdatesData || [], [scrumUpdatesData]);
     
   const getOrCreateChat = useCallback(async (partnerId: string): Promise<string | null> => {
     if (!firestore || !currentUser || !authUid) return null;
