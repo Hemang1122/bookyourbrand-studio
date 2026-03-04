@@ -3,13 +3,12 @@ import { useState } from 'react';
 import { useAuth } from '@/firebase/provider';
 import { useData } from '../data-provider';
 import { useFirebaseServices } from '@/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Check, Loader2, Sparkles, Zap, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Check, Loader2, Sparkles, Zap, ShieldCheck } from 'lucide-react';
 import { PREDEFINED_PACKAGES, ADDITIONAL_CHARGES } from '@/lib/packages';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -46,35 +45,25 @@ export default function PackagesPage() {
 
     setIsSubmitting(true);
     try {
-      // Generate a unique order ID
       const orderId = `ORD${Date.now()}${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
       const total = calculateTotal();
       
-      // 1. Create a pending order in Firestore for security and tracking
-      const pendingOrder = {
-        orderId,
-        clientId: user.id,
-        packageName: selectedPkg?.name || 'Custom',
-        numberOfReels: selectedReels,
-        duration: selectedDuration,
-        price: total,
-        status: 'pending',
-        includeAIVoice,
-        includeStockFootage,
-        createdAt: serverTimestamp()
-      };
-      
-      await setDoc(doc(firestore, 'pending-orders', orderId), pendingOrder);
-
-      // 2. Initiate PhonePe Payment
-      const response = await fetch('/api/phonepe/initiate', {
+      // Use MOCK payment initiation API
+      const response = await fetch('/api/payment/mock-initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderId,
           amount: total,
-          customerPhone: (user as any).phone || '9999999999',
-          customerName: user.name || 'Client'
+          userId: user.id,
+          customerName: user.name || 'Client',
+          packageDetails: {
+            packageName: selectedPkg?.name,
+            numberOfReels: selectedReels,
+            duration: selectedDuration,
+            includeAIVoice,
+            includeStockFootage
+          }
         })
       });
 
@@ -82,10 +71,10 @@ export default function PackagesPage() {
 
       if (data.success && data.paymentUrl) {
         toast({ title: 'Redirecting...', description: 'Taking you to secure checkout.' });
-        // Redirect to PhonePe payment gateway
+        // Redirect to the mock payment gateway page
         window.location.href = data.paymentUrl;
       } else {
-        throw new Error(data.error || 'Gateway initiation failed');
+        throw new Error(data.error || 'Failed to initiate mock payment');
       }
 
     } catch (error: any) {
@@ -97,10 +86,10 @@ export default function PackagesPage() {
 
   if (user?.role !== 'client') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8">
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8 text-white">
         <ShieldCheck className="h-16 w-16 text-muted-foreground mb-4 opacity-20" />
-        <h2 className="text-2xl font-bold text-white mb-2">Client Access Only</h2>
-        <p className="text-muted-foreground max-w-md">
+        <h2 className="text-2xl font-bold mb-2">Client Access Only</h2>
+        <p className="text-gray-400 max-w-md">
           This page is for purchasing and managing individual content packages. Please log in as a client to continue.
         </p>
       </div>
@@ -152,7 +141,7 @@ export default function PackagesPage() {
               ))}
             </ul>
             {selectedPackageId === pkg.id && (
-              <Badge className="absolute top-4 right-4 bg-primary text-white">Selected</Badge>
+              <Badge className="absolute top-4 right-4 bg-primary text-white border-0">Selected</Badge>
             )}
           </Card>
         ))}
@@ -292,7 +281,7 @@ export default function PackagesPage() {
                 </Button>
                 <div className="flex items-center justify-center gap-2 text-[10px] text-gray-500 uppercase tracking-widest">
                   <ShieldCheck className="h-3 w-3" />
-                  Secure checkout powered by PhonePe
+                  Test payment mode active
                 </div>
               </div>
             </div>
