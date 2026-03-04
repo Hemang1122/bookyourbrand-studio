@@ -6,14 +6,18 @@ import axios from 'axios';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { orderId, amount, customerPhone, customerName, userId } = body;
+    const { orderId, amount, customerPhone, userId } = body;
 
-    // 1. Construct Request Payload
+    console.log('=== PhonePe Standard Initiation ===');
+    console.log('Order ID:', orderId);
+    console.log('Amount:', amount);
+
+    // 1. Construct Standard Payload
     const payload = {
       merchantId: phonePeConfig.MERCHANT_ID,
       merchantTransactionId: orderId,
-      merchantUserId: userId,
-      amount: amount * 100, // Convert to paise
+      merchantUserId: userId || 'USER_' + orderId.split('_')[0],
+      amount: Math.round(amount * 100), // Ensure it's an integer in paise
       redirectUrl: phonePeConfig.REDIRECT_URL,
       redirectMode: 'POST',
       callbackUrl: phonePeConfig.CALLBACK_URL,
@@ -23,12 +27,14 @@ export async function POST(request: NextRequest) {
       }
     };
 
-    // 2. Encode and Generate Checksum
+    // 2. Encode and Hash
     const base64Payload = encodePayload(payload);
     const endpoint = '/pg/v1/pay';
     const xVerify = generatePhonePeChecksum(base64Payload, endpoint);
 
-    // 3. Initiate Request to PhonePe
+    console.log('X-VERIFY generated successfully');
+
+    // 3. Request to Standard API
     const response = await axios.post(
       `${phonePeConfig.API_URL}${endpoint}`,
       { request: base64Payload },
@@ -41,6 +47,8 @@ export async function POST(request: NextRequest) {
       }
     );
 
+    console.log('PhonePe Response Success:', response.data.success);
+
     if (response.data && response.data.success) {
       return NextResponse.json({
         success: true,
@@ -52,11 +60,15 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error: any) {
-    console.error('PhonePe Error:', error.response?.data || error.message);
+    console.error('=== PhonePe API Error ===');
+    console.error('Message:', error.message);
+    console.error('Response Data:', error.response?.data);
+    
     return NextResponse.json(
       { 
         success: false, 
-        error: error.response?.data?.message || error.message || 'Payment service unavailable' 
+        error: error.response?.data?.message || error.message || 'Payment service unavailable',
+        code: error.response?.data?.code
       },
       { status: 500 }
     );

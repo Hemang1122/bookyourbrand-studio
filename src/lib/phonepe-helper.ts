@@ -2,7 +2,7 @@ import { phonePeConfig } from './phonepe-config';
 import crypto from 'crypto';
 
 /**
- * Generates the X-VERIFY checksum required by PhonePe.
+ * Generates the X-VERIFY checksum required by PhonePe Standard PG.
  * Formula: SHA256(Base64Payload + endpoint + SaltKey) + "###" + SaltIndex
  */
 export function generatePhonePeChecksum(payload: string, endpoint: string): string {

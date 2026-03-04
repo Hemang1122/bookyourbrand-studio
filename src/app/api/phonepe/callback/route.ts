@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { phonePeConfig } from '@/lib/phonepe-config';
-import { getPhonePeAccessToken } from '@/lib/phonepe-helper';
+import { generatePhonePeChecksum } from '@/lib/phonepe-helper';
 import axios from 'axios';
 import * as admin from 'firebase-admin';
 import path from 'path';
@@ -18,7 +18,6 @@ function initAdmin() {
         credential: admin.credential.cert(serviceAccount)
       });
     } else {
-      // Fallback for production/environment based init
       if (!admin.apps.length) {
         admin.initializeApp();
       }
@@ -33,129 +32,117 @@ export async function POST(request: NextRequest) {
   try {
     const db = initAdmin();
     
-    // PhonePe might send data in body or as query params depending on the flow
-    let transactionId: string | null = null;
-    
-    try {
-      const body = await request.json();
-      transactionId = body.transactionId || body.merchantOrderId;
-    } catch (e) {
-      // If JSON parsing fails, try query params (Standard for some redirect flows)
-      const searchParams = request.nextUrl.searchParams;
-      transactionId = searchParams.get('transactionId') || searchParams.get('merchantOrderId');
+    // 1. PhonePe sends POST with B64 encoded payload in 'response' field
+    const formData = await request.formData();
+    const base64Response = formData.get('response') as string;
+
+    if (!base64Response) {
+      return NextResponse.json({ success: false, error: 'No response data' }, { status: 400 });
     }
+
+    // 2. Decode the response
+    const decodedResponse = JSON.parse(Buffer.from(base64Response, 'base64').toString('utf-8'));
+    console.log('Decoded Callback Payload:', decodedResponse);
+
+    const { success, code, data } = decodedResponse;
+    const transactionId = data?.merchantTransactionId;
 
     if (!transactionId) {
-      console.error('Callback Error: No transaction ID found in request');
-      return NextResponse.json({ success: false, error: 'No transaction ID' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Invalid transaction data' }, { status: 400 });
     }
 
-    console.log(`Processing callback for transaction: ${transactionId}`);
+    // 3. Verify status with server-to-server check (Crucial for security)
+    const statusEndpoint = `/pg/v1/status/${phonePeConfig.MERCHANT_ID}/${transactionId}`;
+    const xVerify = generatePhonePeChecksum('', statusEndpoint);
 
-    // 1. Verify Payment Status with PhonePe directly (Server-to-Server)
-    const accessToken = await getPhonePeAccessToken();
-    const statusResponse = await axios.get(
-      `${phonePeConfig.API_URL}/checkout/v2/status/${transactionId}`,
+    const statusCheck = await axios.get(
+      `${phonePeConfig.API_URL}${statusEndpoint}`,
       {
         headers: {
-          'Authorization': `O-Bearer ${accessToken}`,
-          'X-CLIENT-ID': phonePeConfig.CLIENT_ID
+          'Content-Type': 'application/json',
+          'X-VERIFY': xVerify,
+          'X-MERCHANT-ID': phonePeConfig.MERCHANT_ID,
+          'accept': 'application/json'
         }
       }
     );
 
-    const result = statusResponse.data;
-    console.log('PhonePe Verification Result:', result);
+    const verification = statusCheck.data;
+    console.log('S2S Verification Result:', verification);
 
-    // 2. If Payment is Successful, Activate Package
-    if (result.success && (result.state === 'COMPLETED' || result.code === 'PAYMENT_SUCCESS')) {
-      // Find the corresponding pending order
-      const orderRef = db.collection('pending-orders').doc(transactionId);
-      const orderDoc = await orderRef.get();
+    if (verification.success && verification.code === 'PAYMENT_SUCCESS') {
+      // Find the corresponding order in Firestore
+      const ordersRef = db.collection('orders');
+      const q = await ordersRef.where('orderId', '==', transactionId).limit(1).get();
       
-      if (!orderDoc.exists) {
+      if (q.empty) {
         console.error(`Order ${transactionId} not found in database`);
-        return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
+        // We still redirect to success because payment is done, but log the error
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/payment-success?orderId=${transactionId}&txnId=${verification.data.transactionId}&amount=${verification.data.amount / 100}`, 303);
       }
 
-      const orderData = orderDoc.data()!;
+      const orderDoc = q.docs[0];
+      const orderData = orderDoc.data();
       
-      // If already processed, don't duplicate
       if (orderData.status === 'paid') {
-        return NextResponse.json({ success: true, message: 'Already processed' });
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard`, 303);
       }
 
-      const clientId = orderData.clientId;
+      const clientId = orderData.clientId || orderData.userId;
       const batch = db.batch();
       
       const expiryDate = new Date();
-      expiryDate.setDate(expiryDate.getDate() + 30); // 30 days validity
+      expiryDate.setDate(expiryDate.getDate() + 30);
 
       const activePackage = {
-        clientId: orderData.clientId,
-        packageName: orderData.packageName,
-        numberOfReels: orderData.numberOfReels,
-        duration: orderData.duration,
-        price: orderData.price,
+        clientId: clientId,
+        packageName: orderData.packageDetails?.packageName || 'Standard',
+        numberOfReels: orderData.packageDetails?.numberOfReels || 10,
+        duration: orderData.packageDetails?.duration || 30,
+        price: verification.data.amount / 100,
         reelsUsed: 0,
         startDate: admin.firestore.FieldValue.serverTimestamp(),
         expiryDate: admin.firestore.Timestamp.fromDate(expiryDate),
         status: 'active',
-        paymentId: transactionId,
-        paymentAmount: (result.amount || result.data?.amount || 0) / 100,
-        includeAIVoice: orderData.includeAIVoice || false,
-        includeStockFootage: orderData.includeStockFootage || false,
+        paymentId: verification.data.transactionId,
         createdAt: admin.firestore.FieldValue.serverTimestamp()
       };
 
-      // 1. Add to client-packages history collection
+      // Provision account
       const packageRef = db.collection('client-packages').doc();
       batch.set(packageRef, activePackage);
 
-      // 2. Update Client Profile with current package snapshot
       batch.update(db.collection('clients').doc(clientId), {
         currentPackage: { ...activePackage, id: packageRef.id },
-        reelsLimit: orderData.numberOfReels,
-        packageName: orderData.packageName,
-        maxDuration: orderData.duration,
-        reelsCreated: 0 // Reset usage counter for new package
+        reelsLimit: activePackage.numberOfReels,
+        packageName: activePackage.packageName,
+        maxDuration: activePackage.duration,
+        reelsCreated: 0
       });
 
-      // 3. Sync primary User document for UI dashboard
       batch.update(db.collection('users').doc(clientId), {
-        packageName: orderData.packageName,
-        reelsLimit: orderData.numberOfReels
+        packageName: activePackage.packageName,
+        reelsLimit: activePackage.numberOfReels
       });
 
-      // 4. Mark pending order as completed
-      batch.update(orderRef, { 
+      batch.update(orderDoc.ref, { 
         status: 'paid', 
         packageId: packageRef.id,
-        paidAt: admin.firestore.FieldValue.serverTimestamp() 
-      });
-
-      // 5. Create a system notification for the client
-      const notificationRef = db.collection('notifications').doc();
-      batch.set(notificationRef, {
-        message: `Your ${orderData.packageName} package has been activated! You can now start creating up to ${orderData.numberOfReels} reels.`,
-        url: '/dashboard',
-        recipients: [clientId],
-        readBy: [],
-        type: 'system',
-        timestamp: admin.firestore.FieldValue.serverTimestamp()
+        paidAt: admin.firestore.FieldValue.serverTimestamp(),
+        transactionId: verification.data.transactionId
       });
 
       await batch.commit();
-      console.log(`Successfully activated package for client ${clientId}`);
-
-      return NextResponse.json({ success: true, message: 'Package activated' });
+      
+      // Final Redirect to client UI
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/payment-success?orderId=${transactionId}&txnId=${verification.data.transactionId}&amount=${verification.data.amount / 100}`, 303);
     }
 
-    console.warn(`Payment failed or pending for ${transactionId}:`, result.state);
-    return NextResponse.json({ success: false, message: 'Payment not completed' });
+    // Payment Failed
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/payment-failed?reason=${verification.code}&orderId=${transactionId}`, 303);
 
   } catch (error: any) {
-    console.error('Callback Critical Error:', error.response?.data || error.message);
-    return NextResponse.json({ success: false, error: 'Internal server error processing callback' }, { status: 500 });
+    console.error('Callback Logic Error:', error.message);
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/payment-failed?reason=callback_error`, 303);
   }
 }
