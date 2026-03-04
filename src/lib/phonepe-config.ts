@@ -8,6 +8,10 @@ export const phonePeConfig = {
   API_URL: 'https://api-preprod.phonepe.com/apis/pg-sandbox',
   AUTH_URL: 'https://api-preprod.phonepe.com/apis/apphub/v1',
   
+  // Credentials for Checksum (X-VERIFY) - keeping for compatibility
+  SALT_KEY: process.env.PHONEPE_SALT_KEY || '099eb0cd-02cf-4e2a-8aca-3e6c6aff0399',
+  SALT_INDEX: process.env.NEXT_PUBLIC_PHONEPE_SALT_INDEX || '1',
+  
   REDIRECT_URL: (process.env.NEXT_PUBLIC_APP_URL || '') + '/api/phonepe/callback',
   CALLBACK_URL: (process.env.NEXT_PUBLIC_APP_URL || '') + '/api/phonepe/callback',
 };
