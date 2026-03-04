@@ -4,7 +4,7 @@ export const phonePeConfig = {
   CLIENT_SECRET: process.env.PHONEPE_CLIENT_SECRET || '9f146785-f533-4b52-800b-2dc5ba548da4',
   CLIENT_VERSION: 1,
   
-  // Sandbox/Test URLs for v2 OAuth and Checkout
+  // Sandbox/Test URLs for v2 Standard Checkout
   BASE_URL: 'https://api-preprod.phonepe.com/apis/pg-sandbox',
   
   get AUTH_URL() {
@@ -16,12 +16,13 @@ export const phonePeConfig = {
   },
 
   get STATUS_URL() {
-    return `${this.BASE_URL}/checkout/v2/status`;
+    // v2 Status check URL pattern: /checkout/v2/order/{merchantOrderId}/status
+    return `${this.BASE_URL}/checkout/v2/order`;
   },
   
   get REDIRECT_URL() {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
-    return `${baseUrl}/api/phonepe/callback`;
+    return `${baseUrl}/payment-success`;
   },
   
   get CALLBACK_URL() {

@@ -81,7 +81,7 @@ export default function PackagesPage() {
         })
       });
 
-      // Robust check for JSON content type
+      // Robust check for JSON content type to avoid "Unexpected end of JSON input"
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text();

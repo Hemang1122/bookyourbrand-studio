@@ -10,8 +10,6 @@ import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp, 
 import { useAuth } from '@/firebase/provider';
 import { uploadFile, deleteFileFromStorage } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
-import type { FirebaseApp } from 'firebase/app';
-import { packages as subscriptionPackages } from './settings/billing/packages-data';
 import { format, addWeeks } from 'date-fns';
 import { httpsCallable } from 'firebase/functions';
 
@@ -56,11 +54,12 @@ type DataContextType = {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children, user: currentUser }: { children: React.ReactNode, user:User }) {
+  const { firestore, auth, functions } = useFirebaseServices();
   const { toast } = useToast();
   const router = useRouter();
-  const { firestore, auth, functions } = useFirebaseServices();
   const authUid = auth?.currentUser?.uid ?? null;
   
+  // 1. ROLE-BASED FETCH FOR USERS
   const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
 
   const addNotification = useCallback((message: string, url: string, recipients: string[], type: 'system' | 'chat' = 'system', chatId?: string) => {
@@ -75,19 +74,16 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       ...(chatId && { chatId }),
     };
     
-    const notificationsColRef = collection(firestore, 'notifications');
-    addDoc(notificationsColRef, newNotif).catch(async (error) => {
-      const permissionError = new FirestorePermissionError({
-        path: notificationsColRef.path,
+    addDoc(collection(firestore, 'notifications'), newNotif).catch(async (error) => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: 'notifications',
         operation: 'create',
         requestResourceData: newNotif,
-      });
-      errorEmitter.emit('permission-error', permissionError);
+      }));
     });
-    
   }, [firestore]);
   
-  // ROLE-BASED PROJECT FETCH
+  // 2. ROLE-BASED PROJECT FETCH (CRITICAL: PRIVACY FIX)
   const projectsQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
     const ref = collection(firestore, 'projects');
@@ -106,7 +102,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
   const { data: files, isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? query(collection(firestore, 'files')) : null, [firestore]));
   
-  // ROLE-BASED CLIENT FETCH
+  // 3. ROLE-BASED CLIENT FETCH (PRIVACY FIX)
   const clientsQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
     const ref = collection(firestore, 'clients');
@@ -114,8 +110,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     if (currentUser.role === 'client') {
       return query(ref, where('id', '==', currentUser.id));
     }
-    // Team members might need to see clients to identify projects
-    return ref;
+    return ref; // Team members see all client metadata needed for project context
   }, [firestore, currentUser?.id, currentUser?.role]);
 
   const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(clientsQuery);
@@ -125,25 +120,14 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: clientDocuments, isLoading: documentsLoading } = useCollection<ClientDocument>(useMemoFirebase(() => firestore ? collection(firestore, 'clientDocuments') : null, [firestore]));
 
   const { data: scrumUpdatesData, isLoading: scrumUpdatesLoading } = useCollection<ScrumUpdate>(useMemoFirebase(() => {
-    if (!firestore || !currentUser) return null;
-    if (currentUser.role === 'client') return null; // No need to fetch for clients
+    if (!firestore || !currentUser || currentUser.role === 'client') return null;
     return collection(firestore, 'scrum-updates');
   }, [firestore, currentUser]));
 
   const timerSessionsQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser || !authUid) return null;
-    
-    if (currentUser.role === 'admin') {
-      // Admins see all sessions, ordered by date
-      return query(collection(firestore, 'timer-sessions'), orderBy('startTime', 'desc'));
-    }
-    
-    // Non-admins only see their own sessions
-    return query(
-      collection(firestore, 'timer-sessions'), 
-      where('userId', '==', authUid),
-      orderBy('startTime', 'desc')
-    );
+    if (currentUser.role === 'admin') return query(collection(firestore, 'timer-sessions'), orderBy('startTime', 'desc'));
+    return query(collection(firestore, 'timer-sessions'), where('userId', '==', authUid), orderBy('startTime', 'desc'));
   }, [firestore, currentUser, authUid]);
   
   const { data: timerSessions, isLoading: timerSessionsLoading } = useCollection<TimerSession>(timerSessionsQuery);
@@ -155,11 +139,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   
   const chatsQuery = useMemoFirebase(() => {
     if (!firestore || !authUid) return null;
-    return query(
-      collection(firestore, 'chats'),
-      where('participants', 'array-contains', authUid),
-      orderBy('lastMessageAt', 'desc')
-    );
+    return query(collection(firestore, 'chats'), where('participants', 'array-contains', authUid), orderBy('lastMessageAt', 'desc'));
   }, [firestore, authUid]);
   
   const { data: chatsData, isLoading: chatsLoading } = useCollection<Chat>(chatsQuery);
@@ -168,29 +148,19 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   useEffect(() => {
     if (!chatsData || !firestore || !authUid) return;
-    
     const unsubscribes = chatsData.map(chat => {
       const messagesQuery = query(collection(firestore, 'chats', chat.id, 'messages'));
-      
-      const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+      return onSnapshot(messagesQuery, (snapshot) => {
         let count = 0;
         snapshot.forEach(doc => {
           const message = doc.data() as ChatMessage;
-          if (message.senderId !== authUid && !(message.readBy || []).includes(authUid)) {
-            count++;
-          }
+          if (message.senderId !== authUid && !(message.readBy || []).includes(authUid)) count++;
         });
         setUnreadCounts(prev => ({ ...prev, [chat.id]: count }));
       });
-      
-      return unsubscribe;
     });
-
-    return () => {
-      unsubscribes.forEach(unsub => unsub());
-    };
+    return () => unsubscribes.forEach(unsub => unsub());
   }, [chatsData, firestore, authUid]);
-
 
   const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading || chatsLoading || documentsLoading || clientPackagesLoading;
   
@@ -198,31 +168,14 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     if (!usersData) return new Map<string, string>();
     const mapping = new Map<string, string>();
     let editorCount = 1;
-    usersData
-      .filter(u => u.role === 'team')
-      .forEach(u => {
-        const name = `Editor ${editorCount++}`;
-        mapping.set(u.id, name);
-      });
+    usersData.filter(u => u.role === 'team').forEach(u => mapping.set(u.id, `Editor ${editorCount++}`));
     return mapping;
   }, [usersData]);
 
   const anonymizeUser = useCallback((userToAnonymize: User) => {
     if (currentUser?.role === 'client' && userToAnonymize) {
-      if (userToAnonymize.role === 'admin') {
-        return {
-          ...userToAnonymize,
-          name: 'Admin',
-          avatar: 'avatar-generic',
-        };
-      }
-      if (userToAnonymize.role === 'team') {
-        return {
-          ...userToAnonymize,
-          name: teamEditorMapping.get(userToAnonymize.id) || 'Editor',
-          avatar: 'avatar-generic',
-        };
-      }
+      if (userToAnonymize.role === 'admin') return { ...userToAnonymize, name: 'Admin', avatar: 'avatar-generic' };
+      if (userToAnonymize.role === 'team') return { ...userToAnonymize, name: teamEditorMapping.get(userToAnonymize.id) || 'Editor', avatar: 'avatar-generic' };
     }
     return userToAnonymize;
   }, [currentUser?.role, teamEditorMapping]);
@@ -237,23 +190,16 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   
   const clients = useMemo(() => {
     if (!clientsData || !projectsData) return initialClients;
-    return clientsData.map(c => {
-        const projectCount = projectsData.filter(p => 
-            p.client.id === c.id &&
-            p.status !== 'Completed' &&
-            p.status !== 'Approved'
-        ).length;
-        return {
-            ...c,
-            reelsCreated: projectCount,
-        }
-    });
+    return clientsData.map(c => ({
+        ...c,
+        reelsCreated: projectsData.filter(p => p.client.id === c.id && p.status !== 'Completed' && p.status !== 'Approved').length,
+    }));
   }, [clientsData, projectsData]);
 
   const projects = useMemo(() => {
     if (!projectsData || !clients) return initialProjects;
     return projectsData.map(p => {
-        const client = clients.find(c => c.id === (p.client as unknown as { id: string }).id);
+        const client = clients.find(c => c.id === (p.client as any).id);
         return {
             ...p,
             client: client || p.client,
@@ -265,615 +211,219 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   const tasks = useMemo(() => {
     if (!tasksData) return initialTasks;
-    
-    // Safety check: only show tasks for projects that are visible to the user
     const accessibleProjectIds = new Set(projects.map(p => p.id));
-    const filteredTasksData = tasksData.filter(t => accessibleProjectIds.has(t.projectId));
-
-    return filteredTasksData.map(t => {
+    return tasksData.filter(t => accessibleProjectIds.has(t.projectId)).map(t => {
       const project = projects.find(p => p.id === t.projectId);
       const dueDate = t.dueDate || format(addWeeks(new Date(project?.startDate || Date.now()), 1), 'yyyy-MM-dd');
-      
-      const anonymizedTask = {
-          ...t,
-          dueDate,
-          assignedTo: t.assignedTo,
-          remarks: t.remarks || [],
-      };
-
+      const task = { ...t, dueDate, assignedTo: t.assignedTo, remarks: t.remarks || [] };
       if (currentUser?.role === 'client') {
-          anonymizedTask.assignedTo = anonymizeUser(t.assignedTo);
-          anonymizedTask.remarks = (t.remarks || []).map(r => {
+          task.assignedTo = anonymizeUser(t.assignedTo);
+          task.remarks = (t.remarks || []).map(r => {
             const remarkUser = usersData?.find(u => u.id === r.userId);
-            const anonymizedRemarkUser = remarkUser ? anonymizeUser(remarkUser) : null;
-            return {
-                ...r,
-                userName: anonymizedRemarkUser?.name || r.userName,
-            };
+            return { ...r, userName: remarkUser ? anonymizeUser(remarkUser).name : r.userName };
           });
       }
-
-      return anonymizedTask;
+      return task;
     });
   }, [tasksData, projects, currentUser, usersData, anonymizeUser]);
     
-  const notifications = notificationsData;
-
-  const chats = useMemo(() => {
-    if (!chatsData) return [];
-    return chatsData.map(chat => ({
-        ...chat,
-        unreadCount: unreadCounts[chat.id] || 0
-    }));
-  }, [chatsData, unreadCounts]);
-
-  const scrumUpdates = scrumUpdatesData ? [...scrumUpdatesData].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) : [];
-
   const getOrCreateChat = useCallback(async (partnerId: string): Promise<string | null> => {
     if (!firestore || !currentUser || !authUid) return null;
-
     const sortedIds = [authUid, partnerId].sort();
     const chatId = sortedIds.join('_');
     const chatDocRef = doc(firestore, 'chats', chatId);
-
     try {
         const docSnap = await getDoc(chatDocRef);
-        if (docSnap.exists()) {
-          return chatId;
-        } else {
-          const partnerUser = usersData?.find(u => u.id === partnerId);
-          const newChatData: Partial<Chat> = {
-            id: chatId,
-            type: 'direct',
-            participants: sortedIds,
-            createdBy: authUid,
-            createdAt: Timestamp.now(),
-            lastMessage: null,
-            lastMessageAt: Timestamp.now(),
-          };
-          await setDoc(chatDocRef, newChatData);
-          
-          // Notify the other participant
-          addNotification(
-            `You have a new chat with ${currentUser.name}.`,
-            `/support?chatId=${chatId}`,
-            [partnerId],
-            'chat',
-            chatId
-          );
-          
-          return chatId;
-        }
+        if (docSnap.exists()) return chatId;
+        const newChatData: Partial<Chat> = { id: chatId, type: 'direct', participants: sortedIds, createdBy: authUid, createdAt: Timestamp.now(), lastMessage: null, lastMessageAt: Timestamp.now() };
+        await setDoc(chatDocRef, newChatData);
+        addNotification(`New chat with ${currentUser.name}.`, `/support?chatId=${chatId}`, [partnerId], 'chat', chatId);
+        return chatId;
     } catch (serverError: any) {
-        const permissionError = new FirestorePermissionError({
-            path: chatDocRef.path,
-            operation: 'write', 
-            requestResourceData: 'data' in serverError ? serverError.data : undefined,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        toast({ title: 'Chat Error', description: 'Could not create or access the chat.', variant: 'destructive' });
+        toast({ title: 'Chat Error', description: 'Could not access the chat.', variant: 'destructive' });
         return null;
     }
-  }, [firestore, currentUser, authUid, toast, usersData, addNotification]);
+  }, [firestore, currentUser, authUid, toast, addNotification]);
 
   const sendMessage = useCallback(async (chatId: string, messageText: string, mediaUrl?: string, replyTo?: ChatMessage['replyTo']) => {
-    if (!currentUser || !firestore || (!messageText.trim() && !mediaUrl) || !authUid || !usersData) return;
-    
+    if (!currentUser || !firestore || !authUid) return;
     const messagesColRef = collection(firestore, 'chats', chatId, 'messages');
     const chatDocRef = doc(firestore, 'chats', chatId);
-
-    const messagePayload: Partial<ChatMessage> = {
-      senderId: authUid,
-      senderName: currentUser.name,
-      senderRole: currentUser.role,
-      type: mediaUrl ? 'media' : 'text',
-      text: messageText,
-      mediaURL: mediaUrl || null,
-      readBy: [authUid],
-      deleted: false,
-    };
-    
-    if (replyTo) {
-      messagePayload.replyTo = replyTo;
-    }
-
+    const messagePayload: Partial<ChatMessage> = { senderId: authUid, senderName: currentUser.name, senderRole: currentUser.role, type: mediaUrl ? 'media' : 'text', text: messageText, mediaURL: mediaUrl || null, readBy: [authUid], deleted: false, ...(replyTo && { replyTo }) };
     addDocumentNonBlocking(messagesColRef, { ...messagePayload, timestamp: serverTimestamp() });
-    
-    const chatUpdatePayload = {
-      lastMessage: {
-        text: messageText,
-        senderId: authUid,
-        senderName: currentUser.name,
-        type: mediaUrl ? 'media' : 'text',
-        timestamp: serverTimestamp(),
-        readBy: [authUid],
-      },
-      lastMessageAt: serverTimestamp(),
-    };
-    updateDocumentNonBlocking(chatDocRef, chatUpdatePayload);
-    
-    const chat = chats.find(c => c.id === chatId);
+    updateDocumentNonBlocking(chatDocRef, { lastMessage: { text: messageText, senderId: authUid, senderName: currentUser.name, type: mediaUrl ? 'media' : 'text', timestamp: serverTimestamp(), readBy: [authUid] }, lastMessageAt: serverTimestamp() });
+    const chat = chatsData?.find(c => c.id === chatId);
     if (chat) {
         const recipients = chat.participants.filter(pId => pId !== authUid);
-        if (recipients.length > 0) {
-            addNotification(
-                `New message from ${currentUser.name}`,
-                `/support?chatId=${chatId}`,
-                recipients,
-                'chat',
-                chatId
-            );
-        }
+        if (recipients.length > 0) addNotification(`New message from ${currentUser.name}`, `/support?chatId=${chatId}`, recipients, 'chat', chatId);
     }
-
-
-  }, [currentUser, firestore, authUid, usersData, addNotification, chats]);
+  }, [currentUser, firestore, authUid, addNotification, chatsData]);
 
   const createUser = useCallback(async (userData: { name: string; role: 'client' | 'team'; realEmail?: string; }) => {
-    if (!functions) {
-      toast({ title: "Error", description: "Functions service not available.", variant: "destructive" });
-      return Promise.reject("Functions service not available.");
-    }
+    if (!functions) return Promise.reject("Functions service not available.");
     const createUserFn = httpsCallable(functions, 'createUser');
     try {
       const result = await createUserFn(userData);
       return result.data;
     } catch (error: any) {
-      console.error("Error creating user:", error);
       toast({ title: "User Creation Failed", description: error.message, variant: "destructive" });
       throw error;
     }
   }, [functions, toast]);
 
   const deleteUser = useCallback(async (userId: string) => {
-    if (!functions) {
-      toast({ title: "Error", description: "Functions service not available.", variant: "destructive" });
-      return Promise.reject("Functions service not available.");
-    }
+    if (!functions) return Promise.reject("Functions service not available.");
     const deleteUserFn = httpsCallable(functions, 'deleteUser');
     try {
       const result = await deleteUserFn({ userId });
       toast({ title: "Success", description: "User deleted successfully." });
       return result.data;
     } catch (error: any) {
-      console.error("Error deleting user:", error);
       toast({ title: "User Deletion Failed", description: error.message, variant: "destructive" });
       throw error;
     }
   }, [functions, toast]);
 
   const addProject = async (projectData: Omit<Project, 'id' | 'coverImage'>) => {
-    if (!firestore || !currentUser || !usersData || !authUid) return;
-    
+    if (!firestore || !currentUser || !authUid) return;
     const clientRef = doc(firestore, 'clients', projectData.client.id);
-
     try {
         await runTransaction(firestore, async (transaction) => {
             const clientDoc = await transaction.get(clientRef);
-            if (!clientDoc.exists()) {
-                throw "Client document does not exist!";
-            }
-
+            if (!clientDoc.exists()) throw "Client document does not exist!";
             const clientData = clientDoc.data() as Client;
-            const reelsCreated = clientData.reelsCreated || 0;
-            const reelsLimit = clientData.reelsLimit || 0;
-
-            if (reelsCreated >= reelsLimit) {
-                throw "This client has reached their project limit. Please upgrade their plan.";
-            }
-            
+            if ((clientData.reelsCreated || 0) >= (clientData.reelsLimit || 0)) throw "Reel limit reached. Please upgrade.";
             const newProjectId = doc(collection(firestore, 'projects')).id;
-            const newProject: Project = {
-              id: newProjectId,
-              ...projectData,
-              coverImage: `project-${Math.ceil(Math.random() * 3)}`,
-            };
-            
-            const projectRef = doc(firestore, 'projects', newProjectId);
-            transaction.set(projectRef, newProject);
-            transaction.update(clientRef, { reelsCreated: reelsCreated + 1 });
-            
-            const admins = usersData.filter(u => u.role === 'admin');
-            const adminIds = admins.map(a => a.id).filter(id => id !== authUid);
-
-            const notificationRecipients = [
-                ...(projectData.team_ids || []),
-                ...adminIds
-            ];
-            
-            if (notificationRecipients.length > 0) {
-                addNotification(`New project '${newProject.name}' was created by ${currentUser.name}.`, `/projects/${newProject.id}`, notificationRecipients, 'system');
-            }
-            
-            if (projectData.team_ids.length > 0) {
-                addNotification(`You have been assigned to the new project: '${newProject.name}'.`, `/projects/${newProject.id}`, projectData.team_ids, 'system');
-            }
+            const newProject: Project = { id: newProjectId, ...projectData, coverImage: `project-${Math.ceil(Math.random() * 3)}` };
+            transaction.set(doc(firestore, 'projects', newProjectId), newProject);
+            transaction.update(clientRef, { reelsCreated: (clientData.reelsCreated || 0) + 1 });
+            addNotification(`New project '${newProject.name}' created by ${currentUser.name}.`, `/projects/${newProject.id}`, [...(projectData.team_ids || []), ...users.filter(u => u.role === 'admin' && u.id !== authUid).map(a => a.id)], 'system');
             router.push(`/projects/${newProject.id}`);
         });
-
     } catch (e: any) {
-        console.error("Add project transaction failed: ", e);
-        toast({
-            title: 'Project Creation Failed',
-            description: typeof e === 'string' ? e : e.message || 'Could not create the project due to an error.',
-            variant: 'destructive',
-        });
+        toast({ title: 'Project Creation Failed', description: typeof e === 'string' ? e : e.message, variant: 'destructive' });
     }
   };
 
   const addTask = (taskData: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks' | 'dueDate'>) => {
-    if (!firestore || !projects || !currentUser || !usersData || !authUid) return;
+    if (!firestore || !projects || !usersData) return;
     const project = projects.find(p => p.id === taskData.projectId);
     if (!project) return;
-    
-    const assignedToId = project.team_ids[0] || (teamMembers.find(tm => tm.id !== authUid))?.id || authUid;
-    const assignedTo = usersData?.find(u => u.id === assignedToId);
-
-    if (!assignedTo) {
-        toast({title: "Error", description: "No one available to assign the task to.", variant: 'destructive'});
-        return;
-    }
-    const newTaskId = doc(collection(firestore, 'tasks')).id;
-    const newTask: Omit<Task, 'id'> & { id: string } = {
-      id: newTaskId,
-      ...taskData,
-      assignedTo: assignedTo,
-      status: 'Pending',
-      remarks: [],
-      dueDate: format(addWeeks(new Date(project.startDate), 1), 'yyyy-MM-dd'),
-    };
+    const assignedTo = usersData.find(u => project.team_ids.includes(u.id)) || usersData.find(u => u.role === 'admin');
+    if (!assignedTo) return;
+    const newTask: Omit<Task, 'id'> & { id: string } = { id: doc(collection(firestore, 'tasks')).id, ...taskData, assignedTo, status: 'Pending', remarks: [], dueDate: format(addWeeks(new Date(project.startDate), 1), 'yyyy-MM-dd') };
     setDocumentNonBlocking(doc(firestore, 'tasks', newTask.id), newTask, {});
-
-    const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
-    const recipients = Array.from(new Set([project.client.id, ...project.team_ids, ...adminIds]));
-    const finalRecipients = recipients.filter(id => id !== authUid);
-    addNotification(`New task '${newTask.title}' added to project '${project.name}'.`, `/projects/${project.id}`, finalRecipients, 'system');
+    addNotification(`New task '${newTask.title}' added.`, `/projects/${project.id}`, [project.client.id, ...project.team_ids].filter(id => id !== authUid), 'system');
   }
 
   const updateProjectTeam = (projectId: string, teamMemberIds: string[]) => {
-    if (!projectsData || !firestore || !currentUser || !usersData || !authUid) return;
-    const project = projectsData.find(p => p.id === projectId);
-    if (!project) return;
-    
-    const projectRef = doc(firestore, 'projects', projectId);
-    updateDocumentNonBlocking(projectRef, { team_ids: teamMemberIds });
-    
-    toast({ title: 'Team Updated', description: `The team for "${project.name}" has been updated.` });
-    
-    const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
-    const recipients = Array.from(new Set([...teamMemberIds, project.client.id, ...adminIds]));
-    addNotification(`The team for project '${project.name}' has been updated.`, `/projects/${projectId}`, recipients.filter(id => id !== authUid), 'system');
+    if (!firestore) return;
+    updateDocumentNonBlocking(doc(firestore, 'projects', projectId), { team_ids: teamMemberIds });
+    toast({ title: 'Team Updated' });
   };
 
   const updateTaskStatus = (taskId: string, status: TaskStatus, remark: string) => {
-    if (!currentUser || !firestore || !tasksData || !projectsData || !usersData || !authUid) return;
-
-    const task = tasksData?.find(t => t.id === taskId);
+    if (!currentUser || !firestore || !tasksData || !projectsData) return;
+    const task = tasksData.find(t => t.id === taskId);
     if (!task) return;
-    const project = projectsData?.find(p => p.id === task.projectId);
-    if(!project) return;
-
-    const newRemark: TaskRemark = {
-      userId: authUid,
-      userName: currentUser.name,
-      remark,
-      timestamp: new Date().toISOString(),
-      fromStatus: task.status,
-      toStatus: status,
-    };
-    
-    const taskRef = doc(firestore, 'tasks', taskId);
-    updateDocumentNonBlocking(taskRef, {
-      status: status,
-      remarks: [...(task.remarks || []), newRemark]
-    });
-    
-    toast({ title: 'Task Updated', description: `Task status changed to "${status}".` });
-    
-    const adminIds = usersData.filter(u => u.role === 'admin').map(u => u.id);
-    let recipients: string[] = [];
-
-    if (currentUser.role === 'admin') {
-      recipients = [project.client.id, ...project.team_ids];
-    } else if (currentUser.role === 'team') {
-      recipients = [project.client.id, ...adminIds];
-    } else { // client
-      recipients = [...project.team_ids, ...adminIds];
-    }
-    const finalRecipients = Array.from(new Set(recipients)).filter(id => id !== authUid);
-
-    if (finalRecipients.length > 0) {
-      addNotification(
-          `Task '${task.title}' in project '${project.name}' was updated to '${status}'.`, 
-          `/projects/${project.id}`, 
-          finalRecipients,
-          'system'
-      );
-    }
+    const project = projectsData.find(p => p.id === task.projectId);
+    if (!project) return;
+    const newRemark = { userId: authUid!, userName: currentUser.name, remark, timestamp: new Date().toISOString(), fromStatus: task.status, toStatus: status };
+    updateDocumentNonBlocking(doc(firestore, 'tasks', taskId), { status, remarks: [...(task.remarks || []), newRemark] });
+    addNotification(`Task '${task.title}' updated to '${status}'.`, `/projects/${project.id}`, [project.client.id, ...project.team_ids].filter(id => id !== authUid), 'system');
   }
 
   const updateClient = async (clientId: string, clientData: Partial<Client>) => {
-    if (!firestore || !usersData || !clients) return;
-    const clientRef = doc(firestore, 'clients', clientId);
-    await updateDocumentNonBlocking(clientRef, clientData);
-
-    if (clientData.packageName) {
-        const client = clients.find(c => c.id === clientId);
-        const admins = usersData.filter(u => u.role === 'admin');
-
-        if (client && admins.length > 0) {
-            addNotification(
-                `${client.name}'s plan has been upgraded to ${clientData.packageName}.`,
-                `/settings/billing`,
-                admins.map(a => a.id),
-                'system'
-            );
-        }
-    }
+    if (!firestore) return;
+    updateDocumentNonBlocking(doc(firestore, 'clients', clientId), clientData);
   }
 
   const selectPackage = async (packageData: Omit<ClientPackage, 'id' | 'startDate' | 'reelsUsed' | 'status' | 'clientId'>) => {
     if (!firestore || !currentUser || !authUid) return;
-    
-    const clientRef = doc(firestore, 'clients', authUid);
-    const userRef = doc(firestore, 'users', authUid);
-    
-    const newPackage: ClientPackage = {
-      id: uuidv4(),
-      clientId: authUid,
-      ...packageData,
-      reelsUsed: 0,
-      startDate: Timestamp.now(),
-      status: 'active',
-    };
-
+    const newPackage: ClientPackage = { id: uuidv4(), clientId: authUid, ...packageData, reelsUsed: 0, startDate: Timestamp.now(), status: 'active' };
     try {
       await runTransaction(firestore, async (transaction) => {
-        const clientDoc = await transaction.get(clientRef);
-        if (!clientDoc.exists()) throw "Client not found";
-        
-        const currentData = clientDoc.data() as Client;
-        const history = currentData.packageHistory || [];
-        if (currentData.currentPackage) {
-          history.push({ ...currentData.currentPackage, status: 'expired' });
-        }
-
-        transaction.update(clientRef, {
-          currentPackage: newPackage,
-          packageHistory: history,
-          packageName: newPackage.packageName as PackageName,
-          reelsLimit: newPackage.numberOfReels,
-          maxDuration: newPackage.duration,
-          reelsCreated: 0 
-        });
-
-        transaction.update(userRef, {
-          packageName: newPackage.packageName as PackageName,
-          reelsLimit: newPackage.numberOfReels
-        });
+        const clientRef = doc(firestore, 'clients', authUid);
+        const userRef = doc(firestore, 'users', authUid);
+        transaction.update(clientRef, { currentPackage: newPackage, packageName: newPackage.packageName as PackageName, reelsLimit: newPackage.numberOfReels, maxDuration: newPackage.duration, reelsCreated: 0 });
+        transaction.update(userRef, { packageName: newPackage.packageName as PackageName, reelsLimit: newPackage.numberOfReels });
       });
-
-      toast({ title: "Package Activated", description: `You have successfully selected the ${newPackage.packageName} plan.` });
+      toast({ title: "Package Activated" });
       router.push('/dashboard');
-      
-      const admins = usersData?.filter(u => u.role === 'admin') || [];
-      const adminIds = admins.map(a => a.id).filter(id => id !== authUid);
-      if (adminIds.length > 0) {
-        addNotification(
-          `${currentUser.name} has selected a new package: ${newPackage.packageName}`,
-          `/clients`,
-          adminIds,
-          'system'
-        );
-      }
     } catch (e: any) {
-      toast({ title: "Error", description: e.message || "Failed to select package", variant: 'destructive' });
+      toast({ title: "Error", description: e.message, variant: 'destructive' });
     }
   };
 
   const updateTeamMember = (userId: string, memberData: Partial<User>) => {
     if (!firestore) return;
-    const userRef = doc(firestore, 'users', userId);
-    updateDocumentNonBlocking(userRef, memberData);
+    updateDocumentNonBlocking(doc(firestore, 'users', userId), memberData);
   }
 
   const addScrumUpdate = (update: Omit<ScrumUpdate, 'id' | 'timestamp'>) => {
-    if (!firestore || !currentUser || !usersData || !authUid) return;
-    const newUpdate: Omit<ScrumUpdate, 'id'> = { ...update, timestamp: new Date().toISOString() };
-    addDocumentNonBlocking(collection(firestore, 'scrum-updates'), newUpdate);
-
-    const admins = usersData.filter(u => u.role === 'admin');
-    if (admins.length > 0) {
-      const adminIds = admins.map(a => a.id).filter(id => id !== authUid);
-      addNotification(`${currentUser.name}'s daily scrum update has been submitted.`, `/scrum`, adminIds, 'system');
-    }
-  };
+    if (!firestore) return;
+    addDocumentNonBlocking(collection(firestore, 'scrum-updates'), { ...update, timestamp: new Date().toISOString() });
+  }
 
   const addTimerSession = (session: Omit<TimerSession, 'id'>) => {
-    if (!firestore || !currentUser || !usersData || !authUid) return;
-    const newSessionId = doc(collection(firestore, 'timer-sessions')).id;
-    const newSession: TimerSession = { id: newSessionId, ...session };
-    setDocumentNonBlocking(doc(firestore, 'timer-sessions', newSession.id), newSession, {});
-    
-    const admins = usersData.filter(u => u.role === 'admin');
-    if (admins.length > 0) {
-        const adminIds = admins.map(a => a.id).filter(id => id !== authUid);
-        const action = session.endTime ? 'stopped' : 'started';
-        addNotification(`${currentUser.name}'s work timer has been ${action} for session: "${session.name}".`, `/team`, adminIds, 'system');
-    }
-  };
+    if (!firestore) return;
+    setDocumentNonBlocking(doc(collection(firestore, 'timer-sessions')), { ...session }, {});
+  }
 
   const deleteProject = (projectId: string) => {
     if (!firestore) return;
-    const projectRef = doc(firestore, 'projects', projectId);
-    deleteDocumentNonBlocking(projectRef);
-    toast({ title: 'Project Deleted', description: 'The project and all its tasks have been removed.' });
+    deleteDocumentNonBlocking(doc(firestore, 'projects', projectId));
     router.push('/projects');
   };
 
   const updateProject = (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => {
-    if (!firestore || !projects || !currentUser || !usersData || !authUid) return;
-    const projectRef = doc(firestore, 'projects', projectId);
-    const project = projects.find(p => p.id === projectId);
-    if (!project) return;
-
-    updateDocumentNonBlocking(projectRef, projectData);
-    
-    if (projectData.status && project.status !== projectData.status) {
-        const clientRecipients = [project.client.id];
-        const teamRecipients = project.team_ids.filter(id => id !== authUid);
-
-        addNotification(
-            `Project '${project.name}' status has been updated to '${projectData.status}' by ${currentUser.name}.`,
-            `/projects/${projectId}`,
-            [...clientRecipients, ...teamRecipients],
-            'system'
-        );
-    }
-
-    toast({ title: 'Project Updated', description: `Project "${project.name}" has been updated.`});
+    if (!firestore) return;
+    updateDocumentNonBlocking(doc(firestore, 'projects', projectId), projectData);
   };
 
   const addFile = (fileData: Omit<ProjectFile, 'id'>) => {
-    if (!firestore || !currentUser) return;
-    const newFileId = doc(collection(firestore, 'files')).id;
-    const newFile: ProjectFile = {
-      id: newFileId,
-      ...fileData,
-      uploadedAt: Timestamp.now(),
-    };
-    setDocumentNonBlocking(doc(firestore, 'files', newFile.id), newFile, {});
+    if (!firestore) return;
+    setDocumentNonBlocking(doc(collection(firestore, 'files')), { ...fileData, uploadedAt: Timestamp.now() }, {});
   }
   
   const deleteFile = (fileId: string) => {
     if (!firestore) return;
-    const fileRef = doc(firestore, 'files', fileId);
-    deleteDocumentNonBlocking(fileRef);
+    deleteDocumentNonBlocking(doc(firestore, 'files', fileId));
   };
   
   const addClientDocument = async (documentData: Omit<ClientDocument, 'id' | 'uploadedAt' | 'uploadedById' | 'url' | 'storagePath' | 'fileName'>, file: File) => {
     if (!firestore || !currentUser) return;
-    const storagePath = `documents/${documentData.clientId}/${documentData.type}/${file.name}`;
-    const url = await uploadFile(file, storagePath);
-
-    const newDoc: Omit<ClientDocument, 'id'> = {
-      ...documentData,
-      url,
-      storagePath,
-      fileName: file.name,
-      uploadedById: currentUser.id,
-      uploadedAt: Timestamp.now(),
-    };
-    await addDoc(collection(firestore, 'clientDocuments'), newDoc);
-    toast({ title: "Document Uploaded", description: `${documentData.name} has been uploaded successfully.` });
+    const url = await uploadFile(file, `documents/${documentData.clientId}/${documentData.type}/${file.name}`);
+    await addDoc(collection(firestore, 'clientDocuments'), { ...documentData, url, storagePath: `documents/${documentData.clientId}/${documentData.type}/${file.name}`, fileName: file.name, uploadedById: currentUser.id, uploadedAt: Timestamp.now() });
   };
   
   const deleteClientDocument = async (document: ClientDocument) => {
     if (!firestore) return;
-    try {
-      await deleteFileFromStorage(document.storagePath);
-      await deleteDoc(doc(firestore, 'clientDocuments', document.id));
-      toast({ title: "Document Deleted", description: `${document.name} has been deleted.` });
-    } catch (error: any) {
-      console.error("Failed to delete document:", error);
-      if (error.code === 'storage/object-not-found') {
-        // If file doesn't exist in storage, just delete the DB record
-        await deleteDoc(doc(firestore, 'clientDocuments', document.id));
-        toast({ title: "Document record deleted", description: "The file was not found in storage, but the record has been removed." });
-      } else {
-        toast({ title: "Error", description: `Failed to delete document: ${error.message}`, variant: "destructive" });
-      }
-    }
+    await deleteFileFromStorage(document.storagePath);
+    await deleteDoc(doc(firestore, 'clientDocuments', document.id));
   };
   
   const markNotificationsAsRead = useCallback(async (type?: 'system' | 'chat') => {
-    if (!firestore || !notifications || notifications.length === 0 || !authUid) return;
-
-    const unreadNotifications = notifications.filter(n => 
-        !(n.readBy || []).includes(authUid) &&
-        (!type || n.type === type)
-    );
-    if (unreadNotifications.length === 0) return;
-
+    if (!firestore || !authUid || notificationsData.length === 0) return;
     const batch = writeBatch(firestore);
-    unreadNotifications.forEach(notification => {
-      const notifRef = doc(firestore, 'notifications', notification.id);
-      batch.update(notifRef, { 
-        readBy: arrayUnion(authUid) 
-      });
+    notificationsData.filter(n => !(n.readBy || []).includes(authUid) && (!type || n.type === type)).forEach(n => {
+      batch.update(doc(firestore, 'notifications', n.id), { readBy: arrayUnion(authUid) });
     });
-
-    await batch.commit().catch(err => {
-      console.error("Failed to mark notifications as read:", err);
-    });
-  }, [firestore, notifications, authUid]);
+    await batch.commit();
+  }, [firestore, notificationsData, authUid]);
 
   const markChatNotificationsAsRead = useCallback(async (chatId: string) => {
     if (!firestore || !authUid) return;
-    
-    const q = query(
-      collection(firestore, 'notifications'),
-      where('chatId', '==', chatId),
-      where('recipients', 'array-contains', authUid)
-    );
-    
-    const querySnapshot = await getDocs(q);
-    if (querySnapshot.empty) return;
-    
+    const q = query(collection(firestore, 'notifications'), where('chatId', '==', chatId), where('recipients', 'array-contains', authUid));
+    const snap = await getDocs(q);
     const batch = writeBatch(firestore);
-    querySnapshot.docs.forEach(document => {
-      const notif = document.data() as Notification;
-      if (!(notif.readBy || []).includes(authUid)) {
-        const notifRef = doc(firestore, 'notifications', document.id);
-        batch.update(notifRef, {
-          readBy: arrayUnion(authUid)
-        });
-      }
-    });
-
-    await batch.commit().catch(err => {
-      console.error(`Failed to mark chat ${chatId} as read:`, err);
-    });
+    snap.docs.forEach(d => batch.update(d.ref, { readBy: arrayUnion(authUid) }));
+    await batch.commit();
   }, [firestore, authUid]);
-
 
   return (
     <DataContext.Provider value={{ 
-        projects,
-        tasks,
-        clients,
-        teamMembers, 
-        users,
-        scrumUpdates,
-        files,
-        clientDocuments: clientDocuments || [],
-        notifications,
-        chats,
-        getOrCreateChat,
-        sendMessage,
-        timerSessions: timerSessions || [],
-        clientPackages: clientPackages || [],
-        addProject, 
-        addTask, 
-        updateProjectTeam, 
-        updateTaskStatus,
-        createUser,
-        deleteUser,
-        updateClient,
-        selectPackage,
-        updateTeamMember,
-        addScrumUpdate,
-        addTimerSession,
-        isLoading,
-        deleteProject,
-        updateProject,
-        addFile,
-        deleteFile,
-        addClientDocument,
-        deleteClientDocument,
-        addNotification,
-        markNotificationsAsRead,
-        markChatNotificationsAsRead,
+        projects, tasks, clients, teamMembers, users, scrumUpdates, files, clientDocuments: clientDocuments || [], notifications: notificationsData, chats: chatsData || [], getOrCreateChat, sendMessage, timerSessions: timerSessions || [], clientPackages: clientPackages || [], addProject, addTask, updateProjectTeam, updateTaskStatus, createUser, deleteUser, updateClient, selectPackage, updateTeamMember, addScrumUpdate, addTimerSession, isLoading, deleteProject, updateProject, addFile, deleteFile, addClientDocument, deleteClientDocument, addNotification, markNotificationsAsRead, markChatNotificationsAsRead,
     }}>
       {children}
     </DataContext.Provider>
@@ -882,8 +432,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
 export function useData() {
   const context = useContext(DataContext);
-  if (context === undefined) {
-    throw new Error('useData must be used within a DataProvider');
-  }
+  if (context === undefined) throw new Error('useData must be used within a DataProvider');
   return context;
 }

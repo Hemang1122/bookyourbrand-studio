@@ -39,7 +39,7 @@ export async function getPhonePeAccessToken(): Promise<string> {
     const responseText = await response.text();
 
     if (!response.ok) {
-      console.error("PHONEPE RAW ERROR:", responseText);
+      console.error("PHONEPE RAW OAUTH ERROR:", responseText);
       throw new Error(`PhonePe authentication failed (${response.status}): ${responseText}`);
     }
 
@@ -66,7 +66,7 @@ export async function getPhonePeAccessToken(): Promise<string> {
 }
 
 /**
- * Encodes an object to a Base64 string (useful for legacy v1 headers if needed).
+ * Encodes an object to a Base64 string.
  */
 export function encodePayload(payload: object): string {
   return Buffer.from(JSON.stringify(payload)).toString('base64');
