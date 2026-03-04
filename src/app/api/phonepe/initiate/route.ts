@@ -1,74 +1,72 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { phonePeConfig } from '@/lib/phonepe-config';
-import { encodePayload, generatePhonePeChecksum } from '@/lib/phonepe-helper';
+import { getPhonePeAccessToken } from '@/lib/phonepe-helper';
 import axios from 'axios';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { orderId, amount, customerPhone, userId } = body;
+    const { orderId, amount, customerPhone, customerName } = body;
 
-    console.log('=== PhonePe Standard Initiation ===');
-    console.log('Order ID:', orderId);
-    console.log('Amount:', amount);
+    console.log('=== PhonePe v2 Payment Initiation ===');
+    
+    // 1. Obtain OAuth Access Token
+    const accessToken = await getPhonePeAccessToken();
 
-    // 1. Construct Standard Payload
-    const payload = {
-      merchantId: phonePeConfig.MERCHANT_ID,
-      merchantTransactionId: orderId,
-      merchantUserId: userId || 'USER_' + orderId.split('_')[0],
-      amount: Math.round(amount * 100), // Ensure it's an integer in paise
-      redirectUrl: phonePeConfig.REDIRECT_URL,
-      redirectMode: 'POST',
-      callbackUrl: phonePeConfig.CALLBACK_URL,
-      mobileNumber: customerPhone || '9999999999',
-      paymentInstrument: {
-        type: 'PAY_PAGE'
+    // 2. Construct v2 Checkout Payload
+    const paymentPayload = {
+      merchantOrderId: orderId,
+      amount: Math.round(amount * 100), // Convert to paise (must be integer)
+      expireAfter: 3600, // 1 hour
+      metaInfo: {
+        udf1: customerName || 'Client',
+        udf2: customerPhone || '9999999999',
+        udf3: 'Package Purchase'
+      },
+      paymentFlow: {
+        type: 'PG_CHECKOUT',
+        merchantUrls: {
+          redirectUrl: phonePeConfig.REDIRECT_URL,
+          callbackUrl: phonePeConfig.CALLBACK_URL
+        }
       }
     };
 
-    // 2. Encode and Hash
-    const base64Payload = encodePayload(payload);
-    const endpoint = '/pg/v1/pay';
-    const xVerify = generatePhonePeChecksum(base64Payload, endpoint);
-
-    console.log('X-VERIFY generated successfully');
-
-    // 3. Request to Standard API
+    // 3. Initiate Checkout with O-Bearer token
     const response = await axios.post(
-      `${phonePeConfig.API_URL}${endpoint}`,
-      { request: base64Payload },
+      phonePeConfig.PAY_URL,
+      paymentPayload,
       {
         headers: {
           'Content-Type': 'application/json',
-          'X-VERIFY': xVerify,
-          'accept': 'application/json'
+          'Authorization': `O-Bearer ${accessToken}`,
+          'X-CLIENT-ID': phonePeConfig.CLIENT_ID
         }
       }
     );
 
-    console.log('PhonePe Response Success:', response.data.success);
+    console.log('PhonePe v2 Response:', response.data);
 
-    if (response.data && response.data.success) {
+    if (response.data && response.data.redirectUrl) {
       return NextResponse.json({
         success: true,
-        paymentUrl: response.data.data.instrumentResponse.redirectInfo.url,
+        paymentUrl: response.data.redirectUrl,
         orderId: orderId
       });
     } else {
-      throw new Error(response.data?.message || 'PhonePe initiation failed');
+      throw new Error(response.data?.message || 'Invalid response from PhonePe Checkout');
     }
 
   } catch (error: any) {
-    console.error('=== PhonePe API Error ===');
-    console.error('Message:', error.message);
-    console.error('Response Data:', error.response?.data);
+    console.error('=== PhonePe Initiation Error ===');
+    const errorData = error.response?.data;
+    console.error('Details:', JSON.stringify(errorData, null, 2));
     
     return NextResponse.json(
       { 
         success: false, 
-        error: error.response?.data?.message || error.message || 'Payment service unavailable',
-        code: error.response?.data?.code
+        error: errorData?.message || error.message || 'Payment initiation failed',
+        code: errorData?.code
       },
       { status: 500 }
     );
