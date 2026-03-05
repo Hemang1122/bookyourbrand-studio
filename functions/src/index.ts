@@ -1,9 +1,9 @@
-
 import * as admin from "firebase-admin";
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import * as nodemailer from 'nodemailer';
-import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { onDocumentUpdated, onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { sendWelcomeEmail } from './email-service';
 
 if (admin.apps.length === 0) {
     admin.initializeApp();
@@ -11,6 +11,35 @@ if (admin.apps.length === 0) {
 
 const gmailUser = defineSecret('GMAIL_USER');
 const gmailAppPassword = defineSecret('GMAIL_APP_PASSWORD');
+
+/**
+ * Triggered when a new user document is created in Firestore.
+ * Sends a welcome email with credentials if a temporary password is provided.
+ */
+export const onUserDocCreated = onDocumentCreated('users/{userId}', async (event) => {
+  const userData = event.data?.data();
+  if (!userData || !userData.email) return;
+
+  console.log('New user document created:', event.params.userId, userData.email);
+
+  try {
+    const emailResult = await sendWelcomeEmail({
+      to: userData.realEmail || userData.email,
+      name: userData.name || 'User',
+      email: userData.email,
+      password: userData.tempPassword || 'BookYourBrands@123',
+      loginUrl: 'https://bybcrm.bookyourbrands.com/login'
+    });
+
+    if (emailResult.success) {
+      console.log('✅ Automated welcome email sent to:', userData.email);
+    } else {
+      console.error('❌ Failed to send automated welcome email:', emailResult.error);
+    }
+  } catch (error) {
+    console.error('❌ Error in onUserDocCreated trigger:', error);
+  }
+});
 
 export const createUser = onCall({ secrets: [gmailUser, gmailAppPassword] }, async (request) => {
   // Verify caller is authenticated
@@ -55,6 +84,7 @@ export const createUser = onCall({ secrets: [gmailUser, gmailAppPassword] }, asy
         avatar: 'avatar-' + (Math.floor(Math.random() * 3) + 1),
         isOnline: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        tempPassword: password, // Store password so trigger can send it
     };
     if (realEmail) {
         userDocData.realEmail = realEmail;
@@ -85,59 +115,12 @@ export const createUser = onCall({ secrets: [gmailUser, gmailAppPassword] }, asy
       await clientRef.set(clientDocData);
     }
     
-    // Step 4: Send welcome email if realEmail is provided
-    if (realEmail) {
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: gmailUser.value(),
-          pass: gmailAppPassword.value(),
-        },
-      });
-
-      const roleName = role === 'client' ? 'Client' : 'Editor';
-      const portalUrl = 'https://studio-app--studio-6449361728-f6242.us-central1.hosted.app/login';
-
-      const mailOptions = {
-        from: `"BookYourBrands" <${gmailUser.value()}>`,
-        to: realEmail,
-        subject: 'Welcome to BookYourBrands CRM!',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
-            <h2 style="color: #6366f1; text-align: center;">Welcome to BookYourBrands, ${name}! 🎉</h2>
-            <p>Your ${roleName} account has been created successfully. You can now log in to our portal using the credentials below.</p>
-            
-            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #6366f1;">
-              <p style="margin: 8px 0;"><strong>Login URL:</strong> <a href="${portalUrl}" style="color: #6366f1;">${portalUrl}</a></p>
-              <p style="margin: 8px 0;"><strong>Email:</strong> ${email}</p>
-              <p style="margin: 8px 0;"><strong>Password:</strong> ${password}</p>
-            </div>
-            
-            <p style="color: #ef4444;"><strong>Important:</strong> For your security, please change your password after your first login.</p>
-            
-            <p>If you have any questions, feel free to reply to this email or contact your account manager directly.</p>
-            
-            <p>Best regards,<br/><strong>The BookYourBrands Team</strong></p>
-          </div>
-        `,
-      };
-
-      try {
-        await transporter.sendMail(mailOptions);
-        console.log('Welcome email sent to:', realEmail);
-      } catch (emailError) {
-        console.error('Failed to send welcome email:', emailError);
-        // Do not fail the whole function if email fails, just log it.
-      }
-    }
-
-
     return {
       success: true,
       uid: userRecord.uid,
       email: email,
       password: password,
-      message: name + ' created successfully',
+      message: name + ' created successfully. Welcome email is being processed.',
     };
 
   } catch (error: any) {
@@ -245,7 +228,7 @@ export const onProjectStatusCompleted = onDocumentUpdated(
     
     // Send email
     const mailOptions = {
-      from: `"BookYourBrands" <${gmailUser.value()}>`,
+      from: `"BookYourBrands" <crm@bookyourbrands.com>`,
       to: realEmail,
       subject: `🎬 Your Reel is Ready for Review — ${projectName}`,
       html: `
@@ -293,10 +276,12 @@ export const onProjectStatusCompleted = onDocumentUpdated(
     };
     
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'mail.bookyourbrands.com',
+      port: 465,
+      secure: true,
       auth: {
-        user: gmailUser.value(),
-        pass: gmailAppPassword.value(),
+        user: 'updates@bookyourbrands.com',
+        pass: 'Arpit@123'
       },
     });
     
