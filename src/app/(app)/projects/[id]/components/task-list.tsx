@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -42,12 +41,24 @@ const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
   const canUpdateStatus = (user?.role === 'admin' || (user?.role === 'team' && user.id === task.assignedTo?.id));
   const assigneeName = task.assignedTo?.name || 'Unassigned';
 
+  const statusColors = {
+    'Pending': 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+    'In Progress': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    'Completed': 'bg-green-500/10 text-green-400 border-green-500/20',
+    'Rework': 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+  };
+
   return (
       <div className="rounded-xl p-4 mb-3 bg-white/[0.03] border border-white/5 hover:border-purple-500/20 transition-all cursor-pointer group">
         <div className="flex items-start justify-between mb-2">
-            <p className="text-sm font-medium text-white group-hover:text-purple-300 transition-colors pr-2">
-                {task.title}
-            </p>
+            <div className="flex-1 min-w-0 pr-2">
+                <p className="text-sm font-medium text-white group-hover:text-purple-300 transition-colors truncate">
+                    {task.title}
+                </p>
+                <Badge variant="outline" className={cn("mt-1 text-[10px] h-5 py-0 px-2 font-semibold", statusColors[task.status])}>
+                    {task.status}
+                </Badge>
+            </div>
             <div className="flex items-center gap-1">
             {task.remarks && task.remarks.length > 0 && (
               <Popover>
@@ -119,10 +130,12 @@ const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
             </div>
         )}
         <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/5">
-            <Avatar className="h-5 w-5">
-                <AvatarFallback className="text-[10px] bg-gradient-to-br from-purple-500/30 to-pink-500/30 text-purple-200">{assigneeName.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <span className="text-xs text-muted-foreground">{assigneeName}</span>
+            <div className="flex items-center gap-2">
+                <Avatar className="h-5 w-5">
+                    <AvatarFallback className="text-[10px] bg-gradient-to-br from-purple-500/30 to-pink-500/30 text-purple-200">{assigneeName.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <span className="text-xs text-muted-foreground truncate max-w-[80px]">{assigneeName}</span>
+            </div>
         </div>
       </div>
   );
@@ -143,10 +156,10 @@ export function TaskList({ projectId }: TaskListProps) {
   const [nextStatus, setNextStatus] = useState<TaskStatus | null>(null);
 
 
-  const projectTasks = (tasks || []).filter((t) => t.projectId === projectId);
+  const projectTasks = (tasks || []).filter((t) => t.projectId === projectId).sort((a, b) => (a as any).order - (b as any).order);
   
   const statusConfig: { [key in TaskStatus]: { color: string, textColor: string } } = {
-    Pending: { color: 'bg-gray-400', textColor: 'text-gray-400' },
+    Pending: { color: 'bg-yellow-400', textColor: 'text-yellow-400' },
     'In Progress': { color: 'bg-blue-400', textColor: 'text-blue-400' },
     'Rework': { color: 'bg-orange-400', textColor: 'text-orange-400' },
     Completed: { color: 'bg-green-400', textColor: 'text-green-400' },
@@ -170,8 +183,8 @@ export function TaskList({ projectId }: TaskListProps) {
       <div className="space-y-4">
         <div className="flex items-center justify-between mb-6">
             <div>
-                <h2 className="text-xl font-bold text-white">Tasks</h2>
-                <p className="text-sm text-muted-foreground">Manage and track all tasks for this project</p>
+                <h2 className="text-xl font-bold text-white">Project Workflow</h2>
+                <p className="text-sm text-muted-foreground">Standard task lifecycle for video production</p>
             </div>
             {(user?.role === 'admin' || user?.role === 'client' || user?.role === 'team') && (
             <div className="flex justify-end gap-2">
@@ -181,7 +194,7 @@ export function TaskList({ projectId }: TaskListProps) {
                 </Button>
                 <Button onClick={() => setIsAiTaskOpen(true)} className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0">
                     <Wand2 className="mr-2 h-4 w-4" />
-                    Generate with AI
+                    AI Assistant
                 </Button>
             </div>
             )}
@@ -231,5 +244,3 @@ export function TaskList({ projectId }: TaskListProps) {
     </>
   );
 }
-
-    

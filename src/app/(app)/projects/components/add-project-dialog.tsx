@@ -20,8 +20,10 @@ import { MultiSelect } from '@/components/ui/multi-select';
 import { useData } from '../../data-provider';
 import { useAuth } from '@/firebase/provider';
 import { useFirebaseServices } from '@/firebase';
-import { checkPackageLimit, incrementPackageUsage } from '@/lib/package-utils';
+import { checkPackageLimit } from '@/lib/package-utils';
 import { format } from 'date-fns';
+import { Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 type AddProjectDialogProps = {
   onProjectAdd: (project: Omit<Project, 'id' | 'coverImage'>) => void;
@@ -36,7 +38,10 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
   const [guidelines, setGuidelines] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<string | undefined>(preselectedClient?.id);
   const [team_ids, setTeamIds] = useState<string[]>([]);
+  const [isCreating, setIsCreating] = useState(false);
+  
   const { toast } = useToast();
+  const router = useRouter();
   const { user: currentUser } = useAuth();
   const { teamMembers, clients } = useData();
   const { firestore } = useFirebaseServices();
@@ -73,39 +78,64 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
       return;
     }
 
-    const newProject = {
+    setIsCreating(true);
+
+    // Identify the primary editor object to pass to the API
+    const primaryEditorId = team_ids[0];
+    const assignedEditor = teamMembers.find(m => m.id === primaryEditorId);
+
+    const projectData = {
       name,
       description,
       guidelines,
       startDate: format(new Date(), 'yyyy-MM-dd'),
-      deadline: '', // Deadline is now set during team assignment
+      deadline: '', 
       client: clientForProject,
       team_ids: isClientUser ? [] : team_ids,
       status: 'Active' as const,
     };
 
     try {
-      // Create project
-      onProjectAdd(newProject);
-      
-      // Increment package usage
-      const result = await incrementPackageUsage(firestore, clientForProject.id);
-      if (result.success) {
-        toast({ 
-          title: 'Project Created', 
-          description: result.message 
-        });
-      }
+      // Call the new API that creates project + automated tasks
+      const response = await fetch('/api/projects/create-with-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectData,
+          assignedEditor: assignedEditor || null
+        })
+      });
 
-      setOpen(false);
-      // Reset fields
-      setName('');
-      setDescription('');
-      setGuidelines('');
-      setSelectedClientId(preselectedClient?.id);
-      setTeamIds([]);
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: 'Project Created Successfully!',
+          description: `Initialized with ${data.tasksCreated} automated workflow tasks.`,
+        });
+        
+        setOpen(false);
+        // Reset fields
+        setName('');
+        setDescription('');
+        setGuidelines('');
+        setSelectedClientId(preselectedClient?.id);
+        setTeamIds([]);
+        
+        // Redirect to the new project
+        router.push(`/projects/${data.projectId}`);
+      } else {
+        throw new Error(data.error || 'Failed to create project');
+      }
     } catch (error: any) {
       console.error("Project creation failed", error);
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -117,7 +147,7 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle>Add New Project</DialogTitle>
-          <DialogDescription>Fill in the details for the new project. Deadline and team will be set by the admin later.</DialogDescription>
+          <DialogDescription>Fill in the details for the new project. A standard workflow will be auto-generated.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
             {selectedClientId && !currentClientData?.currentPackage && (
@@ -139,34 +169,48 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
 
           <div className="space-y-2">
             <Label htmlFor="name">Project Name</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Q4 Marketing Campaign" />
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Q4 Marketing Campaign" disabled={isCreating} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
-            <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Provide a brief description of the project." />
+            <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Provide a brief description of the project." disabled={isCreating} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="guidelines">Project Guidelines</Label>
-            <Textarea id="guidelines" value={guidelines} onChange={(e) => setGuidelines(e.target.value)} placeholder="Provide specific instructions or guidelines for the team." />
+            <Textarea id="guidelines" value={guidelines} onChange={(e) => setGuidelines(e.target.value)} placeholder="Provide specific instructions or guidelines for the team." disabled={isCreating} />
           </div>
           {!isClientUser && (
-            <div className="space-y-2">
-                <Label htmlFor="client">Client</Label>
-                <Select onValueChange={setSelectedClientId} value={selectedClientId}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select a client" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name || c.email?.split('@')[0]}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-            </div>
+            <>
+              <div className="space-y-2">
+                  <Label htmlFor="client">Client</Label>
+                  <Select onValueChange={setSelectedClientId} value={selectedClientId} disabled={isCreating}>
+                      <SelectTrigger>
+                          <SelectValue placeholder="Select a client" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name || c.email?.split('@')[0]}</SelectItem>)}
+                      </SelectContent>
+                  </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Assign Team Members</Label>
+                <MultiSelect
+                  options={teamMemberOptions}
+                  selected={team_ids}
+                  onChange={setTeamIds}
+                  placeholder="Select team members..."
+                  disabled={isCreating}
+                />
+                <p className="text-[10px] text-muted-foreground">The first member selected will be assigned the automated tasks.</p>
+              </div>
+            </>
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleAddProject} disabled={!currentClientData?.currentPackage || (currentClientData.currentPackage.reelsUsed >= currentClientData.currentPackage.numberOfReels)}>
-            Add Project
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={isCreating}>Cancel</Button>
+          <Button onClick={handleAddProject} disabled={isCreating || !currentClientData?.currentPackage || (currentClientData.currentPackage.reelsUsed >= currentClientData.currentPackage.numberOfReels)}>
+            {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {isCreating ? 'Initializing...' : 'Add Project'}
           </Button>
         </DialogFooter>
       </DialogContent>
