@@ -33,28 +33,24 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onProjectStatusCompleted = exports.deleteUser = exports.createUser = exports.onUserDocCreated = void 0;
+exports.deleteUser = exports.createUser = exports.onUserDocCreated = void 0;
 const admin = __importStar(require("firebase-admin"));
 const https_1 = require("firebase-functions/v2/https");
-const params_1 = require("firebase-functions/params");
-const nodemailer = __importStar(require("nodemailer"));
 const firestore_1 = require("firebase-functions/v2/firestore");
 const email_service_1 = require("./email-service");
 if (admin.apps.length === 0) {
     admin.initializeApp();
 }
-const gmailUser = (0, params_1.defineSecret)('GMAIL_USER');
-const gmailAppPassword = (0, params_1.defineSecret)('GMAIL_APP_PASSWORD');
 /**
  * Triggered when a new user document is created in Firestore.
- * Sends a welcome email with credentials if a temporary password is provided.
+ * Sends a welcome email with credentials.
  */
 exports.onUserDocCreated = (0, firestore_1.onDocumentCreated)('users/{userId}', async (event) => {
     var _a;
     const userData = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!userData || !userData.email)
         return;
-    console.log('New user document created:', event.params.userId, userData.email);
+    console.log('🔔 New user created:', userData.email);
     try {
         const emailResult = await (0, email_service_1.sendWelcomeEmail)({
             to: userData.realEmail || userData.email,
@@ -64,23 +60,27 @@ exports.onUserDocCreated = (0, firestore_1.onDocumentCreated)('users/{userId}', 
             loginUrl: 'https://bybcrm.bookyourbrands.com/login'
         });
         if (emailResult.success) {
-            console.log('✅ Automated welcome email sent to:', userData.email);
+            console.log('✅ Email sent successfully to:', userData.email);
         }
         else {
-            console.error('❌ Failed to send automated welcome email:', emailResult.error);
+            console.error('❌ Email failed:', emailResult.error);
         }
     }
     catch (error) {
         console.error('❌ Error in onUserDocCreated trigger:', error);
     }
 });
-exports.createUser = (0, https_1.onCall)({ secrets: [gmailUser, gmailAppPassword] }, async (request) => {
+/**
+ * Callable function to create a new user (admin/team/client).
+ * Handles Firebase Auth account creation and initial Firestore doc.
+ */
+exports.createUser = (0, https_1.onCall)(async (request) => {
     var _a;
     // Verify caller is authenticated
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Must be logged in');
     }
-    // Verify caller is an admin by checking Firestore
+    // Verify caller is an admin
     const callerDoc = await admin.firestore()
         .doc('users/' + request.auth.uid).get();
     if (!callerDoc.exists || ((_a = callerDoc.data()) === null || _a === void 0 ? void 0 : _a.role) !== 'admin') {
@@ -147,20 +147,16 @@ exports.createUser = (0, https_1.onCall)({ secrets: [gmailUser, gmailAppPassword
         };
     }
     catch (error) {
-        console.error('createUser failed:', JSON.stringify({
-            code: error.code,
-            message: error.message,
-            stack: error.stack,
-        }));
+        console.error('createUser failed:', error);
         if (error.code === 'auth/email-already-exists') {
             throw new https_1.HttpsError('already-exists', 'A user with this email already exists');
-        }
-        if (error.code === 'auth/invalid-password') {
-            throw new https_1.HttpsError('invalid-argument', 'Password must be at least 6 characters');
         }
         throw new https_1.HttpsError('internal', 'Failed to create user: ' + error.message);
     }
 });
+/**
+ * Callable function to delete a user.
+ */
 exports.deleteUser = (0, https_1.onCall)(async (request) => {
     var _a;
     if (!request.auth) {
@@ -176,120 +172,18 @@ exports.deleteUser = (0, https_1.onCall)(async (request) => {
         throw new https_1.HttpsError('invalid-argument', 'userId required');
     }
     try {
-        // Get user data before deleting
-        const userDoc = await admin.firestore()
-            .doc('users/' + userId).get();
+        const userDoc = await admin.firestore().doc('users/' + userId).get();
         const userData = userDoc.data();
-        // Delete from Firebase Auth
         await admin.auth().deleteUser(userId);
-        // Delete from Firestore users collection
         await admin.firestore().doc('users/' + userId).delete();
-        // If client, delete from clients collection too
         if ((userData === null || userData === void 0 ? void 0 : userData.role) === 'client') {
             await admin.firestore().doc('clients/' + userId).delete();
         }
         return { success: true, message: 'User deleted successfully' };
     }
     catch (error) {
-        console.error('deleteUser failed:', JSON.stringify({
-            code: error.code,
-            message: error.message,
-            stack: error.stack,
-        }));
+        console.error('deleteUser failed:', error);
         throw new https_1.HttpsError('internal', 'Failed to delete user: ' + error.message);
-    }
-});
-exports.onProjectStatusCompleted = (0, firestore_1.onDocumentUpdated)({ document: 'projects/{projectId}', secrets: [gmailUser, gmailAppPassword] }, async (event) => {
-    var _a, _b, _c;
-    const before = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
-    const after = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
-    // Only trigger when status changes TO "Completed"
-    if ((before === null || before === void 0 ? void 0 : before.status) === (after === null || after === void 0 ? void 0 : after.status) || (after === null || after === void 0 ? void 0 : after.status) !== 'Completed') {
-        return;
-    }
-    const projectId = event.params.projectId;
-    const projectName = after === null || after === void 0 ? void 0 : after.name;
-    const clientId = (_c = after === null || after === void 0 ? void 0 : after.client) === null || _c === void 0 ? void 0 : _c.id;
-    if (!clientId) {
-        console.log('No client ID found for project:', projectId);
-        return;
-    }
-    const db = admin.firestore();
-    // Get client's real email
-    const clientDoc = await db.collection('clients').doc(clientId).get();
-    if (!clientDoc.exists) {
-        console.log('Client document not found:', clientId);
-        return;
-    }
-    const clientData = clientDoc.data();
-    const realEmail = clientData === null || clientData === void 0 ? void 0 : clientData.realEmail;
-    if (!realEmail) {
-        console.log('No real email for client:', clientId);
-        return;
-    }
-    // Send email
-    const mailOptions = {
-        from: `"BookYourBrands" <crm@bookyourbrands.com>`,
-        to: realEmail,
-        subject: `🎬 Your Reel is Ready for Review — ${projectName}`,
-        html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width">
-        </head>
-        <body style="margin:0;padding:0;background:#0F0F1A;font-family:'Segoe UI',Arial,sans-serif;">
-          <div style="max-width:600px;margin:0 auto;padding:40px 20px;">
-            <div style="text-align:center;margin-bottom:32px;">
-              <h1 style="margin:0;font-size:28px;font-weight:800;background:linear-gradient(135deg,#C084FC,#EC4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
-                BookYourBrands
-              </h1>
-              <p style="color:#9CA3AF;margin:8px 0 0;">Your Creative Studio</p>
-            </div>
-            <div style="background:#13131F;border-radius:20px;padding:40px;border:1px solid rgba(124,58,237,0.2);">
-              <div style="text-align:center;margin-bottom:24px;">
-                <div style="display:inline-block;background:rgba(124,58,237,0.15);border-radius:50%;padding:20px;border:2px solid rgba(124,58,237,0.3);">
-                  <span style="font-size:40px;">🎬</span>
-                </div>
-              </div>
-              <h2 style="color:white;font-size:24px;text-align:center;margin:0 0 8px;">Your Reel is Ready!</h2>
-              <p style="color:#9CA3AF;text-align:center;margin:0 0 32px;font-size:16px;">
-                <strong style="color:#C084FC;">${projectName}</strong> has been completed by our team.
-              </p>
-              <p style="color:#D1D5DB;font-size:15px;line-height:1.6;margin:0 0 32px;">
-                Hi there! 👋 Great news — your reel is polished and ready for your review. Please watch it carefully. To request any changes, please get in touch with our support team and let them know what you'd like changed.
-              </p>
-              <p style="color:#6B7280;font-size:13px;text-align:center;margin:0;">
-                If you have questions, reply to this email.
-              </p>
-            </div>
-            <div style="text-align:center;margin-top:32px;">
-              <p style="color:#4B5563;font-size:13px;margin:0;">© 2026 BookYourBrands. All rights reserved.</p>
-              <p style="color:#4B5563;font-size:12px;margin:8px 0 0;">
-                Founded by <span style="color:#9CA3AF;">Preeti Lalani</span>
-              </p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    };
-    const transporter = nodemailer.createTransport({
-        host: 'mail.bookyourbrands.com',
-        port: 465,
-        secure: true,
-        auth: {
-            user: 'updates@bookyourbrands.com',
-            pass: 'Arpit@123'
-        },
-    });
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log(`Approval email sent to ${realEmail} for project ${projectName}`);
-    }
-    catch (error) {
-        console.error('Failed to send approval email:', error);
     }
 });
 //# sourceMappingURL=index.js.map
