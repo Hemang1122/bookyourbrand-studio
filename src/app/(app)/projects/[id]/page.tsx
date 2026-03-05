@@ -22,10 +22,9 @@ import { Card } from '@/components/ui/card';
 import { format } from 'date-fns';
 import dynamic from 'next/dynamic';
 
-const ProjectChatDynamic = dynamic(
-  () => import('./components/project-chat').then(mod => ({ default: mod.ProjectChat })),
-  { ssr: false }
-);
+const ProjectChat = dynamic(() => import('./components/project-chat'), {
+  ssr: false,
+});
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -219,7 +218,7 @@ export default function ProjectDetailPage() {
       </Tabs>
 
       {project && (
-        <ProjectChatDynamic
+        <ProjectChat
           projectId={project.id}
           projectName={project.name}
           teamMembers={displayTeamMembers}

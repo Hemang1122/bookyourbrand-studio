@@ -1,13 +1,13 @@
 'use client';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import type { ChatMessage, User, Timestamp as FirebaseTimestamp } from '@/lib/types';
+import type { ChatMessage, User } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Send, Paperclip, FileText, Download, Loader2, Trash2, MoreVertical, Pencil, Smile, ArrowLeft, ArrowDown, Phone, Video, Reply, Pin, X, Mic, Play, Pause, PhoneOff, PhoneIncoming, PhoneMissed } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
 import { useCollection, useFirebaseServices, useMemoFirebase, useTypingIndicator, useUserStatus } from '@/firebase';
-import { collection, query, orderBy, serverTimestamp, addDoc, Timestamp, doc, writeBatch, arrayUnion, updateDoc, arrayRemove, where, limit, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, serverTimestamp, addDoc, doc, writeBatch, arrayUnion, updateDoc, arrayRemove, where, limit, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useData } from '../../data-provider';
 import { useToast } from '@/hooks/use-toast';
@@ -26,7 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { sounds } from '@/lib/sounds';
 import { useVoiceRecorder } from '@/hooks/use-voice-recorder';
 import { useVoiceCall } from '@/hooks/use-voice-call';
-import { TypingIndicator } from './TypingIndicator';
+import TypingIndicator from './TypingIndicator';
 
 const getMessageDate = (timestamp: any): Date => {
   if (!timestamp) return new Date();
@@ -193,7 +193,7 @@ type SupportChatRoomProps = {
   onBack: () => void;
 };
 
-export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
+export default function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
   const [newMessage, setNewMessage] = useState('');
   const { user: currentUser } = useAuth();
   const { firestore, firebaseApp, auth } = useFirebaseServices();
@@ -235,12 +235,6 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
     rejectCall,
     endCall
   } = useVoiceCall(chatId, currentUser);
-
-  const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const handleSendVoiceNote = async () => {
     if (!audioBlob || !chatId || !firebaseApp || !currentUser) return;
@@ -345,7 +339,7 @@ export function SupportChatRoom({ chatPartner, onBack }: SupportChatRoomProps) {
     return query(collection(firestore, 'chats', chatId, 'messages'), orderBy('timestamp', 'asc'));
   }, [firestore, chatId]);
 
-  const { data: messages, isLoading: messagesLoading } = useCollection<ChatMessage>(messagesQuery);
+  const { data: messages } = useCollection<ChatMessage>(messagesQuery);
   
   const scrollToBottom = useCallback((behavior: 'smooth' | 'auto' = 'auto') => {
     const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');

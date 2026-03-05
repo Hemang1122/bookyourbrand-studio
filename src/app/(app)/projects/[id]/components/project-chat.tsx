@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useData } from '../../../data-provider';
 import { useSearchParams } from 'next/navigation';
 import { useVoiceRecorder } from '@/hooks/use-voice-recorder';
+import { useToast } from '@/hooks/use-toast';
 
 const EMOJI_OPTIONS = ['👍', '❤️', '😂', '😮', '🔥', '👏'];
 
@@ -83,7 +84,7 @@ interface ProjectChatProps {
   client: Client;
 }
 
-export function ProjectChat({ projectId, projectName, teamMembers, client }: ProjectChatProps) {
+export default function ProjectChat({ projectId, projectName, teamMembers, client }: ProjectChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [newMessage, setNewMessage] = useState('');
@@ -95,6 +96,7 @@ export function ProjectChat({ projectId, projectName, teamMembers, client }: Pro
   const { firestore, auth, firebaseApp } = useFirebaseServices();
   const { addNotification, markChatNotificationsAsRead, users } = useData();
   const searchParams = useSearchParams();
+  const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const nodeRef = useRef(null);
   const clientStatus = useUserStatus(client.id);

@@ -1,8 +1,7 @@
 'use client';
 import { useData } from '../../data-provider';
-import { Loader2 } from 'lucide-react';
 
-export function TypingIndicator({ typingUserIds }: { typingUserIds: string[] }) {
+export default function TypingIndicator({ typingUserIds }: { typingUserIds: string[] }) {
   const { users } = useData();
   
   if (!typingUserIds || typingUserIds.length === 0) return null;

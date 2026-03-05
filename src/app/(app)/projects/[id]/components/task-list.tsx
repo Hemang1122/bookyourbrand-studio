@@ -50,8 +50,10 @@ type TaskCardProps = {
 
 const TaskCard = ({ task, onStatusUpdate, onDelete }: TaskCardProps) => {
   const { user } = useAuth();
+  // Editors can update status if they are the assignee or if they are admin
   const canUpdateStatus = (user?.role === 'admin' || (user?.role === 'team' && user.id === task.assignedTo?.id));
-  const canDelete = user?.role === 'admin';
+  // Editors (team role) can now delete tasks, as requested
+  const canDelete = user?.role === 'admin' || user?.role === 'team';
   const assigneeName = task.assignedTo?.name || 'Unassigned';
 
   const statusColors = {
