@@ -1,3 +1,4 @@
+
 'use client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -105,6 +106,14 @@ export function AddProjectDialog({ onProjectAdd, children, client: preselectedCl
           assignedEditor: assignedEditor || null
         })
       });
+
+      // Robust check for non-JSON error responses (e.g. 500 HTML error pages)
+      const contentType = response.headers.get("content-type");
+      if (!response.ok || !contentType || !contentType.includes("application/json")) {
+        const errorText = await response.text();
+        console.error("API Server Error:", errorText);
+        throw new Error(errorText || `Project creation failed with status ${response.status}`);
+      }
 
       const data = await response.json();
 

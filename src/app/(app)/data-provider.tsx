@@ -6,7 +6,7 @@ import { users as initialUsers, clients as initialClients, projects as initialPr
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking, useFirebaseServices, FirestorePermissionError, errorEmitter } from '@/firebase';
-import { collection, doc, query, where, Timestamp, writeBatch, serverTimestamp, arrayUnion, runTransaction, getDocs, updateDoc, addDoc, getDoc, orderBy, setDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { collection, doc, query, where, Timestamp, writeBatch, arrayUnion, runTransaction, getDocs, updateDoc, addDoc, getDoc, orderBy, setDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { uploadFile, deleteFileFromStorage } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -30,6 +30,7 @@ type DataContextType = {
   sendMessage: (chatId: string, messageText: string, mediaUrl?: string, replyTo?: ChatMessage['replyTo']) => void;
   addProject: (project: Omit<Project, 'id' | 'coverImage' >) => void;
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks' | 'dueDate'>) => void;
+  deleteTask: (taskId: string) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
   updateTaskStatus: (taskId: string, status: TaskStatus, remark: string) => void;
   createUser: (userData: { name: string; role: 'client' | 'team', realEmail?: string; }) => Promise<any>;
@@ -318,6 +319,11 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     addNotification(`New task '${newTask.title}' added.`, `/projects/${project.id}`, [project.client.id, ...project.team_ids].filter(id => id !== authUid), 'system');
   }
 
+  const deleteTask = (taskId: string) => {
+    if (!firestore) return;
+    deleteDocumentNonBlocking(doc(firestore, 'tasks', taskId));
+  }
+
   const updateProjectTeam = (projectId: string, teamMemberIds: string[]) => {
     if (!firestore) return;
     updateDocumentNonBlocking(doc(firestore, 'projects', projectId), { team_ids: teamMemberIds });
@@ -425,7 +431,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   return (
     <DataContext.Provider value={{ 
-        projects, tasks, clients, teamMembers, users, scrumUpdates, files, clientDocuments: clientDocuments || [], notifications: notificationsData, chats: chatsData || [], getOrCreateChat, sendMessage, timerSessions: timerSessions || [], clientPackages: clientPackages || [], addProject, addTask, updateProjectTeam, updateTaskStatus, createUser, deleteUser, updateClient, selectPackage, updateTeamMember, addScrumUpdate, addTimerSession, isLoading, deleteProject, updateProject, addFile, deleteFile, addClientDocument, deleteClientDocument, addNotification, markNotificationsAsRead, markChatNotificationsAsRead,
+        projects, tasks, clients, teamMembers, users, scrumUpdates, files, clientDocuments: clientDocuments || [], notifications: notificationsData, chats: chatsData || [], getOrCreateChat, sendMessage, timerSessions: timerSessions || [], clientPackages: clientPackages || [], addProject, addTask, deleteTask, updateProjectTeam, updateTaskStatus, createUser, deleteUser, updateClient, selectPackage, updateTeamMember, addScrumUpdate, addTimerSession, isLoading, deleteProject, updateProject, addFile, deleteFile, addClientDocument, deleteClientDocument, addNotification, markNotificationsAsRead, markChatNotificationsAsRead,
     }}>
       {children}
     </DataContext.Provider>

@@ -5,9 +5,10 @@ import type { Task, TaskStatus, User } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { AddTaskDialog } from './add-task-dialog';
 import { Button } from '@/components/ui/button';
-import { Plus, Wand2, CheckCircle, Play, History, MoreHorizontal, AlertCircle, Calendar } from 'lucide-react';
+import { Plus, Wand2, CheckCircle, Play, History, MoreHorizontal, AlertCircle, Calendar, Trash2 } from 'lucide-react';
 import { useData } from '../../../data-provider';
 import { useAuth } from '@/firebase/provider';
+import { useToast } from '@/hooks/use-toast';
 import {
   Tooltip,
   TooltipContent,
@@ -30,15 +31,27 @@ import { format } from 'date-fns';
 import { AddManualTaskDialog } from './add-manual-task-dialog';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type TaskCardProps = {
   task: Task;
   onStatusUpdate: (task: Task, newStatus: TaskStatus) => void;
+  onDelete: (task: Task) => void;
 };
 
-const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
+const TaskCard = ({ task, onStatusUpdate, onDelete }: TaskCardProps) => {
   const { user } = useAuth();
   const canUpdateStatus = (user?.role === 'admin' || (user?.role === 'team' && user.id === task.assignedTo?.id));
+  const canDelete = user?.role === 'admin';
   const assigneeName = task.assignedTo?.name || 'Unassigned';
 
   const statusColors = {
@@ -89,7 +102,7 @@ const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
                 </PopoverContent>
               </Popover>
             )}
-            {canUpdateStatus && (
+            {(canUpdateStatus || canDelete) && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-white">
@@ -97,25 +110,37 @@ const TaskCard = ({ task, onStatusUpdate }: TaskCardProps) => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                    {task.status === 'Pending' && (
-                        <DropdownMenuItem onSelect={() => onStatusUpdate(task, 'In Progress')} className="cursor-pointer">
-                            <Play className="mr-2 h-4 w-4" /> <span>Start Progress</span>
-                        </DropdownMenuItem>
+                    {canUpdateStatus && (
+                      <>
+                        {task.status === 'Pending' && (
+                            <DropdownMenuItem onSelect={() => onStatusUpdate(task, 'In Progress')} className="cursor-pointer">
+                                <Play className="mr-2 h-4 w-4" /> <span>Start Progress</span>
+                            </DropdownMenuItem>
+                        )}
+                        {task.status === 'In Progress' && (
+                            <DropdownMenuItem onSelect={() => onStatusUpdate(task, 'Completed')} className="cursor-pointer">
+                                <CheckCircle className="mr-2 h-4 w-4" /> <span>Mark as Complete</span>
+                            </DropdownMenuItem>
+                        )}
+                        {(task.status === 'Completed' || task.status === 'Rework') && (
+                            <DropdownMenuItem onSelect={() => onStatusUpdate(task, 'In Progress')} className="cursor-pointer">
+                                <Play className="mr-2 h-4 w-4" /> <span>Re-Open Task</span>
+                            </DropdownMenuItem>
+                        )}
+                        {task.status === 'Completed' && (
+                            <DropdownMenuItem onSelect={() => onStatusUpdate(task, 'Rework')} className="cursor-pointer text-amber-600 focus:text-amber-700">
+                              <AlertCircle className="mr-2 h-4 w-4" /> <span>Request Rework</span>
+                            </DropdownMenuItem>
+                        )}
+                      </>
                     )}
-                    {task.status === 'In Progress' && (
-                        <DropdownMenuItem onSelect={() => onStatusUpdate(task, 'Completed')} className="cursor-pointer">
-                            <CheckCircle className="mr-2 h-4 w-4" /> <span>Mark as Complete</span>
-                        </DropdownMenuItem>
-                    )}
-                    {(task.status === 'Completed' || task.status === 'Rework') && (
-                        <DropdownMenuItem onSelect={() => onStatusUpdate(task, 'In Progress')} className="cursor-pointer">
-                            <Play className="mr-2 h-4 w-4" /> <span>Re-Open Task</span>
-                        </DropdownMenuItem>
-                    )}
-                     {task.status === 'Completed' && (
-                        <DropdownMenuItem onSelect={() => onStatusUpdate(task, 'Rework')} className="cursor-pointer text-amber-600 focus:text-amber-700">
-                           <AlertCircle className="mr-2 h-4 w-4" /> <span>Request Rework</span>
-                        </DropdownMenuItem>
+                    {canDelete && (
+                      <DropdownMenuItem 
+                        onSelect={() => onDelete(task)} 
+                        className="text-red-400 focus:text-red-400 focus:bg-red-500/10 cursor-pointer"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" /> <span>Delete Task</span>
+                      </DropdownMenuItem>
                     )}
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -147,13 +172,16 @@ type TaskListProps = {
 };
 
 export function TaskList({ projectId }: TaskListProps) {
-  const { tasks, addTask } = useData();
+  const { tasks, addTask, deleteTask } = useData();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [isStatusUpdateOpen, setIsStatusUpdateOpen] = useState(false);
   const [isManualTaskOpen, setIsManualTaskOpen] = useState(false);
   const [isAiTaskOpen, setIsAiTaskOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
   const [nextStatus, setNextStatus] = useState<TaskStatus | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
 
   const projectTasks = (tasks || []).filter((t) => t.projectId === projectId).sort((a, b) => (a as any).order - (b as any).order);
@@ -176,6 +204,23 @@ export function TaskList({ projectId }: TaskListProps) {
     setCurrentTask(task);
     setNextStatus(newStatus);
     setIsStatusUpdateOpen(true);
+  };
+
+  const handleDeleteClick = (task: Task) => {
+    setTaskToDelete(task);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteTask = () => {
+    if (taskToDelete) {
+      deleteTask(taskToDelete.id);
+      toast({
+        title: 'Task Deleted',
+        description: `"${taskToDelete.title}" has been removed from the project.`,
+      });
+      setTaskToDelete(null);
+    }
+    setIsDeleteConfirmOpen(false);
   };
 
   return (
@@ -210,7 +255,14 @@ export function TaskList({ projectId }: TaskListProps) {
                   <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-muted-foreground ml-1">{columns[status].length}</span>
               </div>
               <div className="rounded-2xl p-4 min-h-[200px] bg-[#13131F] border border-white/5">
-                {columns[status].map((task) => <TaskCard key={task.id} task={task} onStatusUpdate={handleStatusUpdateClick} />)}
+                {columns[status].map((task) => (
+                  <TaskCard 
+                    key={task.id} 
+                    task={task} 
+                    onStatusUpdate={handleStatusUpdateClick} 
+                    onDelete={handleDeleteClick}
+                  />
+                ))}
                 {columns[status].length === 0 && (
                   <div className="flex flex-col items-center justify-center h-32 text-center">
                     <p className="text-muted-foreground text-sm">No tasks in this stage</p>
@@ -221,6 +273,24 @@ export function TaskList({ projectId }: TaskListProps) {
           ))}
         </div>
       </div>
+
+      <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the task <span className="font-semibold">"{taskToDelete?.title}"</span>? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteTask} className="bg-destructive hover:bg-destructive/90">
+              Delete Task
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
        {currentTask && nextStatus && (
         <UpdateTaskStatusDialog 
           task={currentTask} 

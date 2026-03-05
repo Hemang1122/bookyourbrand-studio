@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
 import path from 'path';
@@ -60,10 +61,22 @@ export async function POST(request: NextRequest) {
 
     // 3. Update Client Quota & usage
     const clientRef = db.collection('clients').doc(projectData.client.id);
-    batch.update(clientRef, {
-      reelsCreated: admin.firestore.FieldValue.increment(1),
-      'currentPackage.reelsUsed': admin.firestore.FieldValue.increment(1)
-    });
+    const clientDoc = await clientRef.get();
+    
+    if (clientDoc.exists) {
+      const clientData = clientDoc.data();
+      const hasPackage = !!clientData?.currentPackage;
+      
+      const updatePayload: any = {
+        reelsCreated: admin.firestore.FieldValue.increment(1)
+      };
+      
+      if (hasPackage) {
+        updatePayload['currentPackage.reelsUsed'] = admin.firestore.FieldValue.increment(1);
+      }
+      
+      batch.update(clientRef, updatePayload);
+    }
 
     // 4. Create Tasks from Templates
     const startDate = new Date();
@@ -104,7 +117,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('API Error (create-with-tasks):', error);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error.message || 'Internal Server Error' },
       { status: 500 }
     );
   }
