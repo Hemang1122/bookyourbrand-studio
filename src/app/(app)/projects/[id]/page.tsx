@@ -48,11 +48,8 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const isAssignedEditor = useMemo(() => {
-    return user?.role === 'team' && project?.team_ids?.includes(user.id);
-  }, [user, project]);
-
-  const canEditProject = user?.role === 'admin' || isAssignedEditor;
+  // Restrict project-level editing and status changes to admins only
+  const canEditProject = user?.role === 'admin';
 
   if (isLoading) {
     return (
