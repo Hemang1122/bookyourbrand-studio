@@ -6,7 +6,7 @@ import { useAuth } from '@/firebase/provider';
 import { useData } from '../data-provider';
 import type { User } from '@/lib/types';
 import { SupportChatList } from './components/SupportChatList';
-import { SupportChatRoom } from './components/SupportChatRoom';
+import SupportChatRoom from './components/SupportChatRoom';
 import { MessageSquare, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
