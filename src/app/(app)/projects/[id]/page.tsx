@@ -48,8 +48,8 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // Restrict project-level editing and status changes to admins only
-  const canEditProject = user?.role === 'admin';
+  // Allow both admins and editors to edit project details and status
+  const canEditProject = user?.role === 'admin' || user?.role === 'team';
 
   if (isLoading) {
     return (
