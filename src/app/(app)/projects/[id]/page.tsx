@@ -48,6 +48,12 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const isAssignedEditor = useMemo(() => {
+    return user?.role === 'team' && project?.team_ids?.includes(user.id);
+  }, [user, project]);
+
+  const canEditProject = user?.role === 'admin' || isAssignedEditor;
+
   if (isLoading) {
     return (
         <div className="space-y-6">
@@ -106,7 +112,7 @@ export default function ProjectDetailPage() {
                     <CheckCircle2 className="h-4 w-4" />
                     Approved by Client
                  </div>
-               ) : user?.role === 'team' || user?.role === 'admin' ? (
+               ) : canEditProject ? (
                 <Select onValueChange={(value: ProjectStatus) => handleStatusChange(value)} value={project.status}>
                   <SelectTrigger className="rounded-xl px-4 py-2 text-sm font-medium border bg-white/5 text-white border-white/10 focus:border-purple-500/50 focus:outline-none w-[180px]">
                     <SelectValue placeholder="Update status" />
@@ -123,19 +129,21 @@ export default function ProjectDetailPage() {
               ) : (
                  <span className={cn("inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold")}>{project.status}</span>
               )}
+              
+              {canEditProject && (
+                <EditProjectDialog project={project} onProjectUpdate={updateProject}>
+                  <Button variant="outline" size="sm" className="border-white/10 hover:border-purple-500/50 hover:bg-purple-500/10 text-white">
+                    <Pencil className="h-4 w-4 mr-2" /> Edit
+                  </Button>
+                </EditProjectDialog>
+              )}
+
               {user?.role === 'admin' && (
-                <>
-                  <EditProjectDialog project={project} onProjectUpdate={updateProject}>
-                    <Button variant="outline" size="sm" className="border-white/10 hover:border-purple-500/50 hover:bg-purple-500/10 text-white">
-                      <Pencil className="h-4 w-4 mr-2" /> Edit
-                    </Button>
-                  </EditProjectDialog>
-                  <DeleteProjectDialog project={project} onProjectDelete={deleteProject}>
-                    <Button variant="outline" size="sm" className="border-red-500/30 hover:bg-red-500/10 text-red-400 hover:text-red-300">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </DeleteProjectDialog>
-                </>
+                <DeleteProjectDialog project={project} onProjectDelete={deleteProject}>
+                  <Button variant="outline" size="sm" className="border-red-500/30 hover:bg-red-500/10 text-red-400 hover:text-red-300">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </DeleteProjectDialog>
               )}
             </div>
           </div>
