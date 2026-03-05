@@ -69,30 +69,10 @@ export default function PackagesPage() {
       });
 
       // 2. Initiate Manual Payment Processing Flow
-      const response = await fetch('/api/payment/mock-initiate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId,
-          amount: total,
-          userId: user.id,
-          customerName: user.name || 'Client',
-          packageDetails
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Could not connect to payment gateway. Please try again.');
-      }
-
-      const data = await response.json();
-
-      if (data.success && data.paymentUrl) {
-        toast({ title: 'Redirecting...', description: 'Taking you to our secure payment portal.' });
-        window.location.href = data.paymentUrl;
-      } else {
-        throw new Error(data.error || 'Failed to connect to payment portal');
-      }
+      const mockPaymentUrl = `/mock-payment?orderId=${orderId}&amount=${total}&userId=${user.id}&name=${encodeURIComponent(user.name || 'Client')}`;
+      
+      toast({ title: 'Redirecting...', description: 'Taking you to our secure payment portal.' });
+      window.location.href = mockPaymentUrl;
 
     } catch (error: any) {
       console.error('Payment Flow Error:', error);
@@ -291,7 +271,7 @@ export default function PackagesPage() {
                     </>
                   ) : (
                     <>
-                      ACTIVATE PACKAGE NOW
+                      PROCEED TO PAYMENT
                       <Sparkles className="ml-3 h-5 w-5 group-hover:rotate-12 transition-transform" />
                     </>
                   )}

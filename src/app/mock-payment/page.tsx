@@ -10,6 +10,7 @@ function MockPaymentContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
+  
   const orderId = searchParams.get('orderId');
   const amount = searchParams.get('amount');
   const name = searchParams.get('name');
@@ -19,7 +20,7 @@ function MockPaymentContent() {
 
   const handlePaymentSuccess = async () => {
     setIsProcessing(true);
-    // Simulate gateway verification delay
+    // Simulate transfer verification delay
     await new Promise(resolve => setTimeout(resolve, 2000));
     router.push(`/payment-success?orderId=${orderId}&txnId=MANUAL_${Date.now()}&amount=${amount}`);
   };
