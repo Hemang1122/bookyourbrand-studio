@@ -172,7 +172,9 @@ export function ClientDashboard() {
                             <div className="flex justify-between items-center mb-2">
                                 <div>
                                     <h3 className="font-semibold text-white group-hover:text-primary transition-colors">{project.name}</h3>
-                                    <p className="text-xs text-muted-foreground">Deadline: {format(new Date(project.deadline), 'PP')}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Deadline: {project.deadline ? format(new Date(project.deadline), 'PP') : 'Not set'}
+                                    </p>
                                 </div>
                                 <Badge variant={project.status === 'Completed' ? 'secondary' : 'default'} className="bg-purple-500/10 text-purple-400 border-purple-500/20">
                                     {project.status}
