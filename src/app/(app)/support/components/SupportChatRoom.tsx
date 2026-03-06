@@ -80,7 +80,9 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
     if (propChatId) {
       setChatId(propChatId);
     } else if (chatPartner && currentUser) {
-      getOrCreateChat(chatPartner.id, true).then(setChatId);
+      // isSupport=true for clients, false for team
+      const isSupport = chatPartner.role === 'client';
+      getOrCreateChat(chatPartner.id, isSupport).then(setChatId);
     }
   }, [chatPartner, currentUser, getOrCreateChat, propChatId]);
 

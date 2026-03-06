@@ -67,7 +67,7 @@ export default function SupportPage() {
           <div className="w-full md:w-[340px] shrink-0 border-r border-white/5">
             <SupportChatList
               users={users}
-              selectedChatId={selectedChat?.chatId}
+              selectedUserId={selectedChat?.user.id}
               onSelectChat={(user, chatId) => setSelectedChat({ user, chatId })}
               chats={chats}
             />
@@ -78,7 +78,7 @@ export default function SupportPage() {
           {isAdmin ? (
             selectedChat ? (
               <SupportChatRoom
-                key={selectedChat.chatId || selectedChat.user.id}
+                key={selectedChat.user.id}
                 chatPartner={selectedChat.user}
                 chatId={selectedChat.chatId}
                 onBack={() => setSelectedChat(null)}

@@ -16,7 +16,7 @@ type Filter = 'all' | 'client' | 'team';
 
 type SupportChatListProps = {
   users: User[];
-  selectedChatId?: string;
+  selectedUserId?: string;
   onSelectChat: (user: User, chatId?: string) => void;
   chats: Chat[];
 };
@@ -99,7 +99,7 @@ const ChatListItem = ({
   );
 };
 
-export function SupportChatList({ users, selectedChatId, onSelectChat, chats }: SupportChatListProps) {
+export function SupportChatList({ users, selectedUserId, onSelectChat, chats }: SupportChatListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const { user: currentUser } = useAuth();
@@ -111,39 +111,48 @@ export function SupportChatList({ users, selectedChatId, onSelectChat, chats }: 
 
   // Build a list of user+chat pairs based on active filter
   const chatItems = useMemo(() => {
-    // Map each chat to a user
-    const items: { user: User; chat: Chat }[] = [];
+    // Start with ALL users (except current admin)
+    const relevantUsers = users.filter(u => u.id !== currentUser?.id);
 
-    chats.forEach(chat => {
-      let matchedUser: User | undefined;
-
-      if (chat.type === 'support') {
-        matchedUser = users.find(u => u.id === chat.clientId);
-      } else if (chat.type === 'direct') {
-        const partnerId = chat.participants?.find(p => p !== currentUser?.id);
-        matchedUser = users.find(u => u.id === partnerId);
+    const items = relevantUsers.map(user => {
+      // Find existing chat for this user
+      let chat: Chat | undefined;
+      if (user.role === 'client') {
+        chat = chats.find(c => c.type === 'support' && c.clientId === user.id);
+      } else {
+        // team/admin - find direct chat
+        chat = chats.find(c => 
+          c.type === 'direct' && 
+          c.participants?.includes(user.id) && 
+          c.participants?.includes(currentUser?.id || '')
+        );
       }
-
-      if (matchedUser) {
-        items.push({ user: matchedUser, chat });
-      }
+      return { user, chat };
     });
 
     // Apply role filter
-    const filtered = items.filter(({ user, chat }) => {
-      if (filter === 'client') return chat.type === 'support' || user.role === 'client';
+    const filtered = items.filter(({ user }) => {
+      if (filter === 'client') return user.role === 'client';
       if (filter === 'team') return user.role === 'team' || user.role === 'admin';
-      return true;
+      return true; // 'all'
     });
 
     // Apply search
-    return filtered
-      .filter(({ user }) => user.name.toLowerCase().includes(searchQuery.toLowerCase()))
-      .sort((a, b) => {
+    const searched = filtered.filter(({ user }) =>
+      user.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    // Sort: users WITH chats first (by lastMessageAt), then users without chats alphabetically
+    return searched.sort((a, b) => {
+      if (a.chat && b.chat) {
         const aTime = getMessageDate(a.chat.lastMessageAt)?.getTime() || 0;
         const bTime = getMessageDate(b.chat.lastMessageAt)?.getTime() || 0;
         return bTime - aTime;
-      });
+      }
+      if (a.chat && !b.chat) return -1;
+      if (!a.chat && b.chat) return 1;
+      return a.user.name.localeCompare(b.user.name);
+    });
   }, [chats, users, filter, searchQuery, currentUser]);
 
   return (
@@ -195,11 +204,11 @@ export function SupportChatList({ users, selectedChatId, onSelectChat, chats }: 
         <div className="py-2">
           {chatItems.map(({ user, chat }) => (
             <ChatListItem
-              key={chat.id}
+              key={user.id}
               user={user}
               chat={chat}
-              isSelected={selectedChatId === chat.id}
-              onSelect={() => onSelectChat(user, chat.id)}
+              isSelected={selectedUserId === user.id}
+              onSelect={() => onSelectChat(user, chat?.id)}
               currentUser={currentUser}
             />
           ))}
