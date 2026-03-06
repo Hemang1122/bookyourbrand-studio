@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { FileText, CheckCircle, XCircle, Eye, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { REQUIRED_DOCUMENTS, type ClientDocument } from '@/lib/document-types';
+import { cn } from '@/lib/utils';
 
 export default function AdminDocumentsPage() {
   const { user } = useAuth();
