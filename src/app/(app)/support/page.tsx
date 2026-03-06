@@ -27,9 +27,9 @@ export default function SupportPage() {
   const [selectedChatPartner, setSelectedChatPartner] = useState<User | null>(null);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
 
-  // RESTRICTION: Only the admin named "Neha" can access the support inbox
-  const isNeha = useMemo(() => {
-    return currentUser?.role === 'admin' && currentUser?.name.toLowerCase().includes('neha');
+  // RESTRICTION: Only the admin named "Niddhi" can access the support inbox
+  const isNiddhi = useMemo(() => {
+    return currentUser?.role === 'admin' && currentUser?.name.toLowerCase().includes('niddhi');
   }, [currentUser]);
 
   // Local query for Admins - load support chats on demand
@@ -37,15 +37,15 @@ export default function SupportPage() {
     useMemoFirebase(() => {
       if (!firestore || !currentUser || currentUser.role !== 'admin') return null;
       
-      // If admin is NOT Neha, don't return a query (they shouldn't see support chats)
-      if (!isNeha) return null;
+      // If admin is NOT Niddhi, don't return a query (they shouldn't see support chats)
+      if (!isNiddhi) return null;
 
       return query(
         collection(firestore, 'chats'),
         where('type', '==', 'support'),
         orderBy('lastMessageAt', 'desc')
       );
-    }, [firestore, currentUser, isNeha])
+    }, [firestore, currentUser, isNiddhi])
   );
 
   const chats = currentUser?.role === 'admin' ? (adminSupportChats || []) : clientChats;
@@ -82,8 +82,8 @@ export default function SupportPage() {
 
   const isAdmin = currentUser?.role === 'admin';
 
-  // If admin but not Neha, show a restricted access message
-  if (isAdmin && !isNeha) {
+  // If admin but not Niddhi, show a restricted access message
+  if (isAdmin && !isNiddhi) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-10">
         <div className="w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center mb-6">
@@ -91,7 +91,7 @@ export default function SupportPage() {
         </div>
         <h2 className="text-2xl font-bold text-white mb-2">Support Inbox Restricted</h2>
         <p className="text-gray-400 max-w-md">
-          Client support inquiries are currently managed exclusively by Neha. 
+          Client support inquiries are currently managed exclusively by Niddhi. 
           If you need access to this inbox, please contact your supervisor.
         </p>
       </div>

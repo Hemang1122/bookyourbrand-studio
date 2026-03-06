@@ -184,9 +184,9 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
         }
       );
 
-      // RESTRICTION: For administrative attention, only notify "Neha" if message is from a client
-      const neha = (users || []).find(u => u.role === 'admin' && u.name.toLowerCase().includes('neha'));
-      const adminIds = neha ? [neha.id] : [];
+      // RESTRICTION: For administrative attention, only notify "Niddhi" if message is from a client
+      const niddhi = (users || []).find(u => u.role === 'admin' && u.name.toLowerCase().includes('niddhi'));
+      const adminIds = niddhi ? [niddhi.id] : [];
       
       const participantIds = [client.id, ...teamMembers.map(m => m.id)];
       const recipients = Array.from(new Set([...participantIds, ...adminIds]))

@@ -268,9 +268,9 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         if (!isSupport) {
           addNotification(`New chat with ${currentUser.name}.`, `/support?chatId=${chatId}`, [partnerId], 'chat', chatId);
         } else {
-          // RESTRICTION: Only notify the admin named "Neha" for new support requests
-          const neha = usersData?.find(u => u.role === 'admin' && u.name.toLowerCase().includes('neha'));
-          const adminIds = neha ? [neha.id] : [];
+          // RESTRICTION: Only notify the admin named "Niddhi" for new support requests
+          const niddhi = usersData?.find(u => u.role === 'admin' && u.name.toLowerCase().includes('niddhi'));
+          const adminIds = niddhi ? [niddhi.id] : [];
           
           if (adminIds.length > 0) {
             addNotification(`New support request from ${currentUser.name}.`, `/support?chatId=${chatId}`, adminIds, 'chat', chatId);
@@ -322,9 +322,9 @@ export function DataProvider({ children, user: currentUser }: { children: React.
           if (currentUser.role === 'admin') {
             recipients = [chat.clientId!]; // Notify the client
           } else {
-            // RESTRICTION: Only notify "Neha" when a client messages in support
-            const neha = usersData?.find(u => u.role === 'admin' && u.name.toLowerCase().includes('neha'));
-            recipients = neha ? [neha.id] : [];
+            // RESTRICTION: Only notify "Niddhi" when a client messages in support
+            const niddhi = usersData?.find(u => u.role === 'admin' && u.name.toLowerCase().includes('niddhi'));
+            recipients = niddhi ? [niddhi.id] : [];
           }
         } else {
           recipients = chat.participants.filter(pId => pId !== authUid);
