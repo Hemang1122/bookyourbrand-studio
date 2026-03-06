@@ -10,7 +10,6 @@ import {
   Briefcase,
   GitCommit,
   CalendarDays,
-  LifeBuoy,
   BarChart,
   MessageSquare,
   FileText,
@@ -18,6 +17,7 @@ import {
   Package,
   RefreshCw,
   ClipboardCheck,
+  Clock,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -34,6 +34,7 @@ import { Badge } from './ui/badge';
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'team', 'client'] },
   { href: '/projects', icon: FolderKanban, label: 'Projects', roles: ['admin', 'team', 'client'] },
+  { href: '/time-tracker', icon: Clock, label: 'Time Tracker', roles: ['admin', 'team'] },
   { href: '/packages', icon: CreditCard, label: 'Packages', roles: ['client'] },
   { href: '/admin/packages', icon: Package, label: 'Package Mgmt', roles: ['admin'] },
   { href: '/admin/migration', icon: RefreshCw, label: 'Migration Tool', roles: ['admin'] },

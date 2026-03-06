@@ -57,11 +57,9 @@ exports.onNotificationCreated = (0, firestore_1.onDocumentCreated)({
         return;
     const db = admin.firestore();
     const rtdb = admin.database();
-    const { message, recipients, url, type } = notification;
+    const { recipients } = notification;
     if (!recipients || recipients.length === 0)
         return;
-    // Construct full application URL for the call-to-action button
-    const dashboardUrl = `https://bybcrm.bookyourbrands.com${url}`;
     // Process each recipient
     const emailPromises = recipients.map(async (recipientId) => {
         try {
