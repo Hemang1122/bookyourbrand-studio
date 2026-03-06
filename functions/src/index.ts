@@ -121,8 +121,10 @@ export const onNotificationCreated = onDocumentCreated(
         const presenceSnap = await rtdb.ref(`status/${recipientId}`).get();
         const presence = presenceSnap.val();
         
+        const isOnline = presence?.isOnline === true;
+
         // If user is online, skip email
-        if (presence?.isOnline === true) {
+        if (isOnline) {
           console.log(`⏭️ Skipping email for ${recipientId} — currently online`);
           return;
         }
