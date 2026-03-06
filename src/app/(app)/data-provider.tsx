@@ -27,7 +27,7 @@ type DataContextType = {
   timerSessions: TimerSession[];
   clientPackages: ClientPackage[];
   chats: Chat[];
-  getOrCreateChat: (partnerId: string) => Promise<string | null>;
+  getOrCreateChat: (partnerId: string, isSupport?: boolean) => Promise<string | null>;
   sendMessage: (chatId: string, messageText: string, mediaUrl?: string, replyTo?: ChatMessage['replyTo']) => void;
   addProject: (project: Omit<Project, 'id' | 'coverImage' >) => void;
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks' | 'dueDate'>) => void;
@@ -61,7 +61,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const router = useRouter();
   const authUid = auth?.currentUser?.uid ?? null;
   
-  // 1. ROLE-BASED FETCH FOR USERS
   const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
 
   const addNotification = useCallback((message: string, url: string, recipients: string[], type: 'system' | 'chat' = 'system', chatId?: string) => {
@@ -85,7 +84,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     });
   }, [firestore]);
   
-  // 2. ROLE-BASED PROJECT FETCH (CRITICAL: PRIVACY FIX)
   const projectsQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
     const ref = collection(firestore, 'projects');
@@ -104,7 +102,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
   const { data: files, isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? query(collection(firestore, 'files')) : null, [firestore]));
   
-  // 3. ROLE-BASED CLIENT FETCH (PRIVACY FIX)
   const clientsQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
     const ref = collection(firestore, 'clients');
@@ -112,7 +109,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     if (currentUser.role === 'client') {
       return query(ref, where('id', '==', currentUser.id));
     }
-    return ref; // Team members see all client metadata needed for project context
+    return ref; 
   }, [firestore, currentUser?.id, currentUser?.role]);
 
   const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(clientsQuery);
@@ -140,9 +137,21 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }, [firestore, authUid]));
   
   const chatsQuery = useMemoFirebase(() => {
-    if (!firestore || !authUid) return null;
-    return query(collection(firestore, 'chats'), where('participants', 'array-contains', authUid), orderBy('lastMessageAt', 'desc'));
-  }, [firestore, authUid]);
+    if (!firestore || !authUid || !currentUser) return null;
+    if (currentUser.role === 'admin') {
+      // Admins see all support chats
+      return query(
+        collection(firestore, 'chats'), 
+        where('type', '==', 'support'),
+        orderBy('lastMessageAt', 'desc')
+      );
+    }
+    return query(
+      collection(firestore, 'chats'), 
+      where('participants', 'array-contains', authUid), 
+      orderBy('lastMessageAt', 'desc')
+    );
+  }, [firestore, authUid, currentUser]);
   
   const { data: chatsData, isLoading: chatsLoading } = useCollection<Chat>(chatsQuery);
 
@@ -231,37 +240,100 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   const scrumUpdates = useMemo(() => scrumUpdatesData || [], [scrumUpdatesData]);
     
-  const getOrCreateChat = useCallback(async (partnerId: string): Promise<string | null> => {
+  const getOrCreateChat = useCallback(async (partnerId: string, isSupport: boolean = false): Promise<string | null> => {
     if (!firestore || !currentUser || !authUid) return null;
-    const sortedIds = [authUid, partnerId].sort();
-    const chatId = sortedIds.join('_');
+    
+    // Support Chat Logic: support_clientId
+    const chatId = isSupport ? `support_${currentUser.id}` : [authUid, partnerId].sort().join('_');
     const chatDocRef = doc(firestore, 'chats', chatId);
+    
     try {
         const docSnap = await getDoc(chatDocRef);
         if (docSnap.exists()) return chatId;
-        const newChatData: Partial<Chat> = { id: chatId, type: 'direct', participants: sortedIds, createdBy: authUid, createdAt: Timestamp.now(), lastMessage: null, lastMessageAt: Timestamp.now() };
+        
+        const newChatData: Partial<Chat> = { 
+          id: chatId, 
+          type: isSupport ? 'support' : 'direct', 
+          participants: isSupport ? ['support', currentUser.id] : [authUid, partnerId].sort(), 
+          createdBy: authUid, 
+          createdAt: Timestamp.now(), 
+          lastMessage: null, 
+          lastMessageAt: Timestamp.now(),
+          // For support chats, store client metadata directly
+          ...(isSupport && { 
+            clientId: currentUser.id, 
+            clientName: currentUser.name,
+            clientAvatar: currentUser.avatar
+          })
+        };
+        
         await setDoc(chatDocRef, newChatData);
-        addNotification(`New chat with ${currentUser.name}.`, `/support?chatId=${chatId}`, [partnerId], 'chat', chatId);
+        
+        if (!isSupport) {
+          addNotification(`New chat with ${currentUser.name}.`, `/support?chatId=${chatId}`, [partnerId], 'chat', chatId);
+        } else {
+          // Notify all admins of a new support request
+          const adminIds = usersData?.filter(u => u.role === 'admin').map(u => u.id) || [];
+          addNotification(`New support request from ${currentUser.name}.`, `/support?chatId=${chatId}`, adminIds, 'chat', chatId);
+        }
+        
         return chatId;
     } catch (serverError: any) {
         toast({ title: 'Chat Error', description: 'Could not access the chat.', variant: 'destructive' });
         return null;
     }
-  }, [firestore, currentUser, authUid, toast, addNotification]);
+  }, [firestore, currentUser, authUid, toast, addNotification, usersData]);
 
   const sendMessage = useCallback(async (chatId: string, messageText: string, mediaUrl?: string, replyTo?: ChatMessage['replyTo']) => {
     if (!currentUser || !firestore || !authUid) return;
     const messagesColRef = collection(firestore, 'chats', chatId, 'messages');
     const chatDocRef = doc(firestore, 'chats', chatId);
-    const messagePayload: Partial<ChatMessage> = { senderId: authUid, senderName: currentUser.name, senderRole: currentUser.role, type: mediaUrl ? 'media' : 'text', text: messageText, mediaURL: mediaUrl || null, readBy: [authUid], deleted: false, ...(replyTo && { replyTo }) };
+    
+    const messagePayload: Partial<ChatMessage> = { 
+      senderId: authUid, 
+      senderName: currentUser.name, 
+      senderRole: currentUser.role, 
+      senderAvatar: currentUser.photoURL || currentUser.avatar,
+      type: mediaUrl ? 'media' : 'text', 
+      text: messageText, 
+      mediaURL: mediaUrl || null, 
+      readBy: [authUid], 
+      deleted: false, 
+      ...(replyTo && { replyTo }) 
+    };
+    
     addDocumentNonBlocking(messagesColRef, { ...messagePayload, timestamp: serverTimestamp() });
-    updateDocumentNonBlocking(chatDocRef, { lastMessage: { text: messageText, senderId: authUid, senderName: currentUser.name, type: mediaUrl ? 'media' : 'text', timestamp: serverTimestamp(), readBy: [authUid] }, lastMessageAt: serverTimestamp() });
+    updateDocumentNonBlocking(chatDocRef, { 
+      lastMessage: { 
+        text: messageText, 
+        senderId: authUid, 
+        senderName: currentUser.name, 
+        type: mediaUrl ? 'media' : 'text', 
+        timestamp: serverTimestamp(), 
+        readBy: [authUid] 
+      }, 
+      lastMessageAt: serverTimestamp() 
+    });
+    
     const chat = chatsData?.find(c => c.id === chatId);
     if (chat) {
-        const recipients = chat.participants.filter(pId => pId !== authUid);
-        if (recipients.length > 0) addNotification(`New message from ${currentUser.name}`, `/support?chatId=${chatId}`, recipients, 'chat', chatId);
+        let recipients = [];
+        if (chat.type === 'support') {
+          if (currentUser.role === 'admin') {
+            recipients = [chat.clientId!]; // Notify the client
+          } else {
+            // Notify all admins
+            recipients = usersData?.filter(u => u.role === 'admin').map(u => u.id) || [];
+          }
+        } else {
+          recipients = chat.participants.filter(pId => pId !== authUid);
+        }
+        
+        if (recipients.length > 0) {
+          addNotification(`New message from ${currentUser.name}`, `/support?chatId=${chatId}`, recipients, 'chat', chatId);
+        }
     }
-  }, [currentUser, firestore, authUid, addNotification, chatsData]);
+  }, [currentUser, firestore, authUid, addNotification, chatsData, usersData]);
 
   const createUser = useCallback(async (userData: { name: string; role: 'client' | 'team'; realEmail?: string; company?: string; }) => {
     if (!functions) return Promise.reject("Functions service not available.");

@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -22,23 +23,17 @@ type SupportChatListProps = {
 
 type Filter = 'all' | 'client' | 'team';
 
-
 const getMessageDate = (timestamp: any): Date | null => {
   if (!timestamp) return null;
-  if (typeof timestamp.toDate === 'function') {
-    return timestamp.toDate();
-  }
+  if (typeof timestamp.toDate === 'function') return timestamp.toDate();
   if (timestamp instanceof Date) return timestamp;
-  if (typeof timestamp === 'string' || typeof timestamp === 'number') {
-    return new Date(timestamp);
-  }
+  if (typeof timestamp === 'string' || typeof timestamp === 'number') return new Date(timestamp);
   return null;
 };
 
-
 const ChatListItem = ({ contact, isSelected, onSelect, chats, currentUser }: { contact: User, isSelected: boolean, onSelect: (user: User) => void, chats: Chat[], currentUser: User | null }) => {
     const userStatus = useUserStatus(contact.id);
-    const chat = chats.find(c => c.participants.includes(contact.id));
+    const chat = chats.find(c => c.clientId === contact.id && c.type === 'support');
     const lastMessage = chat?.lastMessage;
     const lastMessageDate = getMessageDate(chat?.lastMessageAt);
     const isSentByMe = lastMessage?.senderId === currentUser?.id;
@@ -63,12 +58,7 @@ const ChatListItem = ({ contact, isSelected, onSelect, chats, currentUser }: { c
                         "absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#13131F]",
                         userStatus?.isOnline ? 'bg-green-500' : 'bg-gray-500'
                     )} 
-                    style={{
-                        boxShadow: userStatus?.isOnline ? '0 0 8px rgba(34, 197, 94, 0.5)' : 'none'
-                    }}
-                >
-                  {userStatus?.isOnline && <div className="absolute inset-0 rounded-full bg-green-400 animate-ping" />}
-                </div>
+                />
             </div>
             <div className="flex-1 overflow-hidden">
                 <div className="flex items-center gap-2 mb-1">
@@ -85,10 +75,10 @@ const ChatListItem = ({ contact, isSelected, onSelect, chats, currentUser }: { c
                     <p className="text-sm text-gray-400 truncate flex-1 min-w-0">
                         {lastMessage ? (
                           <>
-                           {isSentByMe ? "You: " : ""}
+                           {isSentByMe ? "You: " : `${lastMessage.senderName}: `}
                            {lastMessage.text}
                           </>
-                        ) : 'Start a conversation...'}
+                        ) : 'Support thread started'}
                     </p>
                     {unreadCount > 0 && (
                         <div className="h-5 w-5 rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0 bg-gradient-to-br from-primary to-pink-500">
@@ -101,57 +91,40 @@ const ChatListItem = ({ contact, isSelected, onSelect, chats, currentUser }: { c
     );
 };
 
-
 export function SupportChatList({ contacts, selectedContact, onSelectContact }: SupportChatListProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [filter, setFilter] = useState<Filter>('all');
-  const { chats, notifications } = useData();
+  const { chats } = useData();
   const { user: currentUser } = useAuth();
   
   const totalUnread = useMemo(() => {
-    return chats.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0);
+    return chats.filter(c => c.type === 'support').reduce((sum, chat) => sum + (chat.unreadCount || 0), 0);
   }, [chats]);
 
   const filteredContacts = useMemo(() => contacts
-    .map(contact => ({
-      ...contact,
-      chat: chats.find(c => c.participants.includes(contact.id)),
-    }))
-    .filter(contact => {
-        const matchesSearch = contact.name.toLowerCase().includes(searchQuery.toLowerCase());
-        if (!matchesSearch) return false;
-
-        if (filter === 'all') return true;
-        return contact.role === filter;
-    })
+    .filter(contact => contact.name.toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => {
-        const aTime = a.chat?.lastMessageAt?.toDate() || new Date(0);
-        const bTime = b.chat?.lastMessageAt?.toDate() || new Date(0);
+        const chatA = chats.find(c => c.clientId === a.id);
+        const chatB = chats.find(c => c.clientId === b.id);
+        const aTime = chatA?.lastMessageAt?.toDate() || new Date(0);
+        const bTime = chatB?.lastMessageAt?.toDate() || new Date(0);
         return bTime.getTime() - aTime.getTime();
-    }), [contacts, chats, searchQuery, filter]);
+    }), [contacts, chats, searchQuery]);
 
   return (
     <div className="w-full md:w-[340px] h-full flex flex-col bg-[#13131F] text-white">
       <div className="p-4 pt-6 space-y-4">
         <div>
-            <h2 className="text-2xl font-bold">Messages</h2>
-            {totalUnread > 0 && <p className="text-sm bg-clip-text text-transparent bg-gradient-to-r from-primary to-pink-500 font-semibold">{totalUnread} unread messages</p>}
+            <h2 className="text-2xl font-bold">Support Inbox</h2>
+            {totalUnread > 0 && <p className="text-sm bg-clip-text text-transparent bg-gradient-to-r from-primary to-pink-500 font-semibold">{totalUnread} active inquiries</p>}
         </div>
         <div className="relative">
-            <Search 
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-primary/60" 
-            />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-primary/60" />
             <Input 
-                placeholder="Search conversations..." 
-                className="pl-11 w-full rounded-full bg-black/20 border-primary/20 focus:ring-primary/50 focus:border-primary/50 h-11"
+                placeholder="Filter by client..." 
+                className="pl-11 w-full rounded-full bg-black/20 border-primary/20 h-11"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
             />
-        </div>
-         <div className="flex items-center gap-2">
-            <Button variant={filter === 'all' ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilter('all')} className={cn("rounded-full", filter === 'all' ? 'bg-gradient-to-r from-primary to-pink-500 text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]' : 'bg-transparent text-gray-400')}>All</Button>
-            <Button variant={filter === 'client' ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilter('client')} className={cn("rounded-full", filter === 'client' ? 'bg-gradient-to-r from-primary to-pink-500 text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]' : 'bg-transparent text-gray-400')}><Briefcase className="mr-2 h-4 w-4" />Clients</Button>
-            <Button variant={filter === 'team' ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilter('team')} className={cn("rounded-full", filter === 'team' ? 'bg-gradient-to-r from-primary to-pink-500 text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]' : 'bg-transparent text-gray-400')}><Users className="mr-2 h-4 w-4" />Team</Button>
         </div>
       </div>
       <div className="w-full h-[1px] bg-gradient-to-r from-primary to-pink-500" />
@@ -167,6 +140,9 @@ export function SupportChatList({ contacts, selectedContact, onSelectContact }: 
                     currentUser={currentUser}
                 />
             ))}
+            {filteredContacts.length === 0 && (
+              <p className="text-center text-gray-500 text-sm mt-10">No support threads found.</p>
+            )}
         </div>
       </ScrollArea>
     </div>

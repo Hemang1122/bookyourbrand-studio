@@ -1,15 +1,14 @@
+
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/firebase/provider';
 import { useData } from '../data-provider';
-import type { User } from '@/lib/types';
+import type { User, Chat } from '@/lib/types';
 import { SupportChatList } from './components/SupportChatList';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 
-// Use dynamic import for SupportChatRoom because it uses browser-only APIs (WebRTC, MediaRecorder)
-// and helps split the bundle to resolve ChunkLoadErrors in complex workstation environments.
 const SupportChatRoom = dynamic(() => import('./components/SupportChatRoom'), {
   ssr: false,
   loading: () => (
@@ -22,79 +21,119 @@ const SupportChatRoom = dynamic(() => import('./components/SupportChatRoom'), {
 
 export default function SupportPage() {
   const { user: currentUser } = useAuth();
-  const { users } = useData();
+  const { users, chats, getOrCreateChat, isLoading } = useData();
   const [selectedChatPartner, setSelectedChatPartner] = useState<User | null>(null);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
 
-  const potentialChatPartners = useMemo(() => {
+  // For Admins: The "partners" are the clients who have support chats
+  // For Clients: They only have one partner - the Support Team
+  const supportContacts = useMemo(() => {
     if (!currentUser || !users) return [];
     if (currentUser.role === 'admin') {
-      return users.filter(u => u.id !== currentUser.id);
+      // Find all clients who have a support chat record
+      const clientsWithChats = chats
+        .filter(c => c.type === 'support')
+        .map(c => c.clientId);
+      return users.filter(u => clientsWithChats.includes(u.id));
     }
-    return users.filter(u => u.role === 'admin');
-  }, [currentUser, users]);
+    // Clients only see the "Support Team" virtual contact
+    return [];
+  }, [currentUser, users, chats]);
 
   useEffect(() => {
-    if (currentUser && (currentUser.role === 'client' || currentUser.role === 'team')) {
-      if (potentialChatPartners.length > 0 && !selectedChatPartner) {
-        setSelectedChatPartner(potentialChatPartners[0]);
-      }
+    if (!currentUser || isLoading) return;
+
+    if (currentUser.role === 'client') {
+      // Automatically initiate/get the support chat for the client
+      getOrCreateChat('', true).then(id => {
+        if (id) setActiveChatId(id);
+      });
     }
-  }, [potentialChatPartners, selectedChatPartner, currentUser]);
-  
+  }, [currentUser, isLoading, getOrCreateChat]);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-[#0F0F1A]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   const isAdmin = currentUser?.role === 'admin';
 
   return (
     <div className="h-[calc(100vh-8rem)] bg-[#0F0F1A] rounded-lg overflow-hidden border border-white/5 shadow-2xl">
       <div className={cn("h-full w-full flex transition-transform duration-300 ease-in-out", {
         'md:transform-none': true,
-        'transform -translate-x-full': selectedChatPartner && !isAdmin,
+        'transform -translate-x-full': (selectedChatPartner || activeChatId) && !isAdmin,
       })}>
-        <div className="w-full md:w-[340px] shrink-0 border-r border-white/5">
-          <SupportChatList
-            contacts={potentialChatPartners}
-            selectedContact={selectedChatPartner}
-            onSelectContact={setSelectedChatPartner}
-          />
-        </div>
+        {isAdmin && (
+          <div className="w-full md:w-[340px] shrink-0 border-r border-white/5">
+            <SupportChatList
+              contacts={supportContacts}
+              selectedContact={selectedChatPartner}
+              onSelectContact={setSelectedChatPartner}
+            />
+          </div>
+        )}
 
         <div className="w-full shrink-0 flex-1 md:block">
-           {selectedChatPartner ? (
-              <SupportChatRoom
-                key={selectedChatPartner.id} // Re-mount component on partner change
-                chatPartner={selectedChatPartner}
-                onBack={() => setSelectedChatPartner(null)}
-              />
-            ) : (
-              <div className="hidden md:flex flex-col items-center justify-center h-full text-white/50 relative overflow-hidden bg-[#0F0F1A]">
-                 <div className="absolute inset-0 z-0">
-                  {Array.from({ length: 10 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="absolute rounded-full bg-gradient-to-br from-primary/5 to-accent/5 blur-3xl animate-float"
-                      style={{
-                        width: `${Math.random() * 200 + 100}px`,
-                        height: `${Math.random() * 200 + 100}px`,
-                        top: `${Math.random() * 100}%`,
-                        left: `${Math.random() * 100}%`,
-                        animationDuration: `${Math.random() * 10 + 10}s`,
-                      }}
-                    />
-                  ))}
-                </div>
-                <div 
-                  className="relative flex items-center justify-center h-24 w-24 rounded-full"
-                  style={{
-                    background: 'radial-gradient(circle, rgba(124,58,237,0.2) 0%, rgba(124,58,237,0) 70%)'
-                  }}
-                >
-                  <MessageSquare className="h-12 w-12 text-primary/40" />
-                </div>
-                <h2 className="text-xl font-bold text-white mt-6">Select a conversation</h2>
-                <p className="text-white/40 mt-1 text-sm">Choose from your conversations on the left to start messaging</p>
-            </div>
-            )}
+           {isAdmin ? (
+             selectedChatPartner ? (
+                <SupportChatRoom
+                  key={selectedChatPartner.id}
+                  chatPartner={selectedChatPartner}
+                  onBack={() => setSelectedChatPartner(null)}
+                />
+              ) : (
+                <EmptyState />
+              )
+           ) : (
+             activeChatId ? (
+                <SupportChatRoom
+                  chatId={activeChatId}
+                  onBack={() => {}} // No back button needed for clients in unified mode
+                />
+             ) : (
+               <div className="flex items-center justify-center h-full">
+                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+               </div>
+             )
+           )}
         </div>
       </div>
     </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="hidden md:flex flex-col items-center justify-center h-full text-white/50 relative overflow-hidden bg-[#0F0F1A]">
+        <div className="absolute inset-0 z-0">
+        {Array.from({ length: 10 }).map((_, i) => (
+          <div
+            key={i}
+            className="absolute rounded-full bg-gradient-to-br from-primary/5 to-accent/5 blur-3xl animate-float"
+            style={{
+              width: `${Math.random() * 200 + 100}px`,
+              height: `${Math.random() * 200 + 100}px`,
+              top: `${Math.random() * 100}%`,
+              left: `${Math.random() * 100}%`,
+              animationDuration: `${Math.random() * 10 + 10}s`,
+            }}
+          />
+        ))}
+      </div>
+      <div 
+        className="relative flex items-center justify-center h-24 w-24 rounded-full"
+        style={{
+          background: 'radial-gradient(circle, rgba(124,58,237,0.2) 0%, rgba(124,58,237,0) 70%)'
+        }}
+      >
+        <MessageSquare className="h-12 w-12 text-primary/40" />
+      </div>
+      <h2 className="text-xl font-bold text-white mt-6">Select a conversation</h2>
+      <p className="text-white/40 mt-1 text-sm">Choose from your client support threads on the left</p>
+  </div>
   );
 }
