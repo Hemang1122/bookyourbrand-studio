@@ -103,7 +103,23 @@ export async function POST(request: NextRequest) {
       });
     });
 
-    // 5. Commit all changes
+    // 5. Create Notification for Admins (Niddhi and others)
+    const adminsSnap = await db.collection('users').where('role', '==', 'admin').get();
+    const adminIds = adminsSnap.docs.map(d => d.id);
+    
+    if (adminIds.length > 0) {
+      const notificationRef = db.collection('notifications').doc();
+      batch.set(notificationRef, {
+        message: `🚀 New project '${projectData.name}' created by ${projectData.client.name}`,
+        url: `/projects/${projectId}`,
+        recipients: adminIds,
+        readBy: [],
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        type: 'system'
+      });
+    }
+
+    // 6. Commit all changes
     await batch.commit();
     
     console.log(`API: Successfully created project ${projectId} with ${PROJECT_TASK_TEMPLATES.length} tasks.`);

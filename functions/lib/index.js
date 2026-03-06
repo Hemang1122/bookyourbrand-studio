@@ -33,19 +33,170 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUser = exports.createUser = exports.onUserDocCreated = exports.syncUserToFirestore = void 0;
+exports.deleteUser = exports.createUser = exports.onUserDocCreated = exports.onNotificationCreated = exports.syncUserToFirestore = void 0;
 const admin = __importStar(require("firebase-admin"));
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const sync_user_1 = require("./sync-user");
 Object.defineProperty(exports, "syncUserToFirestore", { enumerable: true, get: function () { return sync_user_1.syncUserToFirestore; } });
+const nodemailer = __importStar(require("nodemailer"));
 if (admin.apps.length === 0) {
     admin.initializeApp();
 }
+// ─── Email Transporter ───────────────────────────────────────────────────────
+// Note: Secrets are injected via the function signature and accessed via process.env
+const getTransporter = () => nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_PASS, // Gmail App Password
+    },
+});
+// ─── Email Templates ─────────────────────────────────────────────────────────
+const notificationEmailTemplate = (recipientName, message, url) => `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Notification</title>
+</head>
+<body style="margin:0;padding:0;background:#0F0F1A;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0F0F1A;padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#13131F;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.05);">
+          
+          <!-- Header -->
+          <tr>
+            <td style="padding:0;">
+              <div style="background:linear-gradient(135deg,#7C3AED,#EC4899);padding:32px 40px;text-align:center;">
+                <h1 style="margin:0;color:#fff;font-size:24px;font-weight:800;letter-spacing:-0.5px;">
+                  BookYourBrands
+                </h1>
+                <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">
+                  Studio CRM Notification
+                </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px;">
+              <p style="margin:0 0 8px;color:rgba(255,255,255,0.5);font-size:13px;text-transform:uppercase;letter-spacing:1px;">
+                Hey ${recipientName},
+              </p>
+              <h2 style="margin:0 0 24px;color:#fff;font-size:20px;font-weight:700;line-height:1.4;">
+                You have a new notification
+              </h2>
+              
+              <!-- Notification Card -->
+              <div style="background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:12px;padding:20px 24px;margin-bottom:32px;">
+                <p style="margin:0;color:#E2E8F0;font-size:15px;line-height:1.6;">
+                  ${message}
+                </p>
+              </div>
+
+              <!-- CTA Button -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <a href="${url}" 
+                       style="display:inline-block;background:linear-gradient(135deg,#7C3AED,#EC4899);color:#fff;text-decoration:none;padding:14px 36px;border-radius:50px;font-size:15px;font-weight:700;letter-spacing:0.3px;">
+                      View in Dashboard →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px 40px;border-top:1px solid rgba(255,255,255,0.05);">
+              <p style="margin:0;color:rgba(255,255,255,0.3);font-size:12px;text-align:center;line-height:1.6;">
+                You're receiving this because you're offline on BookYourBrands CRM.<br>
+                Log in to manage your notifications and preferences.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+// ─── Notification Email Trigger ───────────────────────────────────────────────
+exports.onNotificationCreated = (0, firestore_1.onDocumentCreated)({ document: 'notifications/{notificationId}', secrets: ['GMAIL_USER', 'GMAIL_PASS'] }, async (event) => {
+    var _a;
+    const notification = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
+    if (!notification)
+        return;
+    const db = admin.firestore();
+    const rtdb = admin.database();
+    const { message, recipients, url, type } = notification;
+    if (!recipients || recipients.length === 0)
+        return;
+    // Process each recipient
+    const emailPromises = recipients.map(async (recipientId) => {
+        try {
+            // 1. Check online status in Realtime Database (presence system)
+            const presenceSnap = await rtdb.ref(`status/${recipientId}`).get();
+            const presence = presenceSnap.val();
+            // If user is online, skip email
+            if ((presence === null || presence === void 0 ? void 0 : presence.isOnline) === true) {
+                console.log(`⏭️ Skipping email for ${recipientId} — currently online`);
+                return;
+            }
+            // 2. Get user data to find their real email
+            const userDoc = await db.doc(`users/${recipientId}`).get();
+            const userData = userDoc.data();
+            if (!userData)
+                return;
+            // Use realEmail if available, otherwise fall back to login email
+            const toEmail = userData.realEmail || userData.email;
+            // Skip sending to dummy login emails if no real email set
+            if (!toEmail || toEmail.includes('@creative.co') || toEmail.includes('@example.com')) {
+                if (!userData.realEmail) {
+                    console.log(`⏭️ Skipping email for ${recipientId} — no real email address provided`);
+                    return;
+                }
+            }
+            const recipientName = userData.name || 'there';
+            // Construct the production URL
+            const dashboardUrl = `https://studio-app--studio-6449361728-f6242.us-central1.hosted.app${url}`;
+            // 3. Send email
+            const transporter = getTransporter();
+            await transporter.sendMail({
+                from: `"BookYourBrands Studio" <${process.env.GMAIL_USER}>`,
+                to: toEmail,
+                subject: getEmailSubject(type, message),
+                html: notificationEmailTemplate(recipientName, message, dashboardUrl),
+            });
+            console.log(`✅ Notification email sent to ${toEmail} for user ${recipientId}`);
+        }
+        catch (err) {
+            console.error(`❌ Failed to send email to recipient ${recipientId}:`, err);
+        }
+    });
+    await Promise.all(emailPromises);
+});
+const getEmailSubject = (type, message) => {
+    if (type === 'chat')
+        return '💬 New message on BookYourBrands Studio';
+    if (message.toLowerCase().includes('project'))
+        return '📁 Project Update — BookYourBrands Studio';
+    if (message.toLowerCase().includes('task'))
+        return '✅ Task Update — BookYourBrands Studio';
+    if (message.toLowerCase().includes('package'))
+        return '📦 Package Update — BookYourBrands Studio';
+    return '🔔 New Notification — BookYourBrands Studio';
+};
 /**
  * Triggered when a new user document is created in Firestore.
- * Currently just logs, as email dispatch is handled via the Next.js API route
- * for more granular control over templates and passwords.
  */
 exports.onUserDocCreated = (0, firestore_1.onDocumentCreated)('users/{userId}', async (event) => {
     var _a;
@@ -56,8 +207,6 @@ exports.onUserDocCreated = (0, firestore_1.onDocumentCreated)('users/{userId}', 
 });
 /**
  * Callable function to create a new user (admin/team/client).
- * Handles Firebase Auth account creation and initial Firestore doc.
- * Returns the generated credentials so the frontend can send them via email.
  */
 exports.createUser = (0, https_1.onCall)(async (request) => {
     var _a;
@@ -101,12 +250,12 @@ exports.createUser = (0, https_1.onCall)(async (request) => {
         console.log('✅ Created new Auth user:', uid);
     }
     catch (error) {
-        // Step 2: Handle conflict (Conflict Resolution for testing)
+        // Step 2: Handle conflict
         if (error.code === 'auth/email-already-exists') {
             console.log('⚠️ Auth user already exists, fetching existing user...');
             const existingUser = await admin.auth().getUserByEmail(loginEmail);
             uid = existingUser.uid;
-            // Update password to match the expected pattern for consistency during testing
+            // Update password to match the expected pattern
             await admin.auth().updateUser(uid, { password: loginPassword });
             console.log('✅ Synchronized existing Auth user:', uid);
         }
