@@ -1,4 +1,3 @@
-
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
@@ -405,6 +404,20 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     const newTask: Omit<Task, 'id'> & { id: string } = { id: doc(collection(firestore, 'tasks')).id, ...taskData, assignedTo, status: 'Pending', remarks: [], dueDate: format(addWeeks(new Date(project.startDate), 1), 'yyyy-MM-dd') };
     setDocumentNonBlocking(doc(firestore, 'tasks', newTask.id), newTask, {});
     addNotification(`New task '${newTask.title}' added.`, `/projects/${project.id}`, [project.client.id, ...project.team_ids].filter(id => id !== authUid), 'system');
+
+    // Trigger task notification email if client has a real email
+    if (project.client?.realEmail && functions) {
+      const sendEmailFn = httpsCallable(functions, 'sendTaskNotification');
+      sendEmailFn({
+        clientEmail: project.client.realEmail || project.client.email,
+        clientName: project.client.name,
+        projectName: project.name,
+        taskName: taskData.title,
+        taskDescription: taskData.description,
+        dueDate: newTask.dueDate,
+        projectUrl: `${window.location.origin}/projects/${project.id}`
+      }).catch(err => console.error('Email task notification failed:', err));
+    }
   }
 
   const deleteTask = (taskId: string) => {

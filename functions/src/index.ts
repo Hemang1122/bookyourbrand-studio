@@ -2,7 +2,7 @@ import * as admin from "firebase-admin";
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { syncUserToFirestore } from './sync-user';
-import { sendWelcomeEmail, sendProjectCompletedEmail } from './email-service';
+import { sendWelcomeEmail, sendProjectCompletedEmail, sendTaskAssignedEmail, sendProjectChatMessageEmail } from './email-service';
 
 if (admin.apps.length === 0) {
     admin.initializeApp();
@@ -64,10 +64,10 @@ export const onNotificationCreated = onDocumentCreated(
           return;
         }
 
-        // 3. Send email using unified templates (can be added to email-service.ts later)
-        // For now using directly for notification alerts
+        // Send generic notification email
         console.log(`✅ Sending notification email to ${toEmail} for user ${recipientId}`);
-        // Implementation here uses process.env populated by secrets
+        // This is handled by specialized callables for specific events,
+        // but generic notifications could also be sent here if needed.
       } catch (err) {
         console.error(`❌ Failed to send email to recipient ${recipientId}:`, err);
       }
@@ -132,6 +132,73 @@ export const sendProjectCompletionEmail = onCall(
       return result;
     } catch (error: any) {
       console.error('Error sending project completion email:', error);
+      throw new HttpsError('internal', 'Failed to send email: ' + error.message);
+    }
+});
+
+/**
+ * Callable function to send an email when a task is assigned.
+ */
+export const sendTaskNotification = onCall(
+  { secrets: ['GMAIL_USER', 'GMAIL_PASS'] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Must be authenticated');
+    }
+
+    const { clientEmail, clientName, projectName, taskName, taskDescription, dueDate, projectUrl } = request.data;
+
+    if (!clientEmail || !taskName || !projectName) {
+      throw new HttpsError('invalid-argument', 'Missing required fields');
+    }
+
+    try {
+      const result = await sendTaskAssignedEmail({
+        to: clientEmail,
+        clientName: clientName || 'Valued Client',
+        projectName,
+        taskName,
+        taskDescription: taskDescription || '',
+        dueDate,
+        projectUrl: projectUrl || 'https://bybcrm.bookyourbrands.com/projects'
+      });
+
+      return result;
+    } catch (error: any) {
+      console.error('Error sending task notification email:', error);
+      throw new HttpsError('internal', 'Failed to send email: ' + error.message);
+    }
+});
+
+/**
+ * Callable function to send an email for project chat messages.
+ */
+export const sendProjectChatNotification = onCall(
+  { secrets: ['GMAIL_USER', 'GMAIL_PASS'] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Must be authenticated');
+    }
+
+    const { clientEmail, clientName, projectName, senderName, messagePreview, projectUrl } = request.data;
+
+    if (!clientEmail || !senderName || !messagePreview) {
+      throw new HttpsError('invalid-argument', 'Missing required fields');
+    }
+
+    try {
+      const result = await sendProjectChatMessageEmail({
+        to: clientEmail,
+        clientName: clientName || 'Valued Client',
+        projectName: projectName || 'Your Project',
+        senderName,
+        messagePreview,
+        projectUrl: projectUrl || 'https://bybcrm.bookyourbrands.com/projects'
+      });
+
+      return result;
+    } catch (error: any) {
+      console.error('Error sending chat notification email:', error);
       throw new HttpsError('internal', 'Failed to send email: ' + error.message);
     }
 });

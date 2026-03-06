@@ -20,6 +20,7 @@ import { useData } from '../../../data-provider';
 import { useSearchParams } from 'next/navigation';
 import { useVoiceRecorder } from '@/hooks/use-voice-recorder';
 import { useToast } from '@/hooks/use-toast';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 const EMOJI_OPTIONS = ['👍', '❤️', '😂', '😮', '🔥', '👏'];
 
@@ -93,7 +94,7 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { user: currentUser } = useAuth();
-  const { firestore, auth, firebaseApp } = useFirebaseServices();
+  const { firestore, auth, firebaseApp, functions } = useFirebaseServices();
   const { addNotification, markChatNotificationsAsRead, users } = useData();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -202,6 +203,19 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
         );
       }
 
+      // Trigger chat notification email if sender is admin and recipient is client with realEmail
+      if (currentUser.role === 'admin' && client?.realEmail && functions) {
+        const sendEmailFn = httpsCallable(functions, 'sendProjectChatNotification');
+        sendEmailFn({
+          clientEmail: client.realEmail || client.email,
+          clientName: client.name,
+          projectName: projectName,
+          senderName: currentUser.name,
+          messagePreview: messageText,
+          projectUrl: `${window.location.origin}/projects/${projectId}?openChat=true`
+        }).catch(err => console.error('Email chat notification failed:', err));
+      }
+
       sounds.messageSent();
       setNewMessage('');
       setTimeout(scrollToBottom, 100);
@@ -255,6 +269,19 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
             readBy: [currentUser.id],
             reactions: {}
           });
+
+          // Trigger email notification for file attachment as well
+          if (currentUser.role === 'admin' && client?.realEmail && functions) {
+            const sendEmailFn = httpsCallable(functions, 'sendProjectChatNotification');
+            sendEmailFn({
+              clientEmail: client.realEmail || client.email,
+              clientName: client.name,
+              projectName: projectName,
+              senderName: currentUser.name,
+              messagePreview: `Sent a file: ${file.name}`,
+              projectUrl: `${window.location.origin}/projects/${projectId}?openChat=true`
+            }).catch(err => console.error('Email chat notification failed:', err));
+          }
 
           sounds.messageSent();
           setIsUploading(false);
@@ -316,6 +343,19 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
             readBy: [currentUser.id],
             reactions: {}
           });
+
+          // Trigger email notification for voice note
+          if (currentUser.role === 'admin' && client?.realEmail && functions) {
+            const sendEmailFn = httpsCallable(functions, 'sendProjectChatNotification');
+            sendEmailFn({
+              clientEmail: client.realEmail || client.email,
+              clientName: client.name,
+              projectName: projectName,
+              senderName: currentUser.name,
+              messagePreview: `Sent a voice message (${formatDuration(voiceDuration)})`,
+              projectUrl: `${window.location.origin}/projects/${projectId}?openChat=true`
+            }).catch(err => console.error('Email chat notification failed:', err));
+          }
 
           sounds.messageSent();
           setIsUploading(false);
