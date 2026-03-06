@@ -1,4 +1,3 @@
-
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
@@ -139,9 +138,12 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const chatsQuery = useMemoFirebase(() => {
     if (!firestore || !authUid || !currentUser) return null;
     
-    // Only clients need chats in global state for real-time unread notifications.
-    // Admins and team members access chats on-demand on the support page to save bandwidth.
-    if (currentUser.role !== 'client') return null;
+    // IMPORTANT: Only query chats for clients in global state.
+    // Admins and team members access chats differently (e.g., on-demand on the support page)
+    // to prevent permission errors and unnecessary bandwidth usage.
+    if (currentUser.role === 'admin' || currentUser.role === 'team') {
+      return null;
+    }
     
     return query(
       collection(firestore, 'chats'), 
