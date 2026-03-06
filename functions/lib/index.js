@@ -33,13 +33,14 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUser = exports.createUser = exports.onUserDocCreated = exports.onNotificationCreated = exports.syncUserToFirestore = void 0;
+exports.sendProjectCompletionEmail = exports.deleteUser = exports.createUser = exports.onUserDocCreated = exports.onNotificationCreated = exports.syncUserToFirestore = void 0;
 const admin = __importStar(require("firebase-admin"));
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const sync_user_1 = require("./sync-user");
 Object.defineProperty(exports, "syncUserToFirestore", { enumerable: true, get: function () { return sync_user_1.syncUserToFirestore; } });
 const nodemailer = __importStar(require("nodemailer"));
+const email_service_1 = require("./email-service");
 if (admin.apps.length === 0) {
     admin.initializeApp();
 }
@@ -146,8 +147,9 @@ exports.onNotificationCreated = (0, firestore_1.onDocumentCreated)({ document: '
             // 1. Check online status in Realtime Database (presence system)
             const presenceSnap = await rtdb.ref(`status/${recipientId}`).get();
             const presence = presenceSnap.val();
+            const isOnline = (presence === null || presence === void 0 ? void 0 : presence.isOnline) === true;
             // If user is online, skip email
-            if ((presence === null || presence === void 0 ? void 0 : presence.isOnline) === true) {
+            if (isOnline) {
                 console.log(`⏭️ Skipping email for ${recipientId} — currently online`);
                 return;
             }
@@ -344,6 +346,31 @@ exports.deleteUser = (0, https_1.onCall)(async (request) => {
     catch (error) {
         console.error('deleteUser failed:', error);
         throw new https_1.HttpsError('internal', 'Failed to delete user: ' + error.message);
+    }
+});
+/**
+ * Send an email to the client when a project is completed.
+ */
+exports.sendProjectCompletionEmail = (0, https_1.onCall)(async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'Must be authenticated');
+    }
+    const { clientEmail, clientName, projectName, projectUrl } = request.data;
+    if (!clientEmail || !projectName) {
+        throw new https_1.HttpsError('invalid-argument', 'Missing required fields');
+    }
+    try {
+        const result = await (0, email_service_1.sendProjectCompletedEmail)({
+            to: clientEmail,
+            clientName: clientName || 'Valued Client',
+            projectName,
+            projectUrl: projectUrl || 'https://bybcrm.bookyourbrands.com/projects'
+        });
+        return result;
+    }
+    catch (error) {
+        console.error('Error sending email:', error);
+        throw new https_1.HttpsError('internal', 'Failed to send email: ' + error.message);
     }
 });
 //# sourceMappingURL=index.js.map

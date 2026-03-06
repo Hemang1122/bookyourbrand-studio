@@ -31,6 +31,9 @@ export interface WelcomeEmailParams {
   loginUrl: string;
 }
 
+/**
+ * Sends a welcome email to a new user.
+ */
 export async function sendWelcomeEmail(params: WelcomeEmailParams) {
   const { to, name, email, password, loginUrl } = params;
 
@@ -192,13 +195,16 @@ export async function sendWelcomeEmail(params: WelcomeEmailParams) {
   }
 }
 
-interface ProjectCompletedEmailParams {
+export interface ProjectCompletedEmailParams {
   to: string;
   clientName: string;
   projectName: string;
   projectUrl: string;
 }
 
+/**
+ * Sends a project completion email to a client.
+ */
 export async function sendProjectCompletedEmail(params: ProjectCompletedEmailParams) {
   const { to, clientName, projectName, projectUrl } = params;
 
