@@ -21,7 +21,6 @@ import { useSearchParams } from 'next/navigation';
 import { useVoiceRecorder } from '@/hooks/use-voice-recorder';
 import { useToast } from '@/hooks/use-toast';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { TypingIndicator, useTypingIndicator } from '@/components/typing-indicator';
 import { RecordingIndicator } from '@/components/recording-indicator';
 
 const EMOJI_OPTIONS = ['👍', '❤️', '😂', '😮', '🔥', '👏'];
@@ -94,7 +93,6 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const { user: currentUser } = useAuth();
   const { firestore, auth, firebaseApp, functions } = useFirebaseServices();
@@ -104,8 +102,6 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const nodeRef = useRef(null);
   const clientStatus = useUserStatus(client.id);
-
-  const { updateTyping } = useTypingIndicator(projectId, currentUser?.id || '', currentUser?.name || '');
 
   const {
     isRecording: voiceRecording,
@@ -173,7 +169,6 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
 
     try {
       const messageText = newMessage.trim();
-      updateTyping(false);
       
       await addDoc(
         collection(firestore, 'projects', projectId, 'chat-messages'),
@@ -538,11 +533,6 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
 
             <div className="shrink-0">
               <RecordingIndicator isRecording={voiceRecording} />
-              <TypingIndicator 
-                projectId={projectId} 
-                currentUserId={currentUser?.id || ''} 
-                currentUserName={currentUser?.name || ''} 
-              />
             </div>
 
             <div className="p-3 border-t border-white/10 bg-black/20">
@@ -582,34 +572,7 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
                   </Button>
                   <Input
                     value={newMessage}
-                    onChange={(e) => {
-                      setNewMessage(e.target.value);
-                      
-                      // Debounced typing indicator
-                      if (typingTimeoutRef.current) {
-                        clearTimeout(typingTimeoutRef.current);
-                      }
-                      
-                      updateTyping(true);
-                      
-                      typingTimeoutRef.current = setTimeout(() => {
-                        updateTyping(false);
-                      }, 2000);
-                    }}
-                    onBlur={() => {
-                      updateTyping(false);
-                      if (typingTimeoutRef.current) {
-                        clearTimeout(typingTimeoutRef.current);
-                      }
-                    }}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        updateTyping(false); // Stop typing when sent
-                        if (typingTimeoutRef.current) {
-                          clearTimeout(typingTimeoutRef.current);
-                        }
-                      }
-                    }}
+                    onChange={(e) => setNewMessage(e.target.value)}
                     placeholder="Type a message..."
                     className="flex-1 bg-black/40 border-white/10 rounded-full h-10 px-4 text-sm focus:ring-primary/50 focus:border-primary/50"
                   />
