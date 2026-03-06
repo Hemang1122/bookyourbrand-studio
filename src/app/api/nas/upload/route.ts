@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { nasLogin, nasUploadFile, nasLogout } from '@/lib/synology';
+import { resolveQuickConnect, nasLogin, nasUploadFile, nasLogout } from '@/lib/synology';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,16 +13,24 @@ export async function POST(request: NextRequest) {
 
     console.log(`🚀 Starting NAS upload for file: ${file.name} (Project: ${projectId})`);
 
+    // 1. Resolve NAS URL
+    const nasUrl = await resolveQuickConnect();
+    if (!nasUrl) {
+      return NextResponse.json({ success: false, error: 'Could not resolve NAS address' }, { status: 503 });
+    }
+
     const buffer = Buffer.from(await file.arrayBuffer());
     let sid: string | null = null;
 
     try {
-      sid = await nasLogin();
+      // 2. Authenticate
+      sid = await nasLogin(nasUrl);
       
-      // Organize files by project ID on the NAS in the CRM-Uploads shared folder
+      // 3. Define path (must start with a shared folder name)
       const folderPath = `/CRM-Uploads/projects/${projectId}`;
       
-      const uploadResult = await nasUploadFile(sid, folderPath, file.name, buffer);
+      // 4. Execute Upload
+      const uploadResult = await nasUploadFile(nasUrl, sid, folderPath, file.name, buffer);
       
       if (uploadResult.success) {
         console.log(`✅ Successfully uploaded ${file.name} to NAS`);
@@ -39,8 +47,9 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
     } finally {
-      if (sid) {
-        await nasLogout(sid);
+      // 5. Always logout
+      if (sid && nasUrl) {
+        await nasLogout(nasUrl, sid);
       }
     }
 

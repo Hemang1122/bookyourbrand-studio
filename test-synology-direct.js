@@ -4,91 +4,88 @@ const NAS_URL = 'https://bybvasai.quickconnect.to';
 const USERNAME = 'crm-uploads';
 const PASSWORD = '0TYuOj>a';
 
-async function testDirectConnection() {
+async function testMultipleMethods() {
+  console.log('🔐 Testing Synology NAS Connection...\n');
+  
+  // Method 1: Try API version 3
+  console.log('📡 Method 1: Trying API version 3...');
   try {
-    console.log('🔐 Testing direct QuickConnect URL...');
-    console.log('URL:', NAS_URL);
-    
-    // Try direct login through QuickConnect
-    const loginResponse = await axios.post(`${NAS_URL}/webapi/auth.cgi`, null, {
+    const response = await axios.get(`${NAS_URL}/webapi/auth.cgi`, {
       params: {
         api: 'SYNO.API.Auth',
-        version: 6,
+        version: 3,
         method: 'login',
         account: USERNAME,
         passwd: PASSWORD,
         session: 'FileStation',
-        format: 'cookie'
+        format: 'sid'
       },
-      maxRedirects: 5,
-      validateStatus: () => true // Accept any status
+      timeout: 10000
     });
     
-    console.log('\n📥 Response Status:', loginResponse.status);
-    console.log('📥 Response Headers:', loginResponse.headers);
-    console.log('📥 Response Data:', JSON.stringify(loginResponse.data, null, 2));
+    console.log('Response:', JSON.stringify(response.data, null, 2));
     
-    if (loginResponse.data && loginResponse.data.success) {
-      const sid = loginResponse.data.data.sid;
-      console.log('\n✅ Login successful!');
-      console.log('SID:', sid);
-      
-      // Test file upload
-      console.log('\n📤 Testing file upload...');
-      
-      const FormData = require('form-data');
-      const form = new FormData();
-      form.append('api', 'SYNO.FileStation.Upload');
-      form.append('version', '2');
-      form.append('method', 'upload');
-      form.append('path', '/CRM-Uploads');
-      form.append('create_parents', 'true');
-      form.append('overwrite', 'true');
-      form.append('file', Buffer.from('test content'), {
-        filename: 'test.txt',
-        contentType: 'text/plain'
-      });
-      
-      const uploadResponse = await axios.post(
-        `${NAS_URL}/webapi/entry.cgi`,
-        form,
-        {
-          params: { _sid: sid },
-          headers: form.getHeaders()
-        }
-      );
-      
-      console.log('Upload response:', JSON.stringify(uploadResponse.data, null, 2));
-      
-      if (uploadResponse.data.success) {
-        console.log('✅ Upload successful!');
-      }
-      
-      // Logout
-      await axios.get(`${NAS_URL}/webapi/auth.cgi`, {
-        params: {
-          api: 'SYNO.API.Auth',
-          version: 6,
-          method: 'logout',
-          session: 'FileStation'
-        },
-        headers: { Cookie: `id=${sid}` }
-      });
-      
-      console.log('\n🎉 Everything works! Ready to integrate into CRM!');
-      
-    } else {
-      console.log('\n❌ Login failed');
-      console.log('Error:', loginResponse.data);
+    if (response.data && response.data.success) {
+      console.log('✅ Method 1 SUCCESS!');
+      console.log('SID:', response.data.data.sid);
+      return true;
     }
-    
   } catch (error) {
-    console.error('\n❌ Error:', error.message);
-    if (error.response) {
-      console.error('Status:', error.response.status);
-      console.error('Data:', error.response.data);
-    }
+    console.log('❌ Method 1 failed:', error.message);
   }
+  
+  // Method 2: Try API version 2
+  console.log('\n📡 Method 2: Trying API version 2...');
+  try {
+    const response = await axios.get(`${NAS_URL}/webapi/auth.cgi`, {
+      params: {
+        api: 'SYNO.API.Auth',
+        version: 2,
+        method: 'login',
+        account: USERNAME,
+        passwd: PASSWORD,
+        session: 'FileStation',
+        format: 'sid'
+      },
+      timeout: 10000
+    });
+    
+    console.log('Response:', JSON.stringify(response.data, null, 2));
+    
+    if (response.data && response.data.success) {
+      console.log('✅ Method 2 SUCCESS!');
+      console.log('SID:', response.data.data.sid);
+      return true;
+    }
+  } catch (error) {
+    console.log('❌ Method 2 failed:', error.message);
+  }
+  
+  // Method 3: Check if we're getting redirected
+  console.log('\n📡 Method 3: Checking for redirects...');
+  try {
+    const response = await axios.get(NAS_URL, {
+      maxRedirects: 0,
+      validateStatus: () => true
+    });
+    
+    console.log('Status:', response.status);
+    console.log('Headers:', response.headers.location || 'No redirect');
+    
+    if (response.headers.location) {
+      console.log('🔄 QuickConnect is redirecting to:', response.headers.location);
+      console.log('💡 We might need to use this URL instead!');
+    }
+  } catch (error) {
+    console.log('Error checking redirects:', error.message);
+  }
+  
+  console.log('\n❌ All methods failed. Please check:');
+  console.log('1. Is the NAS online and accessible?');
+  console.log('2. Are the credentials correct?');
+  console.log('3. Is QuickConnect enabled on the NAS?');
+  
+  return false;
 }
 
-testDirectConnection();
+testMultipleMethods();
