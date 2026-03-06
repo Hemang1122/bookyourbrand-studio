@@ -2,7 +2,7 @@ import axios from 'axios';
 import FormData from 'form-data';
 import https from 'https';
 
-const NAS_URL = 'https://byb.i234.me:5001';
+const NAS_URL = 'https://byb.i234.me:8080';
 const USERNAME = 'crm-uploads';
 const PASSWORD = '0TYuOj>a';
 const agent = new https.Agent({ rejectUnauthorized: false });

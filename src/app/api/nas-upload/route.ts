@@ -3,12 +3,15 @@ import axios from 'axios';
 import FormData from 'form-data';
 import https from 'https';
 
-const NAS_URL = 'https://byb.i234.me:5001';
+const NAS_URL = 'https://byb.i234.me:8080';
 const USERNAME = 'crm-uploads';
 const PASSWORD = '0TYuOj>a';
 const agent = new https.Agent({ rejectUnauthorized: false });
 
 let cachedSid: string | null = null;
+
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
 
 async function getSession() {
   if (cachedSid) return cachedSid;
@@ -24,33 +27,26 @@ async function getSession() {
 async function generateShareLink(sid: string, filePath: string): Promise<string | null> {
   try {
     const res = await axios.get(`${NAS_URL}/webapi/entry.cgi`, {
-      params: {
-        api: 'SYNO.FileStation.Sharing',
-        version: 3,
-        method: 'create',
-        path: filePath,
-        password: '',
-        date_expired: '-1',
-        date_available: '-1',
-        _sid: sid
-      },
+      params: { api: 'SYNO.FileStation.Sharing', version: 3, method: 'create', path: filePath, password: '', date_expired: '-1', date_available: '-1', _sid: sid },
       httpsAgent: agent
     });
-
-    if (res.data.success && res.data.data?.links?.[0]?.url) {
-      return res.data.data.links[0].url;
-    }
+    if (res.data.success && res.data.data?.links?.[0]?.url) return res.data.data.links[0].url;
     return null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 export async function POST(req: NextRequest) {
   try {
+    // Parse multipart manually using request body
+    const contentType = req.headers.get('content-type') || '';
+    
+    if (!contentType.includes('multipart/form-data')) {
+      return NextResponse.json({ success: false, error: 'Expected multipart/form-data' });
+    }
+
     const formData = await req.formData();
     const file = formData.get('file') as File;
-    const clientName = formData.get('clientName') as string;
+    const clientName = (formData.get('clientName') as string) || 'Unknown Client';
 
     if (!file) return NextResponse.json({ success: false, error: 'No file provided' });
 
@@ -68,25 +64,19 @@ export async function POST(req: NextRequest) {
     form.append('path', uploadPath);
     form.append('create_parents', 'true');
     form.append('overwrite', 'true');
-    form.append('file', fileBuffer, { filename: file.name, contentType: file.type });
+    form.append('file', fileBuffer, { filename: file.name, contentType: file.type || 'application/octet-stream' });
 
     const res = await axios.post(`${NAS_URL}/webapi/entry.cgi?_sid=${sid}`, form, {
       headers: form.getHeaders(),
       httpsAgent: agent,
       maxBodyLength: Infinity,
-      maxContentLength: Infinity
+      maxContentLength: Infinity,
+      timeout: 300000
     });
 
     if (res.data.success) {
-      // Generate sharing link
       const shareUrl = await generateShareLink(sid, filePath);
-      return NextResponse.json({ 
-        success: true, 
-        nasPath: filePath,
-        shareUrl: shareUrl || null,
-        fileName: file.name,
-        fileType: file.type
-      });
+      return NextResponse.json({ success: true, nasPath: filePath, shareUrl: shareUrl || null, fileName: file.name, fileType: file.type });
     } else {
       cachedSid = null;
       return NextResponse.json({ success: false, error: JSON.stringify(res.data) });
@@ -96,10 +86,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: error.message });
   }
 }
-
-export const config = {
-  api: {
-    bodyParser: false,
-    responseLimit: false,
-  },
-};
