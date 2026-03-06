@@ -1,29 +1,21 @@
-
 'use client';
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { ChatMessage, User, Chat } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Paperclip, FileText, Download, Loader2, Trash2, MoreVertical, Pencil, Smile, ArrowLeft, ArrowDown, Phone, Video, Reply, Pin, X, Mic, Play, Pause, PhoneOff, PhoneIncoming, PhoneMissed } from 'lucide-react';
+import { Send, Paperclip, FileText, Download, Loader2, Trash2, X, Mic, Play, Pause, Phone, PhoneOff, ArrowLeft, Smile, Check, CheckCheck } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/firebase/provider';
 import { useCollection, useFirebaseServices, useMemoFirebase, useTypingIndicator, useUserStatus } from '@/firebase';
-import { collection, query, orderBy, serverTimestamp, addDoc, doc, writeBatch, arrayUnion, updateDoc, arrayRemove, where, limit, onSnapshot, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, serverTimestamp, addDoc, doc, writeBatch, arrayUnion, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useData } from '../../data-provider';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { format, isSameDay, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
-import { Badge } from '@/components/ui/badge';
+import { format, isSameDay, isToday, isYesterday } from 'date-fns';
 import { sounds } from '@/lib/sounds';
 import { useVoiceRecorder } from '@/hooks/use-voice-recorder';
 import { useVoiceCall } from '@/hooks/use-voice-call';
@@ -43,33 +35,6 @@ const getMessageDate = (timestamp: any): Date => {
 
 const EMOJI_OPTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
-const isWithin15Minutes = (msg: ChatMessage): boolean => {
-  const date = getMessageDate(msg.timestamp);
-  const now = Date.now();
-  return now - date.getTime() < 15 * 60 * 1000;
-};
-
-const MessageTicks = ({ msg, currentUserId, partnerId }: {
-  msg: ChatMessage;
-  currentUserId: string;
-  partnerId?: string;
-}) => {
-  if (msg.senderId !== currentUserId) return null;
-  
-  const readBy = msg.readBy || [];
-  // For shared support, we check if anyone else has read it
-  const isRead = partnerId ? readBy.includes(partnerId) : readBy.length > 1;
-  const isDelivered = readBy.length > 1;
-
-  if (isRead) {
-    return <svg width="16" height="10" viewBox="0 0 16 10" className="text-blue-500" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 5l3 3 6-7 M6 5l3 3 6-7"/></svg>;
-  }
-   if (isDelivered) {
-    return <svg width="16" height="10" viewBox="0 0 16 10" className="text-gray-500" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 5l3 3 6-7 M6 5l3 3 6-7"/></svg>;
-  }
-  return <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-gray-500" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 5l3 3 5-7"/></svg>;
-};
-
 interface SupportChatRoomProps {
   chatPartner?: User;
   chatId?: string;
@@ -86,18 +51,13 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { typingUsers, setTyping } = useTypingIndicator(chatId);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
-  const [newMessagesCount, setNewMessagesCount] = useState(0);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const uploadTaskRef = useRef<any>(null);
   const { toast } = useToast();
   
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [editingText, setEditingText] = useState('');
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
-  const [missedCalls, setMissedCalls] = useState<any[]>([]);
   
   const {
     isRecording,
@@ -111,12 +71,7 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
 
   const {
     isInCall,
-    isRinging,
-    incomingCall,
-    callStatus,
     startCall,
-    answerCall,
-    rejectCall,
     endCall
   } = useVoiceCall(chatId, currentUser);
 
@@ -150,7 +105,6 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
     if (viewport) {
       viewport.scrollTo({ top: viewport.scrollHeight, behavior });
       setShowScrollToBottom(false);
-      setNewMessagesCount(0);
     }
   }, []);
   
@@ -160,9 +114,6 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
       if (viewport) {
         const isScrolledToBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 100;
         setShowScrollToBottom(!isScrolledToBottom);
-        if (isScrolledToBottom) {
-          setNewMessagesCount(0);
-        }
       }
     };
     viewport?.addEventListener('scroll', handleScroll);
@@ -230,7 +181,6 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
       const timestamp = Date.now();
       const fileStorageRef = storageRef(storage, `chat-uploads/${chatId}/${timestamp}_${file.name}`);
       const task = uploadBytesResumable(fileStorageRef, file);
-      uploadTaskRef.current = task;
 
       task.on('state_changed',
         (snapshot) => {
@@ -317,7 +267,7 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
               className={cn("text-gray-400 hover:text-white hover:bg-white/10", isInCall && "text-green-500 bg-green-500/10")}
               onClick={() => isInCall ? endCall() : (chatPartner && startCall(chatPartner.id))}
             >
-              {isInCall ? <PhoneOff /> : <Phone />}
+              {isInCall ? <PhoneOff className="text-red-500" /> : <Phone />}
             </Button>
         </div>
       </header>
@@ -349,7 +299,6 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
                     <div className={cn('flex items-end gap-3', isCurrentUser ? 'justify-end' : 'justify-start')}>
                       <div className={cn('flex flex-col gap-1 max-w-[65%]', isCurrentUser ? 'items-end' : 'items-start')}>
                         
-                        {/* Admin Name Badge for Clients */}
                         {!isCurrentUser && msg.senderRole === 'admin' && (
                           <div className="flex items-center gap-2 mb-1 px-1">
                             <Avatar className="h-4 w-4">
@@ -383,7 +332,7 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
                         </div>
                         <div className={cn("text-[9px] mt-1 flex items-center gap-1 text-gray-500")}>
                             {format(date, 'p')}
-                            {isCurrentUser && <MessageTicks msg={msg} currentUserId={currentUser.id} />}
+                            <MessageTicks msg={msg} currentUserId={currentUser.id} />
                         </div>
                       </div>
                     </div>
@@ -429,12 +378,17 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
   );
 }
 
-const MessageTicks = ({ msg, currentUserId }: { msg: ChatMessage; currentUserId: string; }) => {
+const MessageTicks = ({ msg, currentUserId }: { msg: any; currentUserId: string }) => {
   if (msg.senderId !== currentUserId) return null;
   const isRead = (msg.readBy || []).length > 1;
-  return isRead ? (
-    <svg width="16" height="10" viewBox="0 0 16 10" className="text-blue-500" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M1 5l3 3 6-7 M6 5l3 3 6-7"/></svg>
-  ) : (
-    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-gray-500" stroke="currentColor" strokeWidth="1.5"><path d="M1 5l3 3 5-7"/></svg>
+  
+  return (
+    <div className="flex items-center gap-1">
+      {isRead ? (
+        <CheckCheck className="h-3 w-3 text-blue-400" />
+      ) : (
+        <Check className="h-3 w-3 text-gray-400" />
+      )}
+    </div>
   );
 };
