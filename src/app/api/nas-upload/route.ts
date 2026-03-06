@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import FormData from 'form-data';
@@ -97,3 +96,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: error.message });
   }
 }
+
+export const config = {
+  api: {
+    bodyParser: false,
+    responseLimit: false,
+  },
+};
