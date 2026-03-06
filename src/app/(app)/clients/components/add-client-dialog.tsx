@@ -1,4 +1,3 @@
-
 'use client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -18,7 +17,6 @@ import { Loader2 } from 'lucide-react';
 import { useFirebaseServices } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
-import { sendWelcomeEmailAction } from '@/app/actions/email';
 
 type AddClientDialogProps = {
   children: React.ReactNode;
@@ -45,7 +43,7 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
     try {
       let userId = null;
       // Generation Logic: Random 8-character password for clients
-      let generatedPassword = Math.random().toString(36).slice(-8);
+      const generatedPassword = Math.random().toString(36).slice(-8);
       // Generation Logic: Clean name for internal username field
       const username = name.toLowerCase().replace(/\s+/g, '');
 
@@ -96,15 +94,36 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
         updatedAt: serverTimestamp(),
       }, { merge: true });
 
-      // 3. Send welcome email via Server Action
-      const emailResult = await sendWelcomeEmailAction(name, realEmail, generatedPassword);
-      
-      if (emailResult.success) {
-        toast({
-          title: 'Success!',
-          description: `Client created and credentials sent to ${realEmail}.`,
+      // 3. Send welcome email via API
+      try {
+        const response = await fetch('/api/send-welcome-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: name,
+            email: realEmail,
+            username: realEmail,
+            password: generatedPassword,
+            userType: 'client'
+          })
         });
-      } else {
+
+        const result = await response.json();
+        
+        if (result.success) {
+          toast({
+            title: 'Success!',
+            description: `Client created and credentials sent to ${realEmail}.`,
+          });
+        } else {
+          toast({
+            title: 'Client Created',
+            description: 'Account ready, but email failed. Share password manually: ' + generatedPassword,
+            variant: 'destructive'
+          });
+        }
+      } catch (emailError) {
+        console.error("Email API failed:", emailError);
         toast({
           title: 'Client Created',
           description: 'Account ready, but email failed. Share password manually: ' + generatedPassword,

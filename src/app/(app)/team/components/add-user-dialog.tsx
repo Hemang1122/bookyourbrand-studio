@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -49,13 +48,30 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
     
     setIsProcessing(true);
     try {
-      // Passes realEmail if provided for credential delivery, otherwise uses deterministic pattern
+      // 1. Create team member in Firebase via Cloud Function
       const result = await createUser({ 
         name, 
         role: 'team', 
         realEmail: realEmail || undefined 
       });
       
+      // 2. Send welcome email via API
+      try {
+        await fetch('/api/send-welcome-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: name,
+            email: realEmail || result.email, // Use provided notification email or the generated one
+            username: credentials.email,
+            password: credentials.password,
+            userType: 'team'
+          })
+        });
+      } catch (emailError) {
+        console.error("Email notification failed:", emailError);
+      }
+
       toast({
         title: 'Team Member Created!',
         description: realEmail 
@@ -68,7 +84,7 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
       setName('');
       setRealEmail('');
     } catch (error) {
-      // Error is caught by data provider toast
+      console.error("Failed to create team member:", error);
     } finally {
       setIsProcessing(false);
     }
@@ -99,6 +115,7 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
               onChange={(e) => setRealEmail(e.target.value)}
               placeholder="member@gmail.com"
               className="bg-white/5 border-white/10 text-white"
+              disabled={isProcessing}
             />
              <p className="text-xs text-muted-foreground">
               Used to send login credentials to the member.
