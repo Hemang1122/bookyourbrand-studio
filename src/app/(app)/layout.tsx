@@ -1,8 +1,6 @@
-
 'use client';
 import AppLayoutClient from './layout-client';
-import { useEffect, useState, ReactNode }
-from 'react';
+import { useEffect, useState, ReactNode } from 'react';
 import type { User } from '@/lib/types';
 import { redirect } from 'next/navigation';
 import { FirebaseClientProvider, useFirestore } from '@/firebase';
@@ -33,8 +31,8 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
 
     // If we don't have firestore yet, wait.
     if (!firestore) {
-        setIsAppLoading(true);
-        return;
+      setIsAppLoading(true);
+      return;
     }
 
     // We have a Firebase user, now get their app-specific profile
@@ -45,10 +43,10 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
 
       if (userDoc.exists()) {
         finalUser = { id: userDoc.id, ...userDoc.data() } as User;
-         // Ensure local profile name is synced with auth display name if it's different
+        // Ensure local profile name is synced with auth display name if it's different
         if (finalUser.name !== authUser.displayName && authUser.displayName) {
-            finalUser.name = authUser.displayName;
-            await updateDoc(userRef, { name: authUser.displayName });
+          finalUser.name = authUser.displayName;
+          await updateDoc(userRef, { name: authUser.displayName });
         }
       } else {
         // First-time sign-in, create a new profile in Firestore
@@ -57,48 +55,49 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
         
         let role: User['role'] = 'client';
         
-        // Specific check for IDs that override standard domain-based logic
-        if (authUser.uid === 'K3lFp8oyoYaTpfg4vr4qj1kGl9c2') {
-          role = 'client';
-        } else if (userEmail.endsWith('@bookyourbrands.com')) {
+        // Determine role based on email domain
+        if (userEmail.endsWith('@bookyourbrands.com')) {
           role = 'admin';
         } else if (userEmail.endsWith('@example.com')) {
           role = 'team';
+        } else {
+          role = 'client';
         }
 
         finalUser = {
           id: authUser.uid,
           uid: authUser.uid,
           email: userEmail,
-          name: authUser.uid === 'K3lFp8oyoYaTpfg4vr4qj1kGl9c2' ? 'Niddhi' : name,
+          name: name,
           role: role,
           avatar: `avatar-${Math.floor(Math.random() * 3) + 2}`,
           username: name.toLowerCase().replace(/\s+/g, ''),
         };
         
+        // Only create client profile if role is client
         if (role === 'client') {
-            const clientRef = doc(firestore, 'clients', finalUser.id);
-            const defaultPackage = subscriptionPackages.find(p => p.name === 'Gold');
-            const defaultTier = defaultPackage?.tiers?.[0];
-            const durationString = defaultTier?.duration || defaultPackage?.duration;
-            const maxDuration = durationString ? parseInt(durationString.replace(/[^0-9]/g, ''), 10) : 90;
+          const clientRef = doc(firestore, 'clients', finalUser.id);
+          const defaultPackage = subscriptionPackages.find(p => p.name === 'Gold');
+          const defaultTier = defaultPackage?.tiers?.[0];
+          const durationString = defaultTier?.duration || defaultPackage?.duration;
+          const maxDuration = durationString ? parseInt(durationString.replace(/[^0-9]/g, ''), 10) : 90;
 
-            const newClient = {
-                id: finalUser.id,
-                name: finalUser.name,
-                email: finalUser.email,
-                company: `${finalUser.name}'s Company`,
-                avatar: finalUser.avatar,
-                packageName: 'Gold' as const,
-                reelsLimit: defaultTier?.reels ?? 10,
-                reelsCreated: 0,
-                maxDuration: isNaN(maxDuration) ? 90 : maxDuration,
-                social: {
-                    instagram: { connected: false },
-                    facebook: { connected: false },
-                },
-            };
-            await setDoc(clientRef, newClient, { merge: true });
+          const newClient = {
+            id: finalUser.id,
+            name: finalUser.name,
+            email: finalUser.email,
+            company: `${finalUser.name}'s Company`,
+            avatar: finalUser.avatar,
+            packageName: 'Gold' as const,
+            reelsLimit: defaultTier?.reels ?? 10,
+            reelsCreated: 0,
+            maxDuration: isNaN(maxDuration) ? 90 : maxDuration,
+            social: {
+              instagram: { connected: false },
+              facebook: { connected: false },
+            },
+          };
+          await setDoc(clientRef, newClient, { merge: true });
         }
         
         await setDoc(userRef, finalUser, { merge: true });
@@ -108,8 +107,8 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
       setIsAppLoading(false);
 
     }).catch(error => {
-        console.error("Error fetching or creating user document:", error);
-        redirect('/login');
+      console.error("Error fetching or creating user document:", error);
+      redirect('/login');
     });
 
   }, [authUser, isAuthLoading, firestore]);
@@ -118,8 +117,8 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="flex items-center text-lg text-muted-foreground">
-            <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-            <span>Loading Workspace...</span>
+          <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+          <span>Loading Workspace...</span>
         </div>
       </div>
     );
@@ -143,11 +142,11 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
 
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-    return (
-        <FirebaseClientProvider>
-            <AppLayoutAuthenticated>
-                {children}
-            </AppLayoutAuthenticated>
-        </FirebaseClientProvider>
-    )
+  return (
+    <FirebaseClientProvider>
+      <AppLayoutAuthenticated>
+        {children}
+      </AppLayoutAuthenticated>
+    </FirebaseClientProvider>
+  )
 }

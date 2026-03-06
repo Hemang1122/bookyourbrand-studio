@@ -140,7 +140,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     
     // IMPORTANT: Only query chats for clients in global state.
     // Admins and team members access chats differently (e.g., on-demand on the support page)
-    // to prevent permission errors and unnecessary bandwidth usage.
     if (currentUser.role === 'admin' || currentUser.role === 'team') {
       return null;
     }
@@ -242,7 +241,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const getOrCreateChat = useCallback(async (partnerId: string, isSupport: boolean = false): Promise<string | null> => {
     if (!firestore || !currentUser || !authUid) return null;
     
-    // Support Chat Logic: support_clientId
     const chatId = isSupport ? `support_${currentUser.id}` : [authUid, partnerId].sort().join('_');
     const chatDocRef = doc(firestore, 'chats', chatId);
     
@@ -258,7 +256,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
           createdAt: Timestamp.now(), 
           lastMessage: null, 
           lastMessageAt: Timestamp.now(),
-          // For support chats, store client metadata directly
           ...(isSupport && { 
             clientId: currentUser.id, 
             clientName: currentUser.name,
@@ -271,9 +268,13 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         if (!isSupport) {
           addNotification(`New chat with ${currentUser.name}.`, `/support?chatId=${chatId}`, [partnerId], 'chat', chatId);
         } else {
-          // Notify all admins of a new support request
-          const adminIds = usersData?.filter(u => u.role === 'admin').map(u => u.id) || [];
-          addNotification(`New support request from ${currentUser.name}.`, `/support?chatId=${chatId}`, adminIds, 'chat', chatId);
+          // RESTRICTION: Only notify the admin named "Neha" for new support requests
+          const neha = usersData?.find(u => u.role === 'admin' && u.name.toLowerCase().includes('neha'));
+          const adminIds = neha ? [neha.id] : [];
+          
+          if (adminIds.length > 0) {
+            addNotification(`New support request from ${currentUser.name}.`, `/support?chatId=${chatId}`, adminIds, 'chat', chatId);
+          }
         }
         
         return chatId;
@@ -321,8 +322,9 @@ export function DataProvider({ children, user: currentUser }: { children: React.
           if (currentUser.role === 'admin') {
             recipients = [chat.clientId!]; // Notify the client
           } else {
-            // Notify all admins
-            recipients = usersData?.filter(u => u.role === 'admin').map(u => u.id) || [];
+            // RESTRICTION: Only notify "Neha" when a client messages in support
+            const neha = usersData?.find(u => u.role === 'admin' && u.name.toLowerCase().includes('neha'));
+            recipients = neha ? [neha.id] : [];
           }
         } else {
           recipients = chat.participants.filter(pId => pId !== authUid);

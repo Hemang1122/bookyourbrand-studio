@@ -184,7 +184,10 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
         }
       );
 
-      const adminIds = (users || []).filter(u => u.role === 'admin').map(u => u.id);
+      // RESTRICTION: For administrative attention, only notify "Neha" if message is from a client
+      const neha = (users || []).find(u => u.role === 'admin' && u.name.toLowerCase().includes('neha'));
+      const adminIds = neha ? [neha.id] : [];
+      
       const participantIds = [client.id, ...teamMembers.map(m => m.id)];
       const recipients = Array.from(new Set([...participantIds, ...adminIds]))
         .filter(id => id !== currentUser.id);

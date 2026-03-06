@@ -1,11 +1,10 @@
-
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/firebase/provider';
 import { useData } from '../data-provider';
 import type { User, Chat } from '@/lib/types';
 import { SupportChatList } from './components/SupportChatList';
-import { MessageSquare, Loader2 } from 'lucide-react';
+import { MessageSquare, Loader2, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { useCollection, useMemoFirebase, useFirebaseServices } from '@/firebase';
@@ -28,33 +27,38 @@ export default function SupportPage() {
   const [selectedChatPartner, setSelectedChatPartner] = useState<User | null>(null);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
 
+  // RESTRICTION: Only the admin named "Neha" can access the support inbox
+  const isNeha = useMemo(() => {
+    return currentUser?.role === 'admin' && currentUser?.name.toLowerCase().includes('neha');
+  }, [currentUser]);
+
   // Local query for Admins - load support chats on demand
   const { data: adminSupportChats, isLoading: adminChatsLoading } = useCollection<Chat>(
     useMemoFirebase(() => {
       if (!firestore || !currentUser || currentUser.role !== 'admin') return null;
+      
+      // If admin is NOT Neha, don't return a query (they shouldn't see support chats)
+      if (!isNeha) return null;
+
       return query(
         collection(firestore, 'chats'),
         where('type', '==', 'support'),
         orderBy('lastMessageAt', 'desc')
       );
-    }, [firestore, currentUser])
+    }, [firestore, currentUser, isNeha])
   );
 
   const chats = currentUser?.role === 'admin' ? (adminSupportChats || []) : clientChats;
   const isLoading = dataLoading || (currentUser?.role === 'admin' && adminChatsLoading);
 
-  // For Admins: The "partners" are the clients who have support chats
-  // For Clients: They only have one partner - the Support Team
   const supportContacts = useMemo(() => {
     if (!currentUser || !users || !chats) return [];
     if (currentUser.role === 'admin') {
-      // Find all clients who have a support chat record
       const clientsWithChats = chats
         .filter(c => c.type === 'support')
         .map(c => c.clientId);
       return users.filter(u => clientsWithChats.includes(u.id));
     }
-    // Clients only see the "Support Team" virtual contact
     return [];
   }, [currentUser, users, chats]);
 
@@ -62,7 +66,6 @@ export default function SupportPage() {
     if (!currentUser || isLoading) return;
 
     if (currentUser.role === 'client') {
-      // Automatically initiate/get the support chat for the client
       getOrCreateChat('', true).then(id => {
         if (id) setActiveChatId(id);
       });
@@ -78,6 +81,22 @@ export default function SupportPage() {
   }
 
   const isAdmin = currentUser?.role === 'admin';
+
+  // If admin but not Neha, show a restricted access message
+  if (isAdmin && !isNeha) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-center p-10">
+        <div className="w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center mb-6">
+          <ShieldAlert className="h-10 w-10 text-red-500" />
+        </div>
+        <h2 className="text-2xl font-bold text-white mb-2">Support Inbox Restricted</h2>
+        <p className="text-gray-400 max-w-md">
+          Client support inquiries are currently managed exclusively by Neha. 
+          If you need access to this inbox, please contact your supervisor.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="h-[calc(100vh-8rem)] bg-[#0F0F1A] rounded-lg overflow-hidden border border-white/5 shadow-2xl">
@@ -111,7 +130,7 @@ export default function SupportPage() {
              activeChatId ? (
                 <SupportChatRoom
                   chatId={activeChatId}
-                  onBack={() => {}} // No back button needed for clients in unified mode
+                  onBack={() => {}} 
                 />
              ) : (
                <div className="flex items-center justify-center h-full">
