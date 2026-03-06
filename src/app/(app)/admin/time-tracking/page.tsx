@@ -22,7 +22,8 @@ import {
   User,
   TrendingUp,
   Search,
-  Users
+  Users,
+  Loader2
 } from 'lucide-react';
 import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
 import { cn } from '@/lib/utils';
