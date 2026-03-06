@@ -17,6 +17,7 @@ import {
   CreditCard,
   Package,
   RefreshCw,
+  ClipboardCheck,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -36,6 +37,7 @@ const navItems = [
   { href: '/packages', icon: CreditCard, label: 'Packages', roles: ['client'] },
   { href: '/admin/packages', icon: Package, label: 'Package Mgmt', roles: ['admin'] },
   { href: '/admin/migration', icon: RefreshCw, label: 'Migration Tool', roles: ['admin'] },
+  { href: '/admin/documents', icon: ClipboardCheck, label: 'Doc Approvals', roles: ['admin'] },
   { href: '/clients', icon: Briefcase, label: 'Clients', roles: ['admin'] },
   { href: '/team', icon: Users, label: 'Team', roles: ['admin'] },
   { href: '/documents', icon: FileText, label: 'Documents', roles: ['client'] },
