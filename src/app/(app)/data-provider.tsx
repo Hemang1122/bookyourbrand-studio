@@ -316,26 +316,39 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       lastMessageAt: serverTimestamp() 
     });
     
-    const chat = chatsData?.find(c => c.id === chatId);
-    if (chat) {
-        let recipients = [];
-        if (chat.type === 'support') {
-          if (currentUser.role === 'admin') {
-            recipients = [chat.clientId!]; // Notify the client
-          } else {
-            // RESTRICTION: Only notify "Niddhi" when a client messages in support
-            const niddhi = usersData?.find(u => u.role === 'admin' && u.name.toLowerCase().includes('niddhi'));
-            recipients = niddhi ? [niddhi.id] : [];
-          }
+    // Fetch chat data directly instead of relying on chatsData
+    // (chatsData is null for admins in global state)
+    getDoc(chatDocRef).then((chatSnap) => {
+      if (!chatSnap.exists()) return;
+      const chat = chatSnap.data();
+      
+      let recipients: string[] = [];
+      
+      if (chat.type === 'support') {
+        if (currentUser.role === 'admin') {
+          // Admin sent message → notify the client
+          recipients = chat.clientId ? [chat.clientId] : [];
         } else {
-          recipients = chat.participants.filter(pId => pId !== authUid);
+          // Client sent message → notify all admins
+          const adminUsers = usersData?.filter(u => u.role === 'admin') || [];
+          recipients = adminUsers.map(u => u.id).filter(id => id !== authUid);
         }
-        
-        if (recipients.length > 0) {
-          addNotification(`New message from ${currentUser.name}`, `/support?chatId=${chatId}`, recipients, 'chat', chatId);
-        }
-    }
-  }, [currentUser, firestore, authUid, addNotification, chatsData, usersData]);
+      } else {
+        // Direct chat → notify the other participant
+        recipients = (chat.participants || []).filter((pId: string) => pId !== authUid);
+      }
+      
+      if (recipients.length > 0) {
+        addNotification(
+          `New message from ${currentUser.name}`,
+          `/support?chatId=${chatId}`,
+          recipients,
+          'chat',
+          chatId
+        );
+      }
+    }).catch(err => console.error('sendMessage: failed to fetch chat for notification', err));
+  }, [currentUser, firestore, authUid, addNotification, usersData]);
 
   const createUser = useCallback(async (userData: { name: string; role: 'client' | 'team'; realEmail?: string; company?: string; }) => {
     if (!functions) return Promise.reject("Functions service not available.");

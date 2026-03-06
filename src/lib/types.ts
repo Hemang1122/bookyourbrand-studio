@@ -1,3 +1,4 @@
+
 import { FieldValue, Timestamp } from 'firebase/firestore';
 
 export type UserRole = 'admin' | 'team' | 'client';
@@ -215,7 +216,7 @@ export type ChatLastMessage = {
 
 export type Chat = {
   id: string;
-  type: 'direct' | 'group';
+  type: 'direct' | 'group' | 'support';
   participants: string[];
   createdBy: string;
   createdAt: Timestamp;
@@ -225,6 +226,9 @@ export type Chat = {
   lastMessageAt: Timestamp;
   // This is a client-side only property
   unreadCount?: number;
+  clientId?: string;
+  clientName?: string;
+  clientAvatar?: string;
 };
 
 export type ChatMessage = {
@@ -232,10 +236,14 @@ export type ChatMessage = {
   senderId: string;
   senderName: string;
   senderRole: UserRole;
+  senderAvatar?: string;
   type: MessageType;
   text?: string | null;
   mediaURL?: string | null;
   mediaPath?: string | null;
+  mediaType?: string;
+  fileName?: string;
+  fileSize?: number;
   duration?: number | null;
   timestamp: Timestamp;
   readBy: string[];
