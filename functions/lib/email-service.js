@@ -57,6 +57,9 @@ const gmailTransporter = nodemailer.createTransport({
         pass: 'qzng wikf gddz ppwc'
     }
 });
+/**
+ * Sends a welcome email to a new user.
+ */
 async function sendWelcomeEmail(params) {
     const { to, name, email, password, loginUrl } = params;
     const htmlContent = `
@@ -215,6 +218,9 @@ async function sendWelcomeEmail(params) {
         return { success: false, error: error.message };
     }
 }
+/**
+ * Sends a project completion email to a client.
+ */
 async function sendProjectCompletedEmail(params) {
     const { to, clientName, projectName, projectUrl } = params;
     const htmlContent = `

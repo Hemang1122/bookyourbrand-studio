@@ -44,35 +44,52 @@ export default function ProjectDetailPage() {
   
   const handleStatusChange = async (newStatus: ProjectStatus) => {
     if (project && firestore) {
-      // Update locally and in DB
-      updateProject(project.id, { status: newStatus });
+      try {
+        // Update locally using data provider
+        updateProject(project.id, { status: newStatus });
 
-      // If project is marked as Completed, trigger the completion email
-      if (newStatus === 'Completed' && project.client?.email && functions) {
-        try {
-          const sendEmailFn = httpsCallable(functions, 'sendProjectCompletionEmail');
-          await sendEmailFn({
-            clientEmail: project.client.email,
-            clientName: project.client.name,
-            projectName: project.name,
-            projectUrl: `${window.location.origin}/projects/${project.id}`
-          });
+        // Update in DB with extra metadata if completed
+        const projectRef = doc(firestore, 'projects', project.id);
+        await updateDoc(projectRef, {
+          status: newStatus,
+          ...(newStatus === 'Completed' && { completedAt: serverTimestamp() })
+        });
+
+        // If project is marked as Completed, trigger the completion email
+        if (newStatus === 'Completed' && project.client?.email && functions) {
+          try {
+            const sendEmailFn = httpsCallable(functions, 'sendProjectCompletionEmail');
+            await sendEmailFn({
+              clientEmail: project.client.email,
+              clientName: project.client.name || 'Valued Client',
+              projectName: project.name,
+              projectUrl: `${window.location.origin}/projects/${project.id}`
+            });
+            
+            toast({
+              title: 'Project Completed',
+              description: 'The client has been notified via email.',
+            });
+          } catch (emailError: any) {
+            console.error('Failed to send completion email:', emailError);
+            toast({
+              title: 'Project Completed',
+              description: 'Status updated, but client notification email failed.',
+              variant: 'destructive'
+            });
+          }
+        } else {
           toast({
-            title: 'Project Completed',
-            description: 'The client has been notified via email.',
-          });
-        } catch (error: any) {
-          console.error('Failed to send completion email:', error);
-          toast({
-            title: 'Email Failed',
-            description: 'Status updated, but client notification email failed.',
-            variant: 'destructive'
+            title: 'Success',
+            description: `Project status updated to ${newStatus}`,
           });
         }
-      } else {
+      } catch (error: any) {
+        console.error('Error updating status:', error);
         toast({
-          title: 'Status Updated',
-          description: `Project status changed to ${newStatus}.`,
+          title: 'Error',
+          description: error.message,
+          variant: 'destructive'
         });
       }
     }
