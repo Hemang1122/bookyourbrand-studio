@@ -1,3 +1,4 @@
+
 'use server';
 import nodemailer from 'nodemailer';
 
@@ -7,12 +8,11 @@ import nodemailer from 'nodemailer';
  */
 export async function sendWelcomeEmailAction(name: string, email: string, password: string) {
   try {
-    // Priority: Use GMAIL_USER/PASS if available, fallback to provided default
-    const user = process.env.GMAIL_USER || 'bookyourbrandscrm@gmail.com';
+    const user = process.env.GMAIL_USER;
     const pass = process.env.GMAIL_APP_PASSWORD;
 
-    if (!pass) {
-      throw new Error('GMAIL_APP_PASSWORD is not configured in environment variables.');
+    if (!user || !pass) {
+      throw new Error('Email credentials (GMAIL_USER/GMAIL_APP_PASSWORD) are not configured.');
     }
 
     const transporter = nodemailer.createTransport({
@@ -27,22 +27,17 @@ export async function sendWelcomeEmailAction(name: string, email: string, passwo
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
           <h1 style="color: #7C3AED;">Welcome ${name}! 👋</h1>
-          <p style="font-size: 16px; color: #333;">Your BookYourBrands CRM account has been successfully created. We're excited to have you on board!</p>
+          <p style="font-size: 16px; color: #333;">Your account has been created successfully.</p>
           
           <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #7C3AED;">
-            <h3 style="margin-top: 0; color: #7C3AED;">🔐 Your Login Credentials</h3>
-            <p><strong>Portal URL:</strong> <a href="https://bybcrm.bookyourbrands.com" style="color: #7C3AED;">https://bybcrm.bookyourbrands.com</a></p>
+            <p><strong>Login URL:</strong> <a href="https://bybcrm.bookyourbrands.com" style="color: #7C3AED;">https://bybcrm.bookyourbrands.com</a></p>
             <p><strong>Email:</strong> ${email}</p>
-            <p><strong>Temporary Password:</strong> <code style="background: #e0e0e0; padding: 2px 5px; border-radius: 3px;">${password}</code></p>
+            <p><strong>Password:</strong> <code style="background: #e0e0e0; padding: 2px 5px; border-radius: 3px;">${password}</code></p>
           </div>
 
           <p style="background: #fff3cd; padding: 10px; border-radius: 5px; font-size: 14px;">
             <strong>⚠️ Note:</strong> Please change your password after your first login for better security.
           </p>
-
-          <div style="text-align: center; margin-top: 30px;">
-            <a href="https://bybcrm.bookyourbrands.com" style="background: #7C3AED; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Login to Dashboard</a>
-          </div>
 
           <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;" />
           <p style="font-size: 12px; color: #999; text-align: center;">

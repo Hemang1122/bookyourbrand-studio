@@ -1,3 +1,4 @@
+
 'use client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
 import { useFirebaseServices } from '@/firebase';
-import { httpsCallable } from 'firebase/functions';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { sendWelcomeEmailAction } from '@/app/actions/email';
 
@@ -29,7 +30,7 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
   const [company, setCompany] = useState('');
   const [realEmail, setRealEmail] = useState('');
   const { toast } = useToast();
-  const { firestore, functions } = useFirebaseServices();
+  const { firestore, auth } = useFirebaseServices();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleAddClient = async () => {
@@ -38,38 +39,36 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
       return;
     }
     
-    if (!firestore || !functions) return;
+    if (!firestore || !auth) return;
 
     setIsProcessing(true);
     try {
       let userId = null;
-      let generatedPassword = Math.random().toString(36).slice(-8); // Generate random password
+      let generatedPassword = Math.random().toString(36).slice(-8);
 
-      // 1. Process Auth User via Cloud Function
+      // 1. Try to create Firebase Auth user
       try {
-        const createUserFn = httpsCallable(functions, 'createUser');
-        const result: any = await createUserFn({ 
-          name, 
-          role: 'client', 
-          realEmail 
-        });
-        
-        userId = result.data.uid;
-        generatedPassword = result.data.password;
-        console.log('✅ User record processed:', userId);
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          realEmail,
+          generatedPassword
+        );
+        userId = userCredential.user.uid;
+        console.log('✅ New user created:', userId);
       } catch (authError: any) {
-        // Handle existing users
-        if (authError.message?.includes('already exists') || authError.code === 'already-exists') {
-          console.log('⚠️ User already exists, finding record...');
+        // If user already exists, find them instead
+        if (authError.code === 'auth/email-already-in-use') {
+          console.log('⚠️ User already exists, checking Firestore record...');
           
           const usersRef = collection(firestore, 'users');
-          const q = query(usersRef, where('name', '==', name));
+          const q = query(usersRef, where('email', '==', realEmail));
           const snapshot = await getDocs(q);
           
           if (!snapshot.empty) {
             userId = snapshot.docs[0].id;
+            console.log('✅ Found existing user record:', userId);
           } else {
-            throw new Error('User conflict. Please use a different name.');
+            throw new Error('This email is already registered but no profile was found. Please contact support.');
           }
         } else {
           throw authError;
@@ -78,7 +77,7 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
 
       if (!userId) throw new Error("Could not determine User ID");
 
-      // 2. Update Firestore Documents (Merge to avoid overwriting)
+      // 2. Create or update Firestore documents (Merge to avoid overwriting existing data)
       await setDoc(doc(firestore, 'users', userId), {
         id: userId,
         email: realEmail,
@@ -95,7 +94,7 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
         updatedAt: serverTimestamp(),
       }, { merge: true });
 
-      // 3. Trigger Welcome Email via Server Action (Replaces problematic API fetch)
+      // 3. Send welcome email via Server Action
       const emailResult = await sendWelcomeEmailAction(name, realEmail, generatedPassword);
       
       if (emailResult.success) {
@@ -106,7 +105,7 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
       } else {
         toast({
           title: 'Client Created',
-          description: 'Account created, but credentials email failed. Please share manually.',
+          description: 'Account created, but credentials email failed. Please share password manually.',
           variant: 'destructive'
         });
       }
