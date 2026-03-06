@@ -268,7 +268,7 @@ export default function ProjectDetailPage() {
           <TaskList projectId={project.id} />
         </TabsContent>
         <TabsContent value="files">
-           <FileManager projectId={project.id} />
+           <FileManager projectId={project.id} clientName={getClientName(project.client)} />
         </TabsContent>
       </Tabs>
 
