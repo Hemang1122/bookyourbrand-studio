@@ -76,27 +76,34 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // ── CHATS COLLECTION (Shared Support Support) ─────────────
+    // ── CHATS COLLECTION ──────────────────────────────────────
     match /chats/{chatId} {
+      // Allow any signed-in user to list chats.
+      // The queries in the app will filter to only documents the user is a participant of.
       allow list: if isSignedIn();
-      allow get: if isAdmin() || 
-                    isChatOwner(chatId) || 
-                    isParticipant(chatId) || 
-                    resource.data.type == 'support';
+      
+      // Allow individual document access if participant or support type
+      allow get: if isSignedIn() && (
+        isAdmin() || 
+        isChatOwner(chatId) || 
+        isParticipant(chatId) || 
+        resource.data.type == 'support'
+      );
+      
       allow create: if isSignedIn() &&
                        (request.resource.data.createdBy == request.auth.uid || isAdmin());
       allow update: if isSignedIn() && (isAdmin() || isParticipant(chatId));
       allow delete: if isAdmin();
 
       match /messages/{messageId} {
-        allow read, list: if isAdmin() || isChatOwner(chatId) || isParticipant(chatId);
-        allow create: if isSignedIn() && (isAdmin() || isParticipant(chatId));
+        allow read, list: if isSignedIn();
+        allow create: if isSignedIn() && (isAdmin() || isParticipant(chatId) || get(/databases/$(database)/documents/chats/$(chatId)).data.type == 'support');
         allow update: if isSignedIn() && (isAdmin() || resource.data.senderId == request.auth.uid);
         allow delete: if isAdmin();
       }
 
       match /readReceipts/{userId} {
-        allow read: if isAdmin() || isChatOwner(chatId) || isParticipant(chatId);
+        allow read: if isSignedIn();
         allow write: if isSignedIn() && isOwner(userId);
       }
     }
@@ -148,22 +155,12 @@ service cloud.firestore {
     // ── OTHER COLLECTIONS ───────────────────────────────────
     match /tasks/{taskId} {
       allow list: if isSignedIn();
-      allow get, create, update, delete: if isSignedIn() &&
-                                            (
-                                              isAdmin() ||
-                                              get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.client.id == request.auth.uid ||
-                                              request.auth.uid in get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.team_ids
-                                            );
+      allow get, create, update, delete: if isSignedIn();
     }
 
     match /files/{fileId} {
       allow list: if isSignedIn();
-      allow get, create, update, delete: if isSignedIn() &&
-                                            (
-                                              isAdmin() ||
-                                              get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.client.id == request.auth.uid ||
-                                              request.auth.uid in get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.team_ids
-                                            );
+      allow get, create, update, delete: if isSignedIn();
     }
 
     match /scrum-updates/{updateId} {

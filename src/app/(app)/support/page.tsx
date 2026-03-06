@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/firebase/provider';
@@ -29,17 +30,15 @@ export default function SupportPage() {
 
   // RESTRICTION: Only the admin named "Niddhi" can access the support inbox
   const isNiddhi = useMemo(() => {
-    return currentUser?.role === 'admin' && currentUser?.name.toLowerCase().includes('niddhi');
+    if (!currentUser || currentUser.role !== 'admin') return false;
+    return currentUser.name?.toLowerCase().includes('niddhi') || currentUser.email?.toLowerCase().includes('niddhi');
   }, [currentUser]);
 
   // Local query for Admins - load support chats on demand
   const { data: adminSupportChats, isLoading: adminChatsLoading } = useCollection<Chat>(
     useMemoFirebase(() => {
-      if (!firestore || !currentUser || currentUser.role !== 'admin') return null;
+      if (!firestore || !currentUser || currentUser.role !== 'admin' || !isNiddhi) return null;
       
-      // If admin is NOT Niddhi, don't return a query (they shouldn't see support chats)
-      if (!isNiddhi) return null;
-
       return query(
         collection(firestore, 'chats'),
         where('type', '==', 'support'),

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
@@ -171,7 +172,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     return () => unsubscribes.forEach(unsub => unsub());
   }, [chatsData, firestore, authUid]);
 
-  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading || chatsLoading || documentsLoading || clientPackagesLoading;
+  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading || (currentUser?.role === 'client' && chatsLoading) || documentsLoading || clientPackagesLoading;
   
   const teamEditorMapping = useMemo(() => {
     if (!usersData) return new Map<string, string>();
