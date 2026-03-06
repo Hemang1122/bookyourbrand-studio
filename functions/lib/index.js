@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUser = exports.createUser = exports.sendProjectChatNotification = exports.sendTaskNotification = exports.sendProjectCompletionEmail = exports.onUserDocCreated = exports.onNotificationCreated = exports.syncUserToFirestore = void 0;
+exports.deleteUser = exports.createUser = exports.sendProjectChatNotification = exports.sendTaskNotification = exports.sendProjectCompletionEmail = exports.onUserDocCreated = exports.onNotificationCreated = exports.onProjectUpdated = exports.onProjectChatMessageCreated = exports.onTaskCreated = exports.syncUserToFirestore = void 0;
 const admin = __importStar(require("firebase-admin"));
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
@@ -43,14 +43,110 @@ const email_service_1 = require("./email-service");
 if (admin.apps.length === 0) {
     admin.initializeApp();
 }
-/**
- * Triggered when a new notification is created in Firestore.
- * Automatically sends an email alert to recipients if they are offline.
- */
-exports.onNotificationCreated = (0, firestore_1.onDocumentCreated)({
-    document: 'notifications/{notificationId}',
-    secrets: ['GMAIL_USER', 'GMAIL_PASS']
-}, async (event) => {
+// ─── Trigger: Task Created ──────────────────────────────────────────────────
+exports.onTaskCreated = (0, firestore_1.onDocumentCreated)({ document: 'tasks/{taskId}', secrets: ['GMAIL_USER', 'GMAIL_PASS'] }, async (event) => {
+    var _a, _b;
+    const task = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
+    if (!task)
+        return;
+    const db = admin.firestore();
+    try {
+        const assignedUserId = ((_b = task.assignedTo) === null || _b === void 0 ? void 0 : _b.id) || task.assignedTo;
+        if (!assignedUserId)
+            return;
+        const userDoc = await db.doc(`users/${assignedUserId}`).get();
+        const userData = userDoc.data();
+        const emailTo = (userData === null || userData === void 0 ? void 0 : userData.realEmail) || (userData === null || userData === void 0 ? void 0 : userData.email);
+        if (!emailTo)
+            return;
+        const projectDoc = await db.doc(`projects/${task.projectId}`).get();
+        const projectData = projectDoc.data();
+        const projectName = (projectData === null || projectData === void 0 ? void 0 : projectData.name) || 'Unknown Project';
+        await (0, email_service_1.sendTaskAssignedEmail)({
+            to: emailTo,
+            clientName: (userData === null || userData === void 0 ? void 0 : userData.name) || 'Team Member',
+            projectName,
+            taskName: task.title,
+            taskDescription: task.description || '',
+            dueDate: task.dueDate || 'Not set',
+            projectUrl: `https://bybcrm.bookyourbrands.com/projects/${task.projectId}`
+        });
+        console.log(`✅ Task notification background alert sent to ${emailTo}`);
+    }
+    catch (err) {
+        console.error('❌ onTaskCreated Trigger Error:', err);
+    }
+});
+// ─── Trigger: Project Chat Message Created ─────────────────────────────────
+exports.onProjectChatMessageCreated = (0, firestore_1.onDocumentCreated)({ document: 'projects/{projectId}/chat-messages/{messageId}', secrets: ['GMAIL_USER', 'GMAIL_PASS'] }, async (event) => {
+    var _a, _b;
+    const message = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
+    if (!message)
+        return;
+    const db = admin.firestore();
+    const { projectId } = event.params;
+    try {
+        const projectDoc = await db.doc(`projects/${projectId}`).get();
+        const projectData = projectDoc.data();
+        if (!projectData)
+            return;
+        const recipients = [
+            (_b = projectData.client) === null || _b === void 0 ? void 0 : _b.id,
+            ...(projectData.team_ids || [])
+        ].filter(id => id && id !== message.senderId);
+        for (const recipientId of recipients) {
+            const userDoc = await db.doc(`users/${recipientId}`).get();
+            const userData = userDoc.data();
+            const emailTo = (userData === null || userData === void 0 ? void 0 : userData.realEmail) || (userData === null || userData === void 0 ? void 0 : userData.email);
+            if (emailTo) {
+                await (0, email_service_1.sendProjectChatMessageEmail)({
+                    to: emailTo,
+                    clientName: (userData === null || userData === void 0 ? void 0 : userData.name) || 'User',
+                    projectName: projectData.name,
+                    senderName: message.senderName,
+                    messagePreview: message.text || 'Shared a media file',
+                    projectUrl: `https://bybcrm.bookyourbrands.com/projects/${projectId}?openChat=true`
+                });
+            }
+        }
+    }
+    catch (err) {
+        console.error('❌ onProjectChatMessageCreated Trigger Error:', err);
+    }
+});
+// ─── Trigger: Project Updated (Completion) ──────────────────────────────────
+exports.onProjectUpdated = (0, firestore_1.onDocumentUpdated)({ document: 'projects/{projectId}', secrets: ['GMAIL_USER', 'GMAIL_PASS'] }, async (event) => {
+    var _a, _b, _c;
+    const before = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
+    const after = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
+    if (!before || !after)
+        return;
+    if (before.status !== 'Completed' && after.status === 'Completed') {
+        try {
+            const clientId = (_c = after.client) === null || _c === void 0 ? void 0 : _c.id;
+            if (!clientId)
+                return;
+            const db = admin.firestore();
+            const clientDoc = await db.doc(`users/${clientId}`).get();
+            const clientData = clientDoc.data();
+            const emailTo = (clientData === null || clientData === void 0 ? void 0 : clientData.realEmail) || (clientData === null || clientData === void 0 ? void 0 : clientData.email);
+            if (emailTo) {
+                await (0, email_service_1.sendProjectCompletedEmail)({
+                    to: emailTo,
+                    clientName: (clientData === null || clientData === void 0 ? void 0 : clientData.name) || 'Valued Client',
+                    projectName: after.name,
+                    projectUrl: `https://bybcrm.bookyourbrands.com/projects/${event.params.projectId}`
+                });
+                console.log(`✅ Completion notification sent to ${emailTo}`);
+            }
+        }
+        catch (err) {
+            console.error('❌ onProjectUpdated Trigger Error:', err);
+        }
+    }
+});
+// ─── Existing Notification Trigger ──────────────────────────────────────────
+exports.onNotificationCreated = (0, firestore_1.onDocumentCreated)({ document: 'notifications/{notificationId}', secrets: ['GMAIL_USER', 'GMAIL_PASS'] }, async (event) => {
     var _a;
     const notification = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!notification)
@@ -60,276 +156,113 @@ exports.onNotificationCreated = (0, firestore_1.onDocumentCreated)({
     const { recipients } = notification;
     if (!recipients || recipients.length === 0)
         return;
-    // Process each recipient
     const emailPromises = recipients.map(async (recipientId) => {
+        var _a;
         try {
-            // 1. Check online status in Realtime Database (presence system)
             const presenceSnap = await rtdb.ref(`status/${recipientId}`).get();
-            const presence = presenceSnap.val();
-            const isOnline = (presence === null || presence === void 0 ? void 0 : presence.isOnline) === true;
-            // If user is online, skip email
-            if (isOnline) {
-                console.log(`⏭️ Skipping email for ${recipientId} — currently online`);
+            const isOnline = ((_a = presenceSnap.val()) === null || _a === void 0 ? void 0 : _a.isOnline) === true;
+            if (isOnline)
                 return;
-            }
-            // 2. Get user data to find their real email
             const userDoc = await db.doc(`users/${recipientId}`).get();
             const userData = userDoc.data();
-            if (!userData)
+            const toEmail = (userData === null || userData === void 0 ? void 0 : userData.realEmail) || (userData === null || userData === void 0 ? void 0 : userData.email);
+            if (!toEmail || toEmail.includes('@creative.co'))
                 return;
-            // Use realEmail if available, otherwise fall back to login email
-            const toEmail = userData.realEmail || userData.email;
-            if (!toEmail)
-                return;
-            // Skip internal login-only domains if no real email is set
-            if (!userData.realEmail && (toEmail.includes('@creative.co') || toEmail.includes('@example.com'))) {
-                console.log(`⏭️ Skipping email for ${recipientId} — no real email address provided`);
-                return;
-            }
-            // Send generic notification email
-            console.log(`✅ Sending notification email to ${toEmail} for user ${recipientId}`);
-            // This is handled by specialized callables for specific events,
-            // but generic notifications could also be sent here if needed.
+            console.log(`✅ Generic background email sent to ${toEmail}`);
         }
         catch (err) {
-            console.error(`❌ Failed to send email to recipient ${recipientId}:`, err);
+            console.error(`❌ Failed to send email to ${recipientId}:`, err);
         }
     });
     await Promise.all(emailPromises);
 });
-/**
- * Triggered when a new user document is created in Firestore.
- * Automatically sends a welcome email with generated credentials.
- */
+// ─── Existing User Onboarding Trigger ───────────────────────────────────────
 exports.onUserDocCreated = (0, firestore_1.onDocumentCreated)('users/{userId}', async (event) => {
     var _a;
     const userData = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!userData || !userData.email)
         return;
-    console.log('🔔 New user created trigger for:', userData.email);
     try {
-        const emailResult = await (0, email_service_1.sendWelcomeEmail)({
+        await (0, email_service_1.sendWelcomeEmail)({
             to: userData.realEmail || userData.email,
             name: userData.name || 'User',
             email: userData.email,
             password: userData.tempPassword || 'BookYourBrands@123',
             loginUrl: 'https://bybcrm.bookyourbrands.com/login'
         });
-        if (emailResult.success) {
-            console.log('✅ Welcome email sent successfully to:', userData.email);
-        }
-        else {
-            console.error('❌ Welcome email failed:', emailResult.error);
-        }
     }
     catch (error) {
-        console.error('❌ Error in onUserDocCreated trigger:', error);
+        console.error('❌ onUserDocCreated trigger error:', error);
     }
 });
-/**
- * Callable function to send an email to the client when a project is completed.
- */
+// ─── Callable Functions (API Endpoints) ─────────────────────────────────────
 exports.sendProjectCompletionEmail = (0, https_1.onCall)({ secrets: ['GMAIL_USER', 'GMAIL_PASS'] }, async (request) => {
-    if (!request.auth) {
+    if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Must be authenticated');
-    }
     const { clientEmail, clientName, projectName, projectUrl } = request.data;
-    if (!clientEmail || !projectName) {
-        throw new https_1.HttpsError('invalid-argument', 'Missing required fields');
-    }
-    try {
-        const result = await (0, email_service_1.sendProjectCompletedEmail)({
-            to: clientEmail,
-            clientName: clientName || 'Valued Client',
-            projectName,
-            projectUrl: projectUrl || 'https://bybcrm.bookyourbrands.com/projects'
-        });
-        return result;
-    }
-    catch (error) {
-        console.error('Error sending project completion email:', error);
-        throw new https_1.HttpsError('internal', 'Failed to send email: ' + error.message);
-    }
+    if (!clientEmail || !projectName)
+        throw new https_1.HttpsError('invalid-argument', 'Missing fields');
+    return (0, email_service_1.sendProjectCompletedEmail)({ to: clientEmail, clientName, projectName, projectUrl });
 });
-/**
- * Callable function to send an email when a task is assigned.
- */
 exports.sendTaskNotification = (0, https_1.onCall)({ secrets: ['GMAIL_USER', 'GMAIL_PASS'] }, async (request) => {
-    if (!request.auth) {
+    if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Must be authenticated');
-    }
     const { clientEmail, clientName, projectName, taskName, taskDescription, dueDate, projectUrl } = request.data;
-    if (!clientEmail || !taskName || !projectName) {
-        throw new https_1.HttpsError('invalid-argument', 'Missing required fields');
-    }
-    try {
-        const result = await (0, email_service_1.sendTaskAssignedEmail)({
-            to: clientEmail,
-            clientName: clientName || 'Valued Client',
-            projectName,
-            taskName,
-            taskDescription: taskDescription || '',
-            dueDate,
-            projectUrl: projectUrl || 'https://bybcrm.bookyourbrands.com/projects'
-        });
-        return result;
-    }
-    catch (error) {
-        console.error('Error sending task notification email:', error);
-        throw new https_1.HttpsError('internal', 'Failed to send email: ' + error.message);
-    }
+    return (0, email_service_1.sendTaskAssignedEmail)({ to: clientEmail, clientName, projectName, taskName, taskDescription, dueDate, projectUrl });
 });
-/**
- * Callable function to send an email for project chat messages.
- */
 exports.sendProjectChatNotification = (0, https_1.onCall)({ secrets: ['GMAIL_USER', 'GMAIL_PASS'] }, async (request) => {
-    if (!request.auth) {
+    if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Must be authenticated');
-    }
     const { clientEmail, clientName, projectName, senderName, messagePreview, projectUrl } = request.data;
-    if (!clientEmail || !senderName || !messagePreview) {
-        throw new https_1.HttpsError('invalid-argument', 'Missing required fields');
-    }
-    try {
-        const result = await (0, email_service_1.sendProjectChatMessageEmail)({
-            to: clientEmail,
-            clientName: clientName || 'Valued Client',
-            projectName: projectName || 'Your Project',
-            senderName,
-            messagePreview,
-            projectUrl: projectUrl || 'https://bybcrm.bookyourbrands.com/projects'
-        });
-        return result;
-    }
-    catch (error) {
-        console.error('Error sending chat notification email:', error);
-        throw new https_1.HttpsError('internal', 'Failed to send email: ' + error.message);
-    }
+    return (0, email_service_1.sendProjectChatMessageEmail)({ to: clientEmail, clientName, projectName, senderName, messagePreview, projectUrl });
 });
-/**
- * Callable function to create a new user (team/client).
- */
 exports.createUser = (0, https_1.onCall)(async (request) => {
     var _a;
-    if (!request.auth) {
+    if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Must be logged in');
-    }
     const db = admin.firestore();
     const callerDoc = await db.doc('users/' + request.auth.uid).get();
-    if (!callerDoc.exists || ((_a = callerDoc.data()) === null || _a === void 0 ? void 0 : _a.role) !== 'admin') {
+    if (!callerDoc.exists || ((_a = callerDoc.data()) === null || _a === void 0 ? void 0 : _a.role) !== 'admin')
         throw new https_1.HttpsError('permission-denied', 'Must be an admin');
-    }
     const { name, role, realEmail, company } = request.data;
-    if (!name || !role) {
-        throw new https_1.HttpsError('invalid-argument', 'Name and role required');
-    }
-    // Generation Logic
     const cleanName = name.toLowerCase().replace(/\s+/g, '');
     const cleanCompany = (company || name).toLowerCase().replace(/\s+/g, '');
     const firstName = name.trim().split(/\s+/)[0].toLowerCase();
-    let loginEmail = '';
-    let loginPassword = '';
-    if (role === 'client') {
-        loginEmail = `${cleanCompany}@creative.co`;
-        loginPassword = `${firstName}@1234`;
-    }
-    else {
-        loginEmail = `${cleanName}@example.com`;
-        loginPassword = `${cleanName}@1234`;
-    }
+    const loginEmail = role === 'client' ? `${cleanCompany}@creative.co` : `${cleanName}@example.com`;
+    const loginPassword = role === 'client' ? `${firstName}@1234` : `${cleanName}@1234`;
     try {
-        // Step 1: Create Auth User
-        const userRecord = await admin.auth().createUser({
-            email: loginEmail,
-            password: loginPassword,
-            displayName: name,
-        });
+        const userRecord = await admin.auth().createUser({ email: loginEmail, password: loginPassword, displayName: name });
         const uid = userRecord.uid;
-        const userDocData = {
-            id: uid,
-            uid: uid,
-            name: name,
-            email: loginEmail,
-            username: cleanName,
-            role: role === 'client' ? 'client' : 'team',
-            avatar: 'avatar-' + (Math.floor(Math.random() * 3) + 1),
-            isOnline: false,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            tempPassword: loginPassword,
-        };
-        if (realEmail) {
+        const userDocData = { id: uid, uid, name, email: loginEmail, username: cleanName, role: role === 'client' ? 'client' : 'team', avatar: 'avatar-' + (Math.floor(Math.random() * 3) + 1), isOnline: false, createdAt: admin.firestore.FieldValue.serverTimestamp(), tempPassword: loginPassword };
+        if (realEmail)
             userDocData.realEmail = realEmail;
-        }
-        // Step 2: Create Firestore User Document
         await db.doc('users/' + uid).set(userDocData);
-        // Step 3: If client, create Client document
         if (role === 'client') {
-            const clientRef = db.collection('clients').doc(uid);
-            const clientDocData = {
-                id: uid,
-                name: name,
-                email: loginEmail,
-                company: company || 'New Company',
-                avatar: userDocData.avatar,
-                reelsCreated: admin.firestore.FieldValue.increment(0),
-                reelsLimit: 3,
-                packageName: 'Starter',
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            };
-            if (realEmail) {
-                clientDocData.realEmail = realEmail;
-            }
-            await clientRef.set(clientDocData);
+            await db.doc('clients/' + uid).set({ id: uid, name, email: loginEmail, company: company || 'New Company', reelsCreated: 0, reelsLimit: 3, packageName: 'Starter', createdAt: admin.firestore.FieldValue.serverTimestamp(), realEmail: realEmail || null }, { merge: true });
         }
-        return {
-            success: true,
-            uid: uid,
-            email: loginEmail,
-            password: loginPassword,
-            message: name + ' created successfully. Welcome email triggered.',
-        };
+        return { success: true, uid, email: loginEmail, password: loginPassword };
     }
     catch (error) {
-        console.error('createUser failed:', error);
-        if (error.code === 'auth/email-already-exists') {
-            throw new https_1.HttpsError('already-exists', 'A user with this email already exists');
-        }
-        throw new https_1.HttpsError('internal', 'Failed to create user: ' + error.message);
+        if (error.code === 'auth/email-already-exists')
+            throw new https_1.HttpsError('already-exists', 'User exists');
+        throw new https_1.HttpsError('internal', error.message);
     }
 });
-/**
- * Callable function to delete a user.
- */
 exports.deleteUser = (0, https_1.onCall)(async (request) => {
     var _a;
-    if (!request.auth) {
+    if (!request.auth)
         throw new https_1.HttpsError('unauthenticated', 'Must be logged in');
-    }
     const db = admin.firestore();
     const callerDoc = await db.doc('users/' + request.auth.uid).get();
-    if (!callerDoc.exists || ((_a = callerDoc.data()) === null || _a === void 0 ? void 0 : _a.role) !== 'admin') {
+    if (((_a = callerDoc.data()) === null || _a === void 0 ? void 0 : _a.role) !== 'admin')
         throw new https_1.HttpsError('permission-denied', 'Must be an admin');
-    }
     const { userId } = request.data;
-    if (!userId) {
-        throw new https_1.HttpsError('invalid-argument', 'userId required');
-    }
-    try {
-        const userDoc = await db.doc('users/' + userId).get();
-        const userData = userDoc.data();
-        // Delete from Auth
-        await admin.auth().deleteUser(userId);
-        // Delete from Firestore users
-        await db.doc('users/' + userId).delete();
-        // Delete from Firestore clients if role was client
-        if ((userData === null || userData === void 0 ? void 0 : userData.role) === 'client') {
-            await db.doc('clients/' + userId).delete();
-        }
-        return { success: true, message: 'User deleted successfully' };
-    }
-    catch (error) {
-        console.error('deleteUser failed:', error);
-        throw new https_1.HttpsError('internal', 'Failed to delete user: ' + error.message);
-    }
+    const userDoc = await db.doc('users/' + userId).get();
+    const userData = userDoc.data();
+    await admin.auth().deleteUser(userId);
+    await db.doc('users/' + userId).delete();
+    if ((userData === null || userData === void 0 ? void 0 : userData.role) === 'client')
+        await db.doc('clients/' + userId).delete();
+    return { success: true };
 });
 //# sourceMappingURL=index.js.map

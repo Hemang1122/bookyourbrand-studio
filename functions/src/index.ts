@@ -6,7 +6,8 @@ import {
   sendWelcomeEmail, 
   sendProjectCompletedEmail, 
   sendTaskAssignedEmail, 
-  sendProjectChatMessageEmail 
+  sendProjectChatMessageEmail,
+  sendTaskStatusUpdateEmail
 } from './email-service';
 
 if (admin.apps.length === 0) {
@@ -51,6 +52,60 @@ export const onTaskCreated = onDocumentCreated(
       console.log(`✅ Task notification background alert sent to ${emailTo}`);
     } catch (err) {
       console.error('❌ onTaskCreated Trigger Error:', err);
+    }
+});
+
+// ─── Trigger: Task Updated (Status Change) ───────────────────────────────────
+export const onTaskUpdated = onDocumentUpdated(
+  { document: 'tasks/{taskId}', secrets: ['GMAIL_USER', 'GMAIL_PASS'] },
+  async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    
+    if (!before || !after) return;
+
+    // Only proceed if status has actually changed
+    if (before.status === after.status) return;
+
+    const db = admin.firestore();
+    
+    try {
+      const assignedUserId = after.assignedTo?.id || after.assignedTo;
+      if (!assignedUserId) return;
+
+      const userDoc = await db.doc(`users/${assignedUserId}`).get();
+      const userData = userDoc.data();
+      const emailTo = userData?.realEmail || userData?.email;
+      
+      if (!emailTo) return;
+
+      const projectDoc = await db.doc(`projects/${after.projectId}`).get();
+      const projectData = projectDoc.data();
+      const projectName = projectData?.name || 'Unknown Project';
+
+      // Identify who updated the task (if possible, fallback to 'Someone')
+      // Note: In Firestore triggers, we don't directly have the 'updatedBy' user ID 
+      // unless it was written into the document. Our TaskRemark logic usually has this.
+      const lastRemark = after.remarks && after.remarks.length > 0 
+        ? after.remarks[after.remarks.length - 1] 
+        : null;
+      const updatedBy = lastRemark ? lastRemark.userName : 'a team member';
+
+      await sendTaskStatusUpdateEmail({
+        to: emailTo,
+        clientName: userData?.name || 'Team Member',
+        projectName,
+        taskName: after.title,
+        taskDescription: after.description || '',
+        oldStatus: before.status,
+        newStatus: after.status,
+        updatedBy,
+        projectUrl: `https://bybcrm.bookyourbrands.com/projects/${after.projectId}`
+      });
+
+      console.log(`✅ Task status notification sent to ${emailTo} (${before.status} → ${after.status})`);
+    } catch (err) {
+      console.error('❌ onTaskUpdated Trigger Error:', err);
     }
 });
 

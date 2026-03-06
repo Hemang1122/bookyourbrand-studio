@@ -472,6 +472,100 @@ export async function sendTaskAssignedEmail(params: TaskNotificationParams) {
   }
 }
 
+export interface TaskStatusUpdateParams extends TaskNotificationParams {
+  oldStatus: string;
+  newStatus: string;
+  updatedBy: string;
+}
+
+export async function sendTaskStatusUpdateEmail(params: TaskStatusUpdateParams) {
+  const { to, clientName, projectName, taskName, oldStatus, newStatus, updatedBy, projectUrl } = params;
+
+  const statusConfig: { [key: string]: { color: string; emoji: string; bgColor: string } } = {
+    'Pending': { color: '#fbbf24', emoji: '⏳', bgColor: '#fef3c7' },
+    'In Progress': { color: '#3b82f6', emoji: '🚀', bgColor: '#dbeafe' },
+    'Completed': { color: '#10b981', emoji: '✅', bgColor: '#d1fae5' },
+    'Rework': { color: '#ef4444', emoji: '⏸️', bgColor: '#fee2e2' }
+  };
+
+  const config = statusConfig[newStatus] || statusConfig['Pending'];
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 0 auto; background: #fff; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px; }
+        .task-card { background: #f8f9fa; border-left: 4px solid ${config.color}; padding: 20px; margin: 20px 0; border-radius: 6px; }
+        .status-badge { display: inline-block; background: ${config.bgColor}; color: ${config.color}; padding: 6px 12px; border-radius: 4px; font-weight: 600; font-size: 13px; margin: 10px 0; }
+        .status-change { background: #e0e7ff; border-left: 4px solid #6366f1; padding: 15px; margin: 15px 0; border-radius: 4px; }
+        .button { display: inline-block; background: ${config.color}; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: 600; }
+        .footer { background: #f8f9fa; color: #666; padding: 25px; text-align: center; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>${config.emoji} Task Status Updated</h1>
+        </div>
+        <div class="content">
+          <p style="font-size: 16px;">Hello <strong>${clientName}</strong>,</p>
+          <p>A task assigned to you has been updated:</p>
+          
+          <div class="task-card">
+            <h2 style="margin-top: 0; color: #1f2937; font-size: 20px;">${taskName}</h2>
+            <p style="color: #6b7280; margin: 5px 0;"><strong>Project:</strong> ${projectName}</p>
+          </div>
+
+          <div class="status-change">
+            <p style="margin: 0; font-size: 14px; color: #4b5563;">
+              <strong>Status changed:</strong> 
+              <span style="color: #9ca3af;">${oldStatus}</span> 
+              → 
+              <span style="color: ${config.color}; font-weight: 600;">${newStatus}</span>
+            </p>
+            <p style="margin: 8px 0 0 0; font-size: 13px; color: #6b7280;">
+              Updated by ${updatedBy}
+            </p>
+          </div>
+
+          <div class="status-badge">
+            ${config.emoji} ${newStatus}
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${projectUrl}" class="button">View Task Details →</a>
+          </div>
+        </div>
+        <div class="footer">
+          <p>© ${new Date().getFullYear()} BookYourBrands. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const info = await gmailTransporter.sendMail({
+      from: '"BookYourBrands Team" <bookyourbrandscrm@gmail.com>',
+      to,
+      subject: `${config.emoji} Task ${newStatus}: ${taskName}`,
+      html: htmlContent,
+      text: `Task Status Updated: ${taskName}\nProject: ${projectName}\nStatus: ${oldStatus} -> ${newStatus}\nUpdated by: ${updatedBy}\n\nView here: ${projectUrl}`
+    });
+    
+    console.log('✅ Task status update email sent:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error: any) {
+    console.error('❌ Email error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 export interface ChatMessageNotificationParams {
   to: string;
   clientName: string;
