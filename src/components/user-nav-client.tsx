@@ -35,7 +35,7 @@ export function UserNavClient() {
   
   const displayName = appUser?.name || firebaseUser?.displayName || firebaseUser?.email?.split('@')[0] || 'User';
   const displayEmail = appUser?.email || firebaseUser?.email || 'No email';
-  const displayAvatarId = appUser?.avatar || `avatar-${(user.uid.charCodeAt(0) % 3) + 2}`
+  const displayAvatarId = appUser?.avatar || (user?.uid ? `avatar-${(user.uid.charCodeAt(0) % 3) + 2}` : 'avatar-2');
   const userAvatarPlaceholder = PlaceHolderImages.find(img => img.id === displayAvatarId);
 
   // Prioritize the photoURL from the user object, fallback to placeholder
