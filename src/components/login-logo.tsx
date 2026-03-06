@@ -1,12 +1,12 @@
 'use client';
 
-import { FileVideo2 } from 'lucide-react';
+import { BrandLogo } from './brand-logo';
 
 export function LoginLogo({ className }: { className?: string }) {
   return (
-    <div className={`flex items-center gap-2 text-primary ${className}`}>
-      <FileVideo2 className="h-6 w-6" />
-      <h1 className="text-xl font-bold">BookYourBrands</h1>
+    <div className={`flex flex-col items-center gap-4 ${className}`}>
+      <BrandLogo variant="full" priority className="w-48 h-48" />
+      <h1 className="text-3xl font-bold text-white tracking-tight">BookYourBrands</h1>
     </div>
   );
 }

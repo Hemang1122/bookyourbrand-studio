@@ -1,14 +1,14 @@
 'use client';
 
-import { FileVideo2 } from 'lucide-react';
+import { BrandLogo } from './brand-logo';
 import { useSidebar } from './ui/sidebar';
 
 export function Logo({ className }: { className?: string }) {
   const { open } = useSidebar();
   return (
-    <div className={`flex items-center gap-2 text-primary ${className}`}>
-      <FileVideo2 className="h-6 w-6" />
-      {open && <h1 className="text-xl font-bold">BookYourBrands</h1>}
+    <div className={`flex items-center gap-3 ${className}`}>
+      <BrandLogo variant="icon" className="w-8 h-8 shrink-0" />
+      {open && <h1 className="text-xl font-bold text-primary whitespace-nowrap">BookYourBrands</h1>}
     </div>
   );
 }

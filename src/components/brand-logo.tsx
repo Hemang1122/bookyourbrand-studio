@@ -17,7 +17,7 @@ export function BrandLogo({ variant = 'full', className, priority = false }: Bra
   const size = sizes[variant];
 
   return (
-    <div className={cn('relative', className)}>
+    <div className={cn('relative flex items-center justify-center', className)}>
       <Image
         src="/logo.png"
         alt="Book Your Brands - We Get You Noticed"
