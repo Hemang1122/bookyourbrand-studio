@@ -1,11 +1,37 @@
+'use server';
 import nodemailer from 'nodemailer';
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
+/**
+ * @fileOverview BookYourBrands Email Service
+ * Handles onboarding emails and system notifications using BigRock SMTP.
+ */
+
+// CRM Email Transporter - For onboarding and credentials
+const crmTransporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'mail.bookyourbrands.com',
+  port: parseInt(process.env.SMTP_PORT || '465'),
+  secure: process.env.SMTP_SECURE === 'true',
   auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
+    user: process.env.CRM_EMAIL_USER || 'crm@bookyourbrands.com',
+    pass: process.env.CRM_EMAIL_PASSWORD || 'Arpit@123'
   },
+  tls: {
+    rejectUnauthorized: false
+  }
+});
+
+// Updates Email Transporter - For project and task notifications
+const updatesTransporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'mail.bookyourbrands.com',
+  port: parseInt(process.env.SMTP_PORT || '465'),
+  secure: process.env.SMTP_SECURE === 'true',
+  auth: {
+    user: process.env.UPDATES_EMAIL_USER || 'updates@bookyourbrands.com',
+    pass: process.env.UPDATES_EMAIL_PASSWORD || 'Arpit@123'
+  },
+  tls: {
+    rejectUnauthorized: false
+  }
 });
 
 export interface SendEmailParams {
@@ -15,10 +41,13 @@ export interface SendEmailParams {
   text?: string;
 }
 
+/**
+ * Sends a general notification email using the Updates transporter.
+ */
 export async function sendEmail({ to, subject, html, text }: SendEmailParams) {
   try {
-    const info = await transporter.sendMail({
-      from: `"BookYourBrands CRM" <${process.env.GMAIL_USER}>`,
+    const info = await updatesTransporter.sendMail({
+      from: `"BookYourBrands Updates" <${process.env.UPDATES_EMAIL_USER || 'updates@bookyourbrands.com'}>`,
       to,
       subject,
       text: text || '',
@@ -252,3 +281,35 @@ export const emailTemplates = {
     text: `Welcome to BookYourBrands CRM!\n\nHello ${name},\n\nYour account has been created.\n\nLogin URL: ${loginUrl}\nEmail: ${email}\nPassword: ${password}\n\nPlease change your password after first login.\n\nUse Project Chat or BYB Support for help.\nDo not reply to this email.`
   })
 };
+
+/**
+ * Sends a specific "Welcome" email using the CRM transporter.
+ */
+export async function sendWelcomeEmail(params: { to: string; name: string; email: string; password: string; loginUrl: string; }) {
+  const content = emailTemplates.welcomeClient(params.name, params.email, params.password, params.loginUrl);
+  try {
+    const info = await crmTransporter.sendMail({
+      from: `"BookYourBrands CRM" <${process.env.CRM_EMAIL_USER || 'crm@bookyourbrands.com'}>`,
+      to: params.to,
+      subject: content.subject,
+      html: content.html,
+      text: content.text
+    });
+    return { success: true, messageId: info.messageId };
+  } catch (error: any) {
+    console.error('Welcome email error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function sendProjectCompletedEmail(to: string, projectName: string, projectUrl: string) {
+  const message = `Great news! Your project <strong>"${projectName}"</strong> has been completed and is ready for review.<br><br>All deliverables are now available in your dashboard.`;
+  const content = emailTemplates.notification('Client', message, 'Project Completed', projectUrl);
+  return sendEmail({ to, subject: content.subject, html: content.html, text: content.text });
+}
+
+export async function sendTaskStatusChangedEmail(to: string, taskName: string, oldStatus: string, newStatus: string, projectUrl: string) {
+  const message = `The task <strong>"${taskName}"</strong> has been updated.<br><br>Status changed from <strong>${oldStatus}</strong> to <strong>${newStatus}</strong>.`;
+  const content = emailTemplates.notification('Team Member', message, 'Task Update', projectUrl);
+  return sendEmail({ to, subject: content.subject, html: content.html, text: content.text });
+}
