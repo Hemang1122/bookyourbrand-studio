@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUser = exports.createUser = exports.sendProjectChatNotification = exports.sendTaskNotification = exports.sendProjectCompletionEmail = exports.onUserDocCreated = exports.onNotificationCreated = exports.onProjectUpdated = exports.onProjectChatMessageCreated = exports.onTaskCreated = exports.syncUserToFirestore = void 0;
+exports.deleteUser = exports.createUser = exports.sendProjectChatNotification = exports.sendTaskNotification = exports.sendProjectCompletionEmail = exports.onUserDocCreated = exports.onNotificationCreated = exports.onProjectUpdated = exports.onProjectChatMessageCreated = exports.onTaskUpdated = exports.onTaskCreated = exports.syncUserToFirestore = void 0;
 const admin = __importStar(require("firebase-admin"));
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
@@ -75,6 +75,53 @@ exports.onTaskCreated = (0, firestore_1.onDocumentCreated)({ document: 'tasks/{t
     }
     catch (err) {
         console.error('❌ onTaskCreated Trigger Error:', err);
+    }
+});
+// ─── Trigger: Task Updated (Status Change) ───────────────────────────────────
+exports.onTaskUpdated = (0, firestore_1.onDocumentUpdated)({ document: 'tasks/{taskId}', secrets: ['GMAIL_USER', 'GMAIL_PASS'] }, async (event) => {
+    var _a, _b, _c;
+    const before = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
+    const after = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
+    if (!before || !after)
+        return;
+    // Only proceed if status has actually changed
+    if (before.status === after.status)
+        return;
+    const db = admin.firestore();
+    try {
+        const assignedUserId = ((_c = after.assignedTo) === null || _c === void 0 ? void 0 : _c.id) || after.assignedTo;
+        if (!assignedUserId)
+            return;
+        const userDoc = await db.doc(`users/${assignedUserId}`).get();
+        const userData = userDoc.data();
+        const emailTo = (userData === null || userData === void 0 ? void 0 : userData.realEmail) || (userData === null || userData === void 0 ? void 0 : userData.email);
+        if (!emailTo)
+            return;
+        const projectDoc = await db.doc(`projects/${after.projectId}`).get();
+        const projectData = projectDoc.data();
+        const projectName = (projectData === null || projectData === void 0 ? void 0 : projectData.name) || 'Unknown Project';
+        // Identify who updated the task (if possible, fallback to 'Someone')
+        // Note: In Firestore triggers, we don't directly have the 'updatedBy' user ID 
+        // unless it was written into the document. Our TaskRemark logic usually has this.
+        const lastRemark = after.remarks && after.remarks.length > 0
+            ? after.remarks[after.remarks.length - 1]
+            : null;
+        const updatedBy = lastRemark ? lastRemark.userName : 'a team member';
+        await (0, email_service_1.sendTaskStatusUpdateEmail)({
+            to: emailTo,
+            clientName: (userData === null || userData === void 0 ? void 0 : userData.name) || 'Team Member',
+            projectName,
+            taskName: after.title,
+            taskDescription: after.description || '',
+            oldStatus: before.status,
+            newStatus: after.status,
+            updatedBy,
+            projectUrl: `https://bybcrm.bookyourbrands.com/projects/${after.projectId}`
+        });
+        console.log(`✅ Task status notification sent to ${emailTo} (${before.status} → ${after.status})`);
+    }
+    catch (err) {
+        console.error('❌ onTaskUpdated Trigger Error:', err);
     }
 });
 // ─── Trigger: Project Chat Message Created ─────────────────────────────────

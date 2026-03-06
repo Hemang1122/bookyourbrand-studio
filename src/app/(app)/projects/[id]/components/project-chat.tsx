@@ -21,6 +21,8 @@ import { useSearchParams } from 'next/navigation';
 import { useVoiceRecorder } from '@/hooks/use-voice-recorder';
 import { useToast } from '@/hooks/use-toast';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { TypingIndicator, useChatStatus } from '@/components/typing-indicator';
+import { RecordingIndicator } from '@/components/recording-indicator';
 
 const EMOJI_OPTIONS = ['👍', '❤️', '😂', '😮', '🔥', '👏'];
 
@@ -102,6 +104,8 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
   const nodeRef = useRef(null);
   const clientStatus = useUserStatus(client.id);
 
+  const { updateStatus } = useChatStatus(projectId, currentUser?.id || '', currentUser?.name || '');
+
   const {
     isRecording: voiceRecording,
     recordingDuration: voiceDuration,
@@ -112,7 +116,15 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
     resetRecorder
   } = useVoiceRecorder();
 
-  // Check for deep-link to open chat
+  // Sync recording status to global chat indicator
+  useEffect(() => {
+    if (voiceRecording) {
+      updateStatus(false, true);
+    } else {
+      updateStatus(false, false);
+    }
+  }, [voiceRecording]);
+
   useEffect(() => {
     if (searchParams.get('openChat') === 'true') {
       setIsOpen(true);
@@ -142,7 +154,6 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
     }
   }, [messages, isOpen, isMinimized, scrollToBottom]);
 
-  // Mark messages as read
   useEffect(() => {
     if (!messages || !firestore || !currentUser || !isOpen || isMinimized) return;
     
@@ -170,6 +181,7 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
 
     try {
       const messageText = newMessage.trim();
+      updateStatus(false);
       
       await addDoc(
         collection(firestore, 'projects', projectId, 'chat-messages'),
@@ -185,37 +197,6 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
         }
       );
 
-      // RESTRICTION: For administrative attention, only notify "Niddhi" if message is from a client
-      const niddhi = (users || []).find(u => u.role === 'admin' && u.name.toLowerCase().includes('niddhi'));
-      const adminIds = niddhi ? [niddhi.id] : [];
-      
-      const participantIds = [client.id, ...teamMembers.map(m => m.id)];
-      const recipients = Array.from(new Set([...participantIds, ...adminIds]))
-        .filter(id => id !== currentUser.id);
-      
-      if (recipients.length > 0) {
-        addNotification(
-          `New message in project ${projectName}: ${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''}`,
-          `/projects/${projectId}?openChat=true`,
-          recipients,
-          'chat',
-          projectId
-        );
-      }
-
-      // Trigger chat notification email if sender is admin and recipient is client with realEmail
-      if (currentUser.role === 'admin' && client?.realEmail && functions) {
-        const sendEmailFn = httpsCallable(functions, 'sendProjectChatNotification');
-        sendEmailFn({
-          clientEmail: client.realEmail || client.email,
-          clientName: client.name,
-          projectName: projectName,
-          senderName: currentUser.name,
-          messagePreview: messageText,
-          projectUrl: `${window.location.origin}/projects/${projectId}?openChat=true`
-        }).catch(err => console.error('Email chat notification failed:', err));
-      }
-
       sounds.messageSent();
       setNewMessage('');
       setTimeout(scrollToBottom, 100);
@@ -229,7 +210,7 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
     if (!file || !firestore || !currentUser || !projectId) return;
 
     if (currentUser.role === 'team') {
-      toast({ title: 'Permission Denied', description: 'Editors can only read messages in project chats', variant: 'destructive' });
+      toast({ title: 'Permission Denied', description: 'Editors can only read messages', variant: 'destructive' });
       return;
     }
 
@@ -270,19 +251,6 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
             reactions: {}
           });
 
-          // Trigger email notification for file attachment as well
-          if (currentUser.role === 'admin' && client?.realEmail && functions) {
-            const sendEmailFn = httpsCallable(functions, 'sendProjectChatNotification');
-            sendEmailFn({
-              clientEmail: client.realEmail || client.email,
-              clientName: client.name,
-              projectName: projectName,
-              senderName: currentUser.name,
-              messagePreview: `Sent a file: ${file.name}`,
-              projectUrl: `${window.location.origin}/projects/${projectId}?openChat=true`
-            }).catch(err => console.error('Email chat notification failed:', err));
-          }
-
           sounds.messageSent();
           setIsUploading(false);
           setUploadProgress(0);
@@ -293,12 +261,6 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
       toast({ title: 'Upload Failed', description: error.message, variant: 'destructive' });
       setIsUploading(false);
     }
-  };
-
-  const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const handleSendVoiceNote = async () => {
@@ -332,7 +294,7 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
 
           await addDoc(collection(firestore, 'projects', projectId, 'chat-messages'), {
-            text: `🎤 Voice message (${formatDuration(voiceDuration)})`,
+            text: `🎤 Voice message`,
             senderId: currentUser.id,
             senderName: currentUser.name,
             senderAvatar: currentUser.avatar,
@@ -343,19 +305,6 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
             readBy: [currentUser.id],
             reactions: {}
           });
-
-          // Trigger email notification for voice note
-          if (currentUser.role === 'admin' && client?.realEmail && functions) {
-            const sendEmailFn = httpsCallable(functions, 'sendProjectChatNotification');
-            sendEmailFn({
-              clientEmail: client.realEmail || client.email,
-              clientName: client.name,
-              projectName: projectName,
-              senderName: currentUser.name,
-              messagePreview: `Sent a voice message (${formatDuration(voiceDuration)})`,
-              projectUrl: `${window.location.origin}/projects/${projectId}?openChat=true`
-            }).catch(err => console.error('Email chat notification failed:', err));
-          }
 
           sounds.messageSent();
           setIsUploading(false);
@@ -595,6 +544,11 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
               </div>
             </ScrollArea>
 
+            <div className="shrink-0">
+              <RecordingIndicator isRecording={voiceRecording} />
+              <TypingIndicator projectId={projectId} currentUserId={currentUser?.id || ''} />
+            </div>
+
             <div className="p-3 border-t border-white/10 bg-black/20">
               {currentUser?.role === 'team' ? (
                 <div className="text-center text-[11px] text-gray-500 font-medium bg-white/5 py-2 rounded-lg border border-white/5">
@@ -607,7 +561,7 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
                   </Button>
                   <div className="flex-1 flex items-center justify-center gap-3 bg-red-500/10 rounded-full h-10 border border-red-500/30">
                     <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse" />
-                    <span className="text-red-500 font-mono font-bold text-sm">{formatDuration(voiceDuration)}</span>
+                    <span className="text-red-500 font-mono font-bold text-sm">{Math.floor(voiceDuration/60)}:{(voiceDuration%60).toString().padStart(2, '0')}</span>
                   </div>
                   <Button type="button" size="icon" className="rounded-full h-10 w-10 bg-gradient-to-br from-green-600 to-green-500" onClick={stopRecording}>
                     <Send className="h-4 w-4" />
@@ -618,7 +572,7 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
                   <Button type="button" variant="ghost" size="icon" onClick={resetRecorder}><X className="h-5 w-5" /></Button>
                   <div className="flex-1 flex items-center gap-3 bg-green-500/10 rounded-full h-10 px-4 border border-green-500/30">
                     <Play className="h-4 w-4 text-green-500" />
-                    <span className="text-green-500 font-mono text-xs">{formatDuration(voiceDuration)}</span>
+                    <span className="text-green-500 font-mono text-xs">Voice Note Ready</span>
                   </div>
                   <Button type="button" size="icon" className="rounded-full h-10 w-10 bg-gradient-to-br from-primary to-pink-500" onClick={handleSendVoiceNote} disabled={isUploading}>
                     {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -632,7 +586,11 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
                   </Button>
                   <Input
                     value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
+                    onChange={(e) => {
+                      setNewMessage(e.target.value);
+                      updateStatus(true);
+                    }}
+                    onBlur={() => updateStatus(false)}
                     placeholder="Type a message..."
                     className="flex-1 bg-black/40 border-white/10 rounded-full h-10 px-4 text-sm focus:ring-primary/50 focus:border-primary/50"
                   />
