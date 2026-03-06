@@ -56,11 +56,14 @@ export default function ProjectDetailPage() {
         });
 
         // If project is marked as Completed, trigger the completion email
-        if (newStatus === 'Completed' && project.client?.email && functions) {
+        // Priority: realEmail -> email
+        const targetEmail = project.client?.realEmail || project.client?.email;
+
+        if (newStatus === 'Completed' && targetEmail && functions) {
           try {
             const sendEmailFn = httpsCallable(functions, 'sendProjectCompletionEmail');
             await sendEmailFn({
-              clientEmail: project.client.email,
+              clientEmail: targetEmail,
               clientName: project.client.name || 'Valued Client',
               projectName: project.name,
               projectUrl: `${window.location.origin}/projects/${project.id}`
@@ -68,7 +71,7 @@ export default function ProjectDetailPage() {
             
             toast({
               title: 'Project Completed',
-              description: 'The client has been notified via email.',
+              description: `The client has been notified at ${targetEmail}.`,
             });
           } catch (emailError: any) {
             console.error('Failed to send completion email:', emailError);
