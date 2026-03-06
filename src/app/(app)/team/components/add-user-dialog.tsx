@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -29,12 +30,13 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
   const { createUser } = useData();
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const { email, password } = useMemo(() => {
-    if (!name) return { email: '', password: '' };
+  // Generation Logic: Deterministic pattern for Team Members
+  const credentials = useMemo(() => {
+    if (!name) return { email: '', password: '', username: '' };
     const cleanName = name.toLowerCase().replace(/\s+/g, '');
-    const domain = 'example.com';
     return {
-      email: `${cleanName}@${domain}`,
+      username: cleanName,
+      email: `${cleanName}@example.com`,
       password: `${cleanName}@1234`,
     };
   }, [name]);
@@ -47,7 +49,13 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
     
     setIsProcessing(true);
     try {
-      const result = await createUser({ name, role: 'team', realEmail: realEmail || undefined });
+      // Passes realEmail if provided for credential delivery, otherwise uses deterministic pattern
+      const result = await createUser({ 
+        name, 
+        role: 'team', 
+        realEmail: realEmail || undefined 
+      });
+      
       toast({
         title: 'Team Member Created!',
         description: realEmail 
@@ -55,11 +63,12 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
           : `Email: ${result.email} | Password: ${result.password}`,
         duration: 10000,
       });
+      
       setOpen(false);
       setName('');
       setRealEmail('');
     } catch (error) {
-      // Error toast is handled in the data provider
+      // Error is caught by data provider toast
     } finally {
       setIsProcessing(false);
     }
@@ -92,15 +101,16 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
               className="bg-white/5 border-white/10 text-white"
             />
              <p className="text-xs text-muted-foreground">
-              Login credentials will be sent here.
+              Used to send login credentials to the member.
             </p>
           </div>
           {name && (
-            <Alert>
-              <AlertTitle>Generated Credentials Preview</AlertTitle>
-              <AlertDescription className="break-all">
-                <p><b>Login Email:</b> {email}</p>
-                <p><b>Initial Password:</b> {password}</p>
+            <Alert className="bg-primary/10 border-primary/20">
+              <AlertTitle className="text-primary font-bold">Generated Credentials Preview</AlertTitle>
+              <AlertDescription className="break-all mt-2 space-y-1">
+                <p><b>Login Email:</b> {credentials.email}</p>
+                <p><b>Initial Password:</b> {credentials.password}</p>
+                <p className="text-[10px] text-muted-foreground mt-2 italic">Note: These are based on the team name pattern.</p>
               </AlertDescription>
             </Alert>
           )}

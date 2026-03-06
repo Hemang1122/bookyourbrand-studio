@@ -1,3 +1,4 @@
+
 import * as admin from "firebase-admin";
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
@@ -41,15 +42,13 @@ export const onUserDocCreated = onDocumentCreated('users/{userId}', async (event
 /**
  * Callable function to create a new user (admin/team/client).
  * Handles Firebase Auth account creation and initial Firestore doc.
- * Updated to be robust against existing Auth users.
+ * Uses consistent deterministic pattern for team members and robust merging.
  */
 export const createUser = onCall(async (request) => {
-  // Verify caller is authenticated
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Must be logged in');
   }
 
-  // Verify caller is an admin
   const callerDoc = await admin.firestore()
     .doc('users/' + request.auth.uid).get();
   
@@ -63,7 +62,7 @@ export const createUser = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'Name and role required');
   }
 
-  // Generate email and password from name
+  // Generation Logic: Deterministic pattern matching the frontend
   const cleanName = name.toLowerCase().replace(/\s+/g, '');
   const domain = role === 'client' ? 'creative.co' : 'example.com';
   const email = cleanName + '@' + domain;
@@ -72,7 +71,6 @@ export const createUser = onCall(async (request) => {
   let uid = '';
 
   try {
-    // Step 1: Try to create Firebase Auth user
     const userRecord = await admin.auth().createUser({
       email,
       password,
@@ -81,7 +79,6 @@ export const createUser = onCall(async (request) => {
     uid = userRecord.uid;
     console.log('✅ Created new Auth user:', uid);
   } catch (error: any) {
-    // Step 1b: If user already exists, find them
     if (error.code === 'auth/email-already-exists') {
       console.log('⚠️ Auth user already exists, fetching UID...');
       const existingUser = await admin.auth().getUserByEmail(email);
@@ -98,6 +95,7 @@ export const createUser = onCall(async (request) => {
         uid: uid,
         name: name,
         email: email,
+        username: cleanName,
         role: role === 'client' ? 'client' : 'team',
         avatar: 'avatar-' + (Math.floor(Math.random() * 3) + 1),
         isOnline: false,
@@ -108,10 +106,8 @@ export const createUser = onCall(async (request) => {
         userDocData.realEmail = realEmail;
     }
 
-    // Step 2: Set/Merge Firestore user document
     await admin.firestore().doc('users/' + uid).set(userDocData, { merge: true });
 
-    // Step 3: If client, create client document too
     if (role === 'client') {
       const clientRef = admin.firestore().collection('clients').doc(uid);
       

@@ -44,7 +44,10 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
     setIsProcessing(true);
     try {
       let userId = null;
+      // Generation Logic: Random 8-character password for clients
       let generatedPassword = Math.random().toString(36).slice(-8);
+      // Generation Logic: Clean name for internal username field
+      const username = name.toLowerCase().replace(/\s+/g, '');
 
       // 1. Try to create Firebase Auth user
       try {
@@ -56,19 +59,16 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
         userId = userCredential.user.uid;
         console.log('✅ New user created:', userId);
       } catch (authError: any) {
-        // If user already exists, find them instead
         if (authError.code === 'auth/email-already-in-use') {
-          console.log('⚠️ User already exists, checking Firestore record...');
-          
+          console.log('⚠️ User already exists, merging records...');
           const usersRef = collection(firestore, 'users');
           const q = query(usersRef, where('email', '==', realEmail));
           const snapshot = await getDocs(q);
           
           if (!snapshot.empty) {
             userId = snapshot.docs[0].id;
-            console.log('✅ Found existing user record:', userId);
           } else {
-            throw new Error('This email is already registered but no profile was found. Please contact support.');
+            throw new Error('This email is registered but no profile was found.');
           }
         } else {
           throw authError;
@@ -77,11 +77,12 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
 
       if (!userId) throw new Error("Could not determine User ID");
 
-      // 2. Create or update Firestore documents (Merge to avoid overwriting existing data)
+      // 2. Create or update Firestore documents
       await setDoc(doc(firestore, 'users', userId), {
         id: userId,
         email: realEmail,
         name: name,
+        username: username,
         role: 'client',
         updatedAt: serverTimestamp(),
       }, { merge: true });
@@ -91,6 +92,7 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
         email: realEmail,
         name: name,
         company: company,
+        avatar: `avatar-${Math.floor(Math.random() * 3) + 2}`,
         updatedAt: serverTimestamp(),
       }, { merge: true });
 
@@ -105,7 +107,7 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
       } else {
         toast({
           title: 'Client Created',
-          description: 'Account created, but credentials email failed. Please share password manually.',
+          description: 'Account ready, but email failed. Share password manually: ' + generatedPassword,
           variant: 'destructive'
         });
       }
@@ -149,7 +151,7 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
             <Label htmlFor="email">Client Email</Label>
             <Input id="email" type="email" value={realEmail} onChange={(e) => setRealEmail(e.target.value)} placeholder="e.g., contact@acme.com" disabled={isProcessing}/>
              <p className="text-xs text-muted-foreground">
-              Credentials and updates will be sent to this address.
+              Credentials will be sent to this address.
             </p>
           </div>
         </div>
