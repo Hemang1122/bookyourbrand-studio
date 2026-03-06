@@ -5,6 +5,7 @@ import { startNotificationEmailListener } from '@/lib/notification-email-sender'
  * @fileOverview Background Email Dispatcher Route
  * This endpoint initializes the real-time notification listener.
  * API routes are server-side by default and do not require "use server".
+ * Next.js 15 strict mode: No "use server" if exporting handler objects.
  */
 
 export async function GET(request: NextRequest) {

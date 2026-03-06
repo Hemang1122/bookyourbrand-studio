@@ -18,6 +18,8 @@ export async function GET(request: NextRequest) {
     const merchantId = phonePeConfig.MERCHANT_ID;
     // Standard PhonePe v1 Status API endpoint
     const endpoint = `/pg/v1/status/${merchantId}/${transactionId}`;
+    
+    // We use an empty payload for status checks as per PhonePe documentation
     const checksum = generatePhonePeChecksum('', endpoint);
 
     const response = await axios.get(

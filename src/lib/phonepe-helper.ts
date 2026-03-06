@@ -21,10 +21,21 @@ export function generateChecksum(payload: string, endpoint: string): string {
 
 /**
  * Specialized checksum generator for PhonePe Status API.
- * Added to resolve import errors in status route.
+ * Supports manual salt parameters or uses defaults from config.
  */
-export function generatePhonePeChecksum(payload: string, endpoint: string): string {
-  return generateChecksum(payload, endpoint);
+export function generatePhonePeChecksum(
+  payload: string, 
+  endpoint: string, 
+  saltKey?: string, 
+  saltIndex?: string
+): string {
+  const sKey = saltKey || phonePeConfig.SALT_KEY;
+  const sIndex = saltIndex || phonePeConfig.SALT_INDEX;
+  
+  const stringToHash = payload + endpoint + sKey;
+  const sha256Hash = crypto.createHash('sha256').update(stringToHash).digest('hex');
+  
+  return `${sha256Hash}###${sIndex}`;
 }
 
 export function encodePayload(payload: object): string {
