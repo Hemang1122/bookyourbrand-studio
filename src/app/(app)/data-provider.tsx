@@ -1,3 +1,4 @@
+
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
@@ -6,7 +7,7 @@ import { users as initialUsers, clients as initialClients, projects as initialPr
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking, useFirebaseServices, FirestorePermissionError, errorEmitter } from '@/firebase';
-import { collection, doc, query, where, Timestamp, writeBatch, arrayUnion, runTransaction, getDocs, updateDoc, addDoc, getDoc, orderBy, setDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { collection, doc, query, where, Timestamp, writeBatch, arrayUnion, runTransaction, getDocs, updateDoc, addDoc, getDoc, orderBy, setDoc, onSnapshot, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { uploadFile, deleteFileFromStorage } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -33,7 +34,7 @@ type DataContextType = {
   deleteTask: (taskId: string) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
   updateTaskStatus: (taskId: string, status: TaskStatus, remark: string) => void;
-  createUser: (userData: { name: string; role: 'client' | 'team', realEmail?: string; }) => Promise<any>;
+  createUser: (userData: { name: string; role: 'client' | 'team', realEmail?: string; company?: string; }) => Promise<any>;
   deleteUser: (userId: string) => Promise<any>;
   updateClient: (clientId: string, clientData: Partial<Client>) => Promise<void>;
   selectPackage: (packageData: Omit<ClientPackage, 'id' | 'startDate' | 'reelsUsed' | 'status' | 'clientId'>) => Promise<void>;
@@ -262,7 +263,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     }
   }, [currentUser, firestore, authUid, addNotification, chatsData]);
 
-  const createUser = useCallback(async (userData: { name: string; role: 'client' | 'team'; realEmail?: string; }) => {
+  const createUser = useCallback(async (userData: { name: string; role: 'client' | 'team'; realEmail?: string; company?: string; }) => {
     if (!functions) return Promise.reject("Functions service not available.");
     const createUserFn = httpsCallable(functions, 'createUser');
     try {

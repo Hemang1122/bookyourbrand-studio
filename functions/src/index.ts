@@ -35,7 +35,7 @@ export const createUser = onCall(async (request) => {
     throw new HttpsError('permission-denied', 'Must be an admin');
   }
 
-  const { name, role, realEmail } = request.data;
+  const { name, role, realEmail, company } = request.data;
   
   if (!name || !role) {
     throw new HttpsError('invalid-argument', 'Name and role required');
@@ -43,16 +43,16 @@ export const createUser = onCall(async (request) => {
 
   // Generation Logic
   const cleanName = name.toLowerCase().replace(/\s+/g, '');
+  const cleanCompany = (company || name).toLowerCase().replace(/\s+/g, '');
   let loginEmail = '';
   let loginPassword = '';
 
   if (role === 'client') {
-    // For clients, we use their actual email if provided, otherwise fallback
-    loginEmail = realEmail || `${cleanName}@creative.co`;
-    // Generate a random password if not provided (usually random for clients)
-    loginPassword = Math.random().toString(36).slice(-8);
+    // Clients: companyname@creative.co / companyname@1234
+    loginEmail = `${cleanCompany}@creative.co`;
+    loginPassword = `${cleanCompany}@1234`;
   } else {
-    // For team, use the deterministic pattern
+    // Team: fullname@example.com / fullname@1234
     loginEmail = `${cleanName}@example.com`;
     loginPassword = `${cleanName}@1234`;
   }
@@ -91,7 +91,7 @@ export const createUser = onCall(async (request) => {
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         tempPassword: loginPassword, // Stored temporarily so trigger or admin can see it
     };
-    if (realEmail && role === 'client') {
+    if (realEmail) {
         userDocData.realEmail = realEmail;
     }
 
@@ -103,7 +103,7 @@ export const createUser = onCall(async (request) => {
           id: uid,
           name: name,
           email: loginEmail,
-          company: request.data.company || 'New Company',
+          company: company || 'New Company',
           avatar: userDocData.avatar,
           reelsCreated: 0,
           reelsLimit: 3,
