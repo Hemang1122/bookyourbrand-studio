@@ -233,7 +233,7 @@ export default function AdminDocumentsPage() {
                     ? 'bg-green-500/10 text-green-400 border-green-500/20'
                     : 'bg-red-500/10 text-red-400 border-red-500/20'
                 )}>
-                  {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                  {doc.status ? (doc.status.charAt(0).toUpperCase() + doc.status.slice(1)) : 'Unknown'}
                 </Badge>
               </div>
             </Card>
