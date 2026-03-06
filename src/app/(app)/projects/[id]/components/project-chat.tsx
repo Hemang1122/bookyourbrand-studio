@@ -21,7 +21,7 @@ import { useSearchParams } from 'next/navigation';
 import { useVoiceRecorder } from '@/hooks/use-voice-recorder';
 import { useToast } from '@/hooks/use-toast';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { TypingIndicator, useChatStatus } from '@/components/typing-indicator';
+import { TypingIndicator, useTypingIndicator } from '@/components/typing-indicator';
 import { RecordingIndicator } from '@/components/recording-indicator';
 
 const EMOJI_OPTIONS = ['👍', '❤️', '😂', '😮', '🔥', '👏'];
@@ -94,6 +94,7 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const { user: currentUser } = useAuth();
   const { firestore, auth, firebaseApp, functions } = useFirebaseServices();
@@ -104,7 +105,7 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
   const nodeRef = useRef(null);
   const clientStatus = useUserStatus(client.id);
 
-  const { updateStatus } = useChatStatus(projectId, currentUser?.id || '', currentUser?.name || '');
+  const { updateTyping } = useTypingIndicator(projectId, currentUser?.id || '', currentUser?.name || '');
 
   const {
     isRecording: voiceRecording,
@@ -115,15 +116,6 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
     cancelRecording,
     resetRecorder
   } = useVoiceRecorder();
-
-  // Sync recording status to global chat indicator
-  useEffect(() => {
-    if (voiceRecording) {
-      updateStatus(false, true);
-    } else {
-      updateStatus(false, false);
-    }
-  }, [voiceRecording]);
 
   useEffect(() => {
     if (searchParams.get('openChat') === 'true') {
@@ -173,15 +165,15 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
     markChatNotificationsAsRead(projectId);
   }, [messages, firestore, currentUser, auth, projectId, isOpen, isMinimized, markChatNotificationsAsRead]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!newMessage.trim() || !firestore || !currentUser) return;
 
     if (currentUser.role === 'team') return;
 
     try {
       const messageText = newMessage.trim();
-      updateStatus(false);
+      updateTyping(false);
       
       await addDoc(
         collection(firestore, 'projects', projectId, 'chat-messages'),
@@ -546,7 +538,11 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
 
             <div className="shrink-0">
               <RecordingIndicator isRecording={voiceRecording} />
-              <TypingIndicator projectId={projectId} currentUserId={currentUser?.id || ''} />
+              <TypingIndicator 
+                projectId={projectId} 
+                currentUserId={currentUser?.id || ''} 
+                currentUserName={currentUser?.name || ''} 
+              />
             </div>
 
             <div className="p-3 border-t border-white/10 bg-black/20">
@@ -588,9 +584,32 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
                     value={newMessage}
                     onChange={(e) => {
                       setNewMessage(e.target.value);
-                      updateStatus(true);
+                      
+                      // Debounced typing indicator
+                      if (typingTimeoutRef.current) {
+                        clearTimeout(typingTimeoutRef.current);
+                      }
+                      
+                      updateTyping(true);
+                      
+                      typingTimeoutRef.current = setTimeout(() => {
+                        updateTyping(false);
+                      }, 2000);
                     }}
-                    onBlur={() => updateStatus(false)}
+                    onBlur={() => {
+                      updateTyping(false);
+                      if (typingTimeoutRef.current) {
+                        clearTimeout(typingTimeoutRef.current);
+                      }
+                    }}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        updateTyping(false); // Stop typing when sent
+                        if (typingTimeoutRef.current) {
+                          clearTimeout(typingTimeoutRef.current);
+                        }
+                      }
+                    }}
                     placeholder="Type a message..."
                     className="flex-1 bg-black/40 border-white/10 rounded-full h-10 px-4 text-sm focus:ring-primary/50 focus:border-primary/50"
                   />

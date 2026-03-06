@@ -1,92 +1,137 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useFirebaseServices } from '@/firebase';
-import { doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, deleteField } from 'firebase/firestore';
 
 interface TypingIndicatorProps {
   projectId: string;
   currentUserId: string;
+  currentUserName: string;
 }
 
-export function TypingIndicator({ projectId, currentUserId }: TypingIndicatorProps) {
+export function TypingIndicator({ projectId, currentUserId, currentUserName }: TypingIndicatorProps) {
   const { firestore: db } = useFirebaseServices();
-  const [typingUsers, setTypingUsers] = useState<{ [key: string]: { name: string; timestamp: any; isRecording: boolean } }>({});
+  const [typingUsers, setTypingUsers] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
-    if (!db || !projectId) return;
+    if (!projectId || !db) return;
 
-    const typingRef = doc(db, 'projects', projectId, 'status', 'current');
+    // Listen to typing status
+    const typingRef = doc(db, 'projects', projectId, 'typing-status', 'current');
     
     const unsubscribe = onSnapshot(typingRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
+        // Filter out current user and expired statuses
         const now = Date.now();
-        const active: { [key: string]: any } = {};
+        const active: { [key: string]: string } = {};
         
         Object.entries(data).forEach(([userId, info]: [string, any]) => {
-          if (userId !== currentUserId && info.timestamp) {
-            const timestamp = info.timestamp.toMillis ? info.timestamp.toMillis() : info.timestamp;
-            if (now - timestamp < 4000) { // 4 seconds timeout
-              active[userId] = info;
+          if (userId !== currentUserId && info?.timestamp) {
+            const timestamp = info.timestamp?.toMillis ? info.timestamp.toMillis() : info.timestamp;
+            if (now - timestamp < 5000) { // 5 seconds timeout
+              active[userId] = info.name;
             }
           }
         });
         
         setTypingUsers(active);
-      } else {
-        setTypingUsers({});
       }
+    }, (error) => {
+      console.error('Error listening to typing status:', error);
     });
 
     return () => unsubscribe();
-  }, [db, projectId, currentUserId]);
+  }, [projectId, currentUserId, db]);
 
-  const activeEntries = Object.values(typingUsers);
-  if (activeEntries.length === 0) return null;
+  const typingUserNames = Object.values(typingUsers);
+
+  if (typingUserNames.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-1 px-4 py-2 bg-[#13131F]/50 border-t border-white/5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      {activeEntries.map((info, i) => (
-        <div key={i} className="flex items-center gap-2 text-xs text-gray-400">
-          <div className="flex gap-1 shrink-0">
-            <span className={cn("w-1.5 h-1.5 rounded-full animate-bounce", info.isRecording ? "bg-red-500" : "bg-primary")} style={{ animationDelay: '0ms' }} />
-            <span className={cn("w-1.5 h-1.5 rounded-full animate-bounce", info.isRecording ? "bg-red-500" : "bg-primary")} style={{ animationDelay: '150ms' }} />
-            <span className={cn("w-1.5 h-1.5 rounded-full animate-bounce", info.isRecording ? "bg-red-500" : "bg-primary")} style={{ animationDelay: '300ms' }} />
-          </div>
-          <span className="truncate">
-            <strong>{info.name}</strong> {info.isRecording ? 'is recording a voice note...' : 'is typing...'}
-          </span>
-        </div>
-      ))}
+    <div className="flex items-center gap-2 text-sm text-gray-400 px-4 py-2">
+      <div className="flex gap-1">
+        <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+        <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+        <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+      </div>
+      <span>
+        {typingUserNames.length === 1 
+          ? `${typingUserNames[0]} is typing...`
+          : typingUserNames.length === 2
+          ? `${typingUserNames[0]} and ${typingUserNames[1]} are typing...`
+          : `${typingUserNames.length} people are typing...`
+        }
+      </span>
     </div>
   );
 }
 
-import { cn } from '@/lib/utils';
-
-export function useChatStatus(projectId: string, userId: string, userName: string) {
+// Hook to update typing status with debouncing
+export function useTypingIndicator(projectId: string, userId: string, userName: string) {
   const { firestore: db } = useFirebaseServices();
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastUpdateRef = useRef<number>(0);
 
-  const updateStatus = async (isTyping: boolean, isRecording: boolean = false) => {
+  const updateTyping = async (isTyping: boolean) => {
     if (!db || !projectId || !userId) return;
 
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Debounce: Only update if more than 1 second since last update
+    const now = Date.now();
+    if (isTyping && now - lastUpdateRef.current < 1000) {
+      return;
+    }
+
     try {
-      const statusRef = doc(db, 'projects', projectId, 'status', 'current');
+      const typingRef = doc(db, 'projects', projectId, 'typing-status', 'current');
       
-      // Use setDoc with merge to update only this user's field
-      await setDoc(statusRef, {
-        [userId]: {
-          name: userName,
-          isTyping,
-          isRecording,
-          timestamp: serverTimestamp()
-        }
-      }, { merge: true });
+      if (isTyping) {
+        lastUpdateRef.current = now;
+        
+        // Set typing status
+        await setDoc(typingRef, {
+          [userId]: {
+            name: userName,
+            timestamp: now
+          }
+        }, { merge: true });
+
+        // Auto-clear after 3 seconds
+        typingTimeoutRef.current = setTimeout(async () => {
+          try {
+            await setDoc(typingRef, {
+              [userId]: deleteField()
+            }, { merge: true });
+          } catch (error) {
+            // Silently fail
+          }
+        }, 3000);
+      } else {
+        // Immediately clear typing status
+        await setDoc(typingRef, {
+          [userId]: deleteField()
+        }, { merge: true });
+      }
     } catch (error) {
-      console.error('Error updating chat status:', error);
+      // Silently fail - typing indicator is not critical
+      console.debug('Typing indicator update skipped');
     }
   };
 
-  return { updateStatus };
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  return { updateTyping };
 }
