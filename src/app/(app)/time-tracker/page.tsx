@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { type TimeEntry } from '@/lib/time-tracking-types';
 
 export default function TimeTrackerPage() {
