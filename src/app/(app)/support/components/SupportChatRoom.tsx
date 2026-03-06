@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { ChatMessage, User, Chat } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,6 @@ import { format, isSameDay, isToday, isYesterday } from 'date-fns';
 import { sounds } from '@/lib/sounds';
 import { useVoiceRecorder } from '@/hooks/use-voice-recorder';
 import { useVoiceCall } from '@/hooks/use-voice-call';
-import TypingIndicator from './TypingIndicator';
 
 const getMessageDate = (timestamp: any): Date => {
   if (!timestamp) return new Date();
@@ -35,6 +34,21 @@ const getMessageDate = (timestamp: any): Date => {
 
 const EMOJI_OPTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
+const MessageTicks = ({ msg, currentUserId }: { msg: any; currentUserId: string }) => {
+  if (msg.senderId !== currentUserId) return null;
+  const isRead = (msg.readBy || []).length > 1;
+  
+  return (
+    <div className="flex items-center gap-1">
+      {isRead ? (
+        <CheckCheck className="h-3 w-3 text-blue-400" />
+      ) : (
+        <Check className="h-3 w-3 text-gray-400" />
+      )}
+    </div>
+  );
+};
+
 interface SupportChatRoomProps {
   chatPartner?: User;
   chatId?: string;
@@ -42,23 +56,24 @@ interface SupportChatRoomProps {
 }
 
 export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBack }: SupportChatRoomProps) {
-  const [newMessage, setNewMessage] = useState('');
+  // 1. ALL HOOKS MUST BE AT THE TOP
   const { user: currentUser } = useAuth();
   const { firestore, firebaseApp, auth } = useFirebaseServices();
   const { getOrCreateChat, sendMessage, markChatNotificationsAsRead, users } = useData();
-  const [chatId, setChatId] = useState<string | null>(propChatId || null);
-  const [chatData, setChatData] = useState<any>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const { typingUsers, setTyping } = useTypingIndicator(chatId);
-  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
-  
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const { toast } = useToast();
   
+  const [chatId, setChatId] = useState<string | null>(propChatId || null);
+  const [chatData, setChatData] = useState<any>(null);
+  const [newMessage, setNewMessage] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
-  
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { typingUsers, setTyping } = useTypingIndicator(chatId);
   const {
     isRecording,
     recordingDuration,
@@ -80,7 +95,6 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
     if (propChatId) {
       setChatId(propChatId);
     } else if (chatPartner && currentUser) {
-      // isSupport=true for clients, false for team
       const isSupport = chatPartner.role === 'client';
       getOrCreateChat(chatPartner.id, isSupport).then(setChatId);
     }
@@ -101,7 +115,15 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
   }, [firestore, chatId]);
 
   const { data: messages } = useCollection<ChatMessage>(messagesQuery);
+
+  // Determine conversation partner for presence
+  const niddhi = useMemo(() => users.find(u => u.role === 'admin' && u.name.toLowerCase().includes('niddhi')), [users]);
+  const partnerId = currentUser?.role === 'admin' 
+    ? (chatPartner?.id || chatData?.clientId || '') 
+    : (niddhi?.id || '');
   
+  const partnerStatus = useUserStatus(partnerId);
+
   const scrollToBottom = useCallback((behavior: 'smooth' | 'auto' = 'auto') => {
     const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
     if (viewport) {
@@ -109,43 +131,28 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
       setShowScrollToBottom(false);
     }
   }, []);
-  
-  useEffect(() => {
-    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
-    const handleScroll = () => {
-      if (viewport) {
-        const isScrolledToBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 100;
-        setShowScrollToBottom(!isScrolledToBottom);
-      }
-    };
-    viewport?.addEventListener('scroll', handleScroll);
-    return () => viewport?.removeEventListener('scroll', handleScroll);
-  }, []);
 
-  useEffect(() => {
-    if (!messages) return;
-    const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
-    const isScrolledToBottom = viewport ? viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 1 : true;
-    if (isScrolledToBottom) scrollToBottom();
-  }, [messages, scrollToBottom]);
+  // 2. EARLY RETURNS AFTER ALL HOOKS
+  if (!currentUser || !chatId) {
+    return (
+      <div className="flex items-center justify-center h-full bg-[#0F0F1A]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
-  // Mark Read
-  useEffect(() => {
-    if (!chatId || !firestore || !currentUser || !messages || messages.length === 0) return;
-    const authUid = auth?.currentUser?.uid || currentUser.id;
-    const unreadMessages = messages.filter(msg => msg.senderId !== currentUser.id && !(msg.readBy || []).includes(authUid));
+  const isAdmin = currentUser.role === 'admin';
+  const partnerUser = chatPartner || users.find(u => u.id === chatData?.clientId) || niddhi;
 
-    if (unreadMessages.length > 0) {
-        const batch = writeBatch(firestore);
-        unreadMessages.forEach(msg => {
-            const msgRef = doc(firestore, 'chats', chatId, 'messages', msg.id);
-            batch.update(msgRef, { readBy: arrayUnion(authUid) });
-        });
-        batch.commit();
-        sounds.messageReceived();
-    }
-    markChatNotificationsAsRead(chatId);
-  }, [messages, chatId, firestore, currentUser, auth, markChatNotificationsAsRead]);
+  const displayTitle = isAdmin
+    ? (partnerUser?.name || chatData?.clientName || 'Support Chat')
+    : 'BookYourBrands Support';
+
+  const displayAvatar = isAdmin
+    ? (partnerUser?.photoURL 
+        || PlaceHolderImages.find(p => p.id === partnerUser?.avatar)?.imageUrl
+        || (chatData?.clientAvatar ? PlaceHolderImages.find(p => p.id === chatData.clientAvatar)?.imageUrl : null))
+    : '/logo.png';
 
   const handleSendTextMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -240,26 +247,6 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
     } catch (error) { setIsUploading(false); }
   };
 
-  if (!currentUser || !chatId) return null;
-
-  const isAdmin = currentUser.role === 'admin';
-
-  // Prioritize chatPartner prop (always available immediately),
-  // fall back to chatData for when chatId is passed directly
-  const displayTitle = isAdmin
-    ? (chatPartner?.name || chatData?.clientName || 'Support Chat')
-    : 'BookYourBrands Support';
-
-  const displayAvatar = isAdmin
-    ? (chatPartner?.photoURL 
-        || PlaceHolderImages.find(p => p.id === chatPartner?.avatar)?.imageUrl
-        || (chatData?.clientAvatar ? PlaceHolderImages.find(p => p.id === chatData.clientAvatar)?.imageUrl : null))
-    : '/logo.png';
-
-  // Also get partner's online status for the header
-  const partnerUser = chatPartner || users.find(u => u.id === chatData?.clientId);
-  const clientStatus = useUserStatus(partnerUser?.id || '');
-
   return (
     <div className="flex h-full flex-col bg-gradient-to-b from-[#13131F] to-[#0F0F1A] text-white relative">
       <header className="h-[70px] shrink-0 flex items-center px-4 bg-[#13131F]/80 backdrop-blur-xl border-b border-white/5 z-10">
@@ -279,9 +266,9 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
             </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
-            <div className={cn("hidden sm:flex items-center gap-2 mr-4 text-[10px]", clientStatus?.isOnline ? "text-green-400" : "text-gray-500")}>
-              <div className={cn("w-1.5 h-1.5 rounded-full", clientStatus?.isOnline ? "bg-green-400 animate-pulse" : "bg-gray-500")} />
-              {clientStatus?.isOnline ? 'Online' : 'Offline'}
+            <div className={cn("hidden sm:flex items-center gap-2 mr-4 text-[10px]", partnerStatus?.isOnline ? "text-green-400" : "text-gray-500")}>
+              <div className={cn("w-1.5 h-1.5 rounded-full", partnerStatus?.isOnline ? "bg-green-400 animate-pulse" : "bg-gray-500")} />
+              {partnerStatus?.isOnline ? 'Online' : 'Offline'}
             </div>
             <Button 
               variant="ghost" 
@@ -399,18 +386,3 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
     </div>
   );
 }
-
-const MessageTicks = ({ msg, currentUserId }: { msg: any; currentUserId: string }) => {
-  if (msg.senderId !== currentUserId) return null;
-  const isRead = (msg.readBy || []).length > 1;
-  
-  return (
-    <div className="flex items-center gap-1">
-      {isRead ? (
-        <CheckCheck className="h-3 w-3 text-blue-400" />
-      ) : (
-        <Check className="h-3 w-3 text-gray-400" />
-      )}
-    </div>
-  );
-};
