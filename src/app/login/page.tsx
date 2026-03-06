@@ -71,7 +71,6 @@ function LoginPageContent() {
           <h2 className="font-signature text-6xl mb-8 bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-500">
             We get you noticed
           </h2>
-          <LoginLogo className="mb-6 scale-110" />
           <p className="text-2xl font-medium text-white/90 mt-4">
             The Creative Intelligence Hub.
           </p>

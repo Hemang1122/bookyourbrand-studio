@@ -68,7 +68,9 @@ export default function AppLayoutClient({
       <div className="flex min-h-screen w-full flex-col bg-muted/40">
           <Sidebar>
           <SidebarHeader>
-            <Logo />
+            <div className="flex items-center justify-center w-full px-2">
+              <Logo />
+            </div>
           </SidebarHeader>
           <SidebarContent>
               <ScrollArea className="h-full">
