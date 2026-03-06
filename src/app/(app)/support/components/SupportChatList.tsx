@@ -118,7 +118,7 @@ export function SupportChatList({ users, selectedUserId, onSelectChat, chats }: 
       // Find existing chat for this user
       let chat: Chat | undefined;
       if (user.role === 'client') {
-        chat = chats.find(c => c.type === 'support' && c.clientId === user.id);
+        chat = chats.find(c => c.type === 'support' && (c as any).clientId === user.id);
       } else {
         // team/admin - find direct chat
         chat = chats.find(c => 
@@ -144,13 +144,26 @@ export function SupportChatList({ users, selectedUserId, onSelectChat, chats }: 
 
     // Sort: users WITH chats first (by lastMessageAt), then users without chats alphabetically
     return searched.sort((a, b) => {
+      // Both have chats with messages
+      if (a.chat?.lastMessage && b.chat?.lastMessage) {
+        const aTime = getMessageDate(a.chat.lastMessageAt)?.getTime() || 0;
+        const bTime = getMessageDate(b.chat.lastMessageAt)?.getTime() || 0;
+        return bTime - aTime;
+      }
+      // Only a has messages
+      if (a.chat?.lastMessage && !b.chat?.lastMessage) return -1;
+      // Only b has messages  
+      if (!a.chat?.lastMessage && b.chat?.lastMessage) return 1;
+      // Both have chats but no messages yet - sort by chat creation time
       if (a.chat && b.chat) {
         const aTime = getMessageDate(a.chat.lastMessageAt)?.getTime() || 0;
         const bTime = getMessageDate(b.chat.lastMessageAt)?.getTime() || 0;
         return bTime - aTime;
       }
+      // One has a chat, other doesn't
       if (a.chat && !b.chat) return -1;
       if (!a.chat && b.chat) return 1;
+      // Neither has a chat - alphabetical
       return a.user.name.localeCompare(b.user.name);
     });
   }, [chats, users, filter, searchQuery, currentUser]);
