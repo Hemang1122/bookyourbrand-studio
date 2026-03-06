@@ -2,7 +2,6 @@
 import * as admin from "firebase-admin";
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
-import { sendWelcomeEmail } from './email-service';
 
 if (admin.apps.length === 0) {
     admin.initializeApp();
@@ -10,47 +9,27 @@ if (admin.apps.length === 0) {
 
 /**
  * Triggered when a new user document is created in Firestore.
- * Sends a welcome email with credentials.
+ * Currently just logs, as email dispatch is handled via the Next.js API route 
+ * for more granular control over templates and passwords.
  */
 export const onUserDocCreated = onDocumentCreated('users/{userId}', async (event) => {
   const userData = event.data?.data();
-  if (!userData || !userData.email || userData.emailSent) return;
-
-  console.log('🔔 New user created trigger:', userData.email);
-
-  try {
-    const emailResult = await sendWelcomeEmail({
-      to: userData.realEmail || userData.email,
-      name: userData.name || 'User',
-      email: userData.email,
-      password: userData.tempPassword || 'BookYourBrands@123',
-      loginUrl: 'https://bybcrm.bookyourbrands.com/login'
-    });
-
-    if (emailResult.success) {
-      console.log('✅ Email sent successfully to:', userData.email);
-      // Mark as sent to prevent duplicates
-      await admin.firestore().doc('users/' + event.params.userId).update({ emailSent: true });
-    } else {
-      console.error('❌ Email failed:', emailResult.error);
-    }
-  } catch (error) {
-    console.error('❌ Error in onUserDocCreated trigger:', error);
-  }
+  if (!userData || !userData.email) return;
+  console.log('🔔 New user created document:', userData.email);
 });
 
 /**
  * Callable function to create a new user (admin/team/client).
  * Handles Firebase Auth account creation and initial Firestore doc.
- * Uses consistent deterministic pattern for team members and robust merging.
+ * Returns the generated credentials so the frontend can send them via email.
  */
 export const createUser = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Must be logged in');
   }
 
-  const callerDoc = await admin.firestore()
-    .doc('users/' + request.auth.uid).get();
+  const db = admin.firestore();
+  const callerDoc = await db.doc('users/' + request.auth.uid).get();
   
   if (!callerDoc.exists || callerDoc.data()?.role !== 'admin') {
     throw new HttpsError('permission-denied', 'Must be an admin');
@@ -62,18 +41,28 @@ export const createUser = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'Name and role required');
   }
 
-  // Generation Logic: Deterministic pattern matching the frontend
+  // Generation Logic
   const cleanName = name.toLowerCase().replace(/\s+/g, '');
-  const domain = role === 'client' ? 'creative.co' : 'example.com';
-  const email = cleanName + '@' + domain;
-  const password = cleanName + '@1234';
+  let loginEmail = '';
+  let loginPassword = '';
+
+  if (role === 'client') {
+    // For clients, we use their actual email if provided, otherwise fallback
+    loginEmail = realEmail || `${cleanName}@creative.co`;
+    // Generate a random password if not provided (usually random for clients)
+    loginPassword = Math.random().toString(36).slice(-8);
+  } else {
+    // For team, use the deterministic pattern
+    loginEmail = `${cleanName}@example.com`;
+    loginPassword = `${cleanName}@1234`;
+  }
 
   let uid = '';
 
   try {
     const userRecord = await admin.auth().createUser({
-      email,
-      password,
+      email: loginEmail,
+      password: loginPassword,
       displayName: name,
     });
     uid = userRecord.uid;
@@ -81,7 +70,7 @@ export const createUser = onCall(async (request) => {
   } catch (error: any) {
     if (error.code === 'auth/email-already-exists') {
       console.log('⚠️ Auth user already exists, fetching UID...');
-      const existingUser = await admin.auth().getUserByEmail(email);
+      const existingUser = await admin.auth().getUserByEmail(loginEmail);
       uid = existingUser.uid;
     } else {
       console.error('createUser Auth failed:', error);
@@ -94,28 +83,27 @@ export const createUser = onCall(async (request) => {
         id: uid,
         uid: uid,
         name: name,
-        email: email,
+        email: loginEmail,
         username: cleanName,
         role: role === 'client' ? 'client' : 'team',
         avatar: 'avatar-' + (Math.floor(Math.random() * 3) + 1),
         isOnline: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        tempPassword: password,
+        tempPassword: loginPassword, // Stored temporarily so trigger or admin can see it
     };
-    if (realEmail) {
+    if (realEmail && role === 'client') {
         userDocData.realEmail = realEmail;
     }
 
-    await admin.firestore().doc('users/' + uid).set(userDocData, { merge: true });
+    await db.doc('users/' + uid).set(userDocData, { merge: true });
 
     if (role === 'client') {
-      const clientRef = admin.firestore().collection('clients').doc(uid);
-      
+      const clientRef = db.collection('clients').doc(uid);
       const clientDocData: any = {
           id: uid,
           name: name,
-          email: email,
-          realEmail: realEmail || null,
+          email: loginEmail,
+          company: request.data.company || 'New Company',
           avatar: userDocData.avatar,
           reelsCreated: 0,
           reelsLimit: 3,
@@ -131,8 +119,8 @@ export const createUser = onCall(async (request) => {
     return {
       success: true,
       uid: uid,
-      email: email,
-      password: password,
+      email: loginEmail,
+      password: loginPassword,
       message: name + ' processed successfully.',
     };
 
@@ -150,8 +138,8 @@ export const deleteUser = onCall(async (request) => {
     throw new HttpsError('unauthenticated', 'Must be logged in');
   }
 
-  const callerDoc = await admin.firestore()
-    .doc('users/' + request.auth.uid).get();
+  const db = admin.firestore();
+  const callerDoc = await db.doc('users/' + request.auth.uid).get();
   
   if (!callerDoc.exists || callerDoc.data()?.role !== 'admin') {
     throw new HttpsError('permission-denied', 'Must be an admin');
@@ -163,14 +151,14 @@ export const deleteUser = onCall(async (request) => {
   }
 
   try {
-    const userDoc = await admin.firestore().doc('users/' + userId).get();
+    const userDoc = await db.doc('users/' + userId).get();
     const userData = userDoc.data();
 
     await admin.auth().deleteUser(userId);
-    await admin.firestore().doc('users/' + userId).delete();
+    await db.doc('users/' + userId).delete();
 
     if (userData?.role === 'client') {
-      await admin.firestore().doc('clients/' + userId).delete();
+      await db.doc('clients/' + userId).delete();
     }
 
     return { success: true, message: 'User deleted successfully' };

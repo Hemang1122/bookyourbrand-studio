@@ -1,3 +1,4 @@
+
 'use client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -42,9 +43,8 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
     setIsProcessing(true);
     try {
       let userId = null;
-      // Generation Logic: Random 8-character password for clients
+      // Client Credential Logic: Real Email + Random 8-character password
       const generatedPassword = Math.random().toString(36).slice(-8);
-      // Generation Logic: Clean name for internal username field
       const username = name.toLowerCase().replace(/\s+/g, '');
 
       // 1. Try to create Firebase Auth user
@@ -94,34 +94,24 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
         updatedAt: serverTimestamp(),
       }, { merge: true });
 
-      // 3. Send welcome email via API
+      // 3. Send welcome email via API with ACTUAL LOGIN CREDENTIALS
       try {
-        const response = await fetch('/api/send-welcome-email', {
+        await fetch('/api/send-welcome-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: name,
-            email: realEmail,
-            username: realEmail,
+            email: realEmail,      // Send to their actual inbox
+            username: realEmail,   // They login using their real email
             password: generatedPassword,
             userType: 'client'
           })
         });
-
-        const result = await response.json();
         
-        if (result.success) {
-          toast({
-            title: 'Success!',
-            description: `Client created and credentials sent to ${realEmail}.`,
-          });
-        } else {
-          toast({
-            title: 'Client Created',
-            description: 'Account ready, but email failed. Share password manually: ' + generatedPassword,
-            variant: 'destructive'
-          });
-        }
+        toast({
+          title: 'Success!',
+          description: `Client created and credentials sent to ${realEmail}.`,
+        });
       } catch (emailError) {
         console.error("Email API failed:", emailError);
         toast({

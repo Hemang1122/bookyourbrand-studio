@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -29,12 +30,11 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
   const { createUser } = useData();
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Generation Logic: Deterministic pattern for Team Members
-  const credentials = useMemo(() => {
-    if (!name) return { email: '', password: '', username: '' };
+  // Preview Logic: Matches the pattern CleanName@example.com / CleanName@1234
+  const credentialsPreview = useMemo(() => {
+    if (!name) return { email: '', password: '' };
     const cleanName = name.toLowerCase().replace(/\s+/g, '');
     return {
-      username: cleanName,
       email: `${cleanName}@example.com`,
       password: `${cleanName}@1234`,
     };
@@ -49,22 +49,23 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
     setIsProcessing(true);
     try {
       // 1. Create team member in Firebase via Cloud Function
+      // The function uses the same deterministic pattern logic
       const result = await createUser({ 
         name, 
         role: 'team', 
         realEmail: realEmail || undefined 
       });
       
-      // 2. Send welcome email via API
+      // 2. Send welcome email via API with the ACTUAL credentials returned by the backend
       try {
         await fetch('/api/send-welcome-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: name,
-            email: realEmail || result.email, // Use provided notification email or the generated one
-            username: credentials.email,
-            password: credentials.password,
+            email: realEmail || result.email, // Inbox to send notification to
+            username: result.email,           // Actual Login Username (fullname@example.com)
+            password: result.password,        // Actual Login Password (fullname@1234)
             userType: 'team'
           })
         });
@@ -125,9 +126,9 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
             <Alert className="bg-primary/10 border-primary/20">
               <AlertTitle className="text-primary font-bold">Generated Credentials Preview</AlertTitle>
               <AlertDescription className="break-all mt-2 space-y-1">
-                <p><b>Login Email:</b> {credentials.email}</p>
-                <p><b>Initial Password:</b> {credentials.password}</p>
-                <p className="text-[10px] text-muted-foreground mt-2 italic">Note: These are based on the team name pattern.</p>
+                <p><b>Login Email:</b> {credentialsPreview.email}</p>
+                <p><b>Initial Password:</b> {credentialsPreview.password}</p>
+                <p className="text-[10px] text-muted-foreground mt-2 italic">Note: These are based on the internal team name pattern.</p>
               </AlertDescription>
             </Alert>
           )}
