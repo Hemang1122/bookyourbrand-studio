@@ -47,7 +47,7 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
   const { firestore, firebaseApp, auth } = useFirebaseServices();
   const { getOrCreateChat, sendMessage, markChatNotificationsAsRead, users } = useData();
   const [chatId, setChatId] = useState<string | null>(propChatId || null);
-  const [chatData, setChatData] = useState<Chat | null>(null);
+  const [chatData, setChatData] = useState<any>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { typingUsers, setTyping } = useTypingIndicator(chatId);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -88,7 +88,7 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
   useEffect(() => {
     if (!chatId || !firestore) return;
     const unsub = onSnapshot(doc(firestore, 'chats', chatId), (snap) => {
-      if (snap.exists()) setChatData({ id: snap.id, ...snap.data() } as Chat);
+      if (snap.exists()) setChatData({ id: snap.id, ...snap.data() });
     });
     return () => unsub();
   }, [chatId, firestore]);
@@ -241,10 +241,22 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
   if (!currentUser || !chatId) return null;
 
   const isAdmin = currentUser.role === 'admin';
-  const displayTitle = isAdmin ? (chatData?.clientName || 'Support Chat') : 'BookYourBrands Support';
-  const displayAvatar = isAdmin 
-    ? (chatData?.clientAvatar ? PlaceHolderImages.find(p => p.id === chatData.clientAvatar)?.imageUrl : null)
+
+  // Prioritize chatPartner prop (always available immediately),
+  // fall back to chatData for when chatId is passed directly
+  const displayTitle = isAdmin
+    ? (chatPartner?.name || chatData?.clientName || 'Support Chat')
+    : 'BookYourBrands Support';
+
+  const displayAvatar = isAdmin
+    ? (chatPartner?.photoURL 
+        || PlaceHolderImages.find(p => p.id === chatPartner?.avatar)?.imageUrl
+        || (chatData?.clientAvatar ? PlaceHolderImages.find(p => p.id === chatData.clientAvatar)?.imageUrl : null))
     : '/logo.png';
+
+  // Also get partner's online status for the header
+  const partnerUser = chatPartner || users.find(u => u.id === chatData?.clientId);
+  const clientStatus = useUserStatus(partnerUser?.id || '');
 
   return (
     <div className="flex h-full flex-col bg-gradient-to-b from-[#13131F] to-[#0F0F1A] text-white relative">
@@ -258,14 +270,22 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
         </Avatar>
         <div className="ml-4">
             <h3 className="font-bold text-base">{displayTitle}</h3>
-            <p className="text-xs text-gray-400">Team Inbox</p>
+            <p className="text-xs text-gray-400">
+              {isAdmin 
+                ? (partnerUser?.role === 'client' ? 'Client' : partnerUser?.role === 'team' ? 'Team Member' : 'Support Chat')
+                : 'BookYourBrands Support'}
+            </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
+            <div className={cn("hidden sm:flex items-center gap-2 mr-4 text-[10px]", clientStatus?.isOnline ? "text-green-400" : "text-gray-500")}>
+              <div className={cn("w-1.5 h-1.5 rounded-full", clientStatus?.isOnline ? "bg-green-400 animate-pulse" : "bg-gray-500")} />
+              {clientStatus?.isOnline ? 'Online' : 'Offline'}
+            </div>
             <Button 
               variant="ghost" 
               size="icon" 
               className={cn("text-gray-400 hover:text-white hover:bg-white/10", isInCall && "text-green-500 bg-green-500/10")}
-              onClick={() => isInCall ? endCall() : (chatPartner && startCall(chatPartner.id))}
+              onClick={() => isInCall ? endCall() : (partnerUser && startCall(partnerUser.id))}
             >
               {isInCall ? <PhoneOff className="text-red-500" /> : <Phone />}
             </Button>
@@ -319,9 +339,9 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
                              {msg.mediaURL ? (
                                 <div className="space-y-2">
                                   {msg.mediaURL.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i) ? (
-                                    <img src={msg.mediaURL} className="max-w-[280px] rounded-lg" />
+                                    <img src={msg.mediaURL} className="max-w-[280px] rounded-lg" alt="Attachment" />
                                   ) : (
-                                    <a href={msg.mediaURL} target="_blank" className="flex items-center gap-2 p-2 bg-black/20 rounded-lg">
+                                    <a href={msg.mediaURL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 bg-black/20 rounded-lg">
                                       <FileText className="h-4 w-4" />
                                       <span className="truncate max-w-[150px]">{msg.text || 'File'}</span>
                                     </a>
