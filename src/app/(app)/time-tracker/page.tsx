@@ -33,12 +33,18 @@ import { useToast } from '@/hooks/use-toast';
 import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { type TimeEntry } from '@/lib/time-tracking-types';
+import { redirect } from 'next/navigation';
 
 export default function TimeTrackerPage() {
   const { user } = useAuth();
   const { firestore: db } = useFirebaseServices();
   const { toast } = useToast();
   
+  // Restricted access for admins
+  if (user?.role === 'admin') {
+    redirect('/admin/time-tracking');
+  }
+
   // Timer state
   const [isRunning, setIsRunning] = useState(false);
   const [currentEntry, setCurrentEntry] = useState<TimeEntry | null>(null);
@@ -62,7 +68,7 @@ export default function TimeTrackerPage() {
 
   // Load time entries
   useEffect(() => {
-    if (user && db) {
+    if (user && db && user.role !== 'admin') {
       loadEntries();
       checkRunningTimer();
     }
