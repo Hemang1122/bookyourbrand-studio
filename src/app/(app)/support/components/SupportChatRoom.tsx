@@ -19,6 +19,7 @@ import { format, isSameDay, isToday, isYesterday } from 'date-fns';
 import { sounds } from '@/lib/sounds';
 import { useVoiceRecorder } from '@/hooks/use-voice-recorder';
 import { useVoiceCall } from '@/hooks/use-voice-call';
+import TypingIndicator from './TypingIndicator';
 
 const getMessageDate = (timestamp: any): Date => {
   if (!timestamp) return new Date();
@@ -39,7 +40,7 @@ const MessageTicks = ({ msg, currentUserId }: { msg: any; currentUserId: string 
   const isRead = (msg.readBy || []).length > 1;
   
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 text-xs">
       {isRead ? (
         <CheckCheck className="h-3 w-3 text-blue-400" />
       ) : (
@@ -56,7 +57,6 @@ interface SupportChatRoomProps {
 }
 
 export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBack }: SupportChatRoomProps) {
-  // 1. ALL HOOKS MUST BE AT THE TOP
   const { user: currentUser } = useAuth();
   const { firestore, firebaseApp, auth } = useFirebaseServices();
   const { getOrCreateChat, sendMessage, markChatNotificationsAsRead, users } = useData();
@@ -68,11 +68,11 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
-  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Hook Calls (Must be at top level)
   const { typingUsers, setTyping } = useTypingIndicator(chatId);
   const {
     isRecording,
@@ -89,6 +89,21 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
     startCall,
     endCall
   } = useVoiceCall(chatId, currentUser);
+
+  // Resolve Partner for online status
+  const niddhi = useMemo(() => users.find(u => u.role === 'admin' && u.name.toLowerCase().includes('niddhi')), [users]);
+  
+  const partnerId = useMemo(() => {
+    if (!currentUser) return '';
+    // If admin, track the client
+    if (currentUser.role === 'admin') {
+      return chatPartner?.id || chatData?.clientId || '';
+    }
+    // If client, track Niddhi
+    return niddhi?.id || '';
+  }, [currentUser, chatPartner, chatData, niddhi]);
+
+  const partnerStatus = useUserStatus(partnerId);
 
   // Initialize Chat
   useEffect(() => {
@@ -116,23 +131,19 @@ export default function SupportChatRoom({ chatPartner, chatId: propChatId, onBac
 
   const { data: messages } = useCollection<ChatMessage>(messagesQuery);
 
-  // Determine conversation partner for presence
-  const niddhi = useMemo(() => users.find(u => u.role === 'admin' && u.name.toLowerCase().includes('niddhi')), [users]);
-  const partnerId = currentUser?.role === 'admin' 
-    ? (chatPartner?.id || chatData?.clientId || '') 
-    : (niddhi?.id || '');
-  
-  const partnerStatus = useUserStatus(partnerId);
-
   const scrollToBottom = useCallback((behavior: 'smooth' | 'auto' = 'auto') => {
     const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
     if (viewport) {
       viewport.scrollTo({ top: viewport.scrollHeight, behavior });
-      setShowScrollToBottom(false);
     }
   }, []);
 
-  // 2. EARLY RETURNS AFTER ALL HOOKS
+  useEffect(() => {
+    if (messages) {
+      scrollToBottom('auto');
+    }
+  }, [messages, scrollToBottom]);
+
   if (!currentUser || !chatId) {
     return (
       <div className="flex items-center justify-center h-full bg-[#0F0F1A]">
