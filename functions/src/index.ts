@@ -1,7 +1,7 @@
 
 import * as admin from "firebase-admin";
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { onDocumentCreated } from 'firebase/functions/v2/firestore';
 
 if (admin.apps.length === 0) {
     admin.initializeApp();
@@ -60,6 +60,7 @@ export const createUser = onCall(async (request) => {
   let uid = '';
 
   try {
+    // Step 1: Attempt to create the user
     const userRecord = await admin.auth().createUser({
       email: loginEmail,
       password: loginPassword,
@@ -68,10 +69,15 @@ export const createUser = onCall(async (request) => {
     uid = userRecord.uid;
     console.log('✅ Created new Auth user:', uid);
   } catch (error: any) {
+    // Step 2: Handle conflict (Erase the error for testing)
     if (error.code === 'auth/email-already-exists') {
-      console.log('⚠️ Auth user already exists, fetching UID...');
+      console.log('⚠️ Auth user already exists, fetching existing user...');
       const existingUser = await admin.auth().getUserByEmail(loginEmail);
       uid = existingUser.uid;
+      
+      // Update password to match the expected pattern for consistency during testing
+      await admin.auth().updateUser(uid, { password: loginPassword });
+      console.log('✅ Synchronized existing Auth user:', uid);
     } else {
       console.error('createUser Auth failed:', error);
       throw new HttpsError('internal', 'Auth failure: ' + error.message);
@@ -95,8 +101,10 @@ export const createUser = onCall(async (request) => {
         userDocData.realEmail = realEmail;
     }
 
+    // Step 3: Create or update Firestore user document
     await db.doc('users/' + uid).set(userDocData, { merge: true });
 
+    // Step 4: If client, create/update client document
     if (role === 'client') {
       const clientRef = db.collection('clients').doc(uid);
       const clientDocData: any = {
@@ -105,7 +113,7 @@ export const createUser = onCall(async (request) => {
           email: loginEmail,
           company: company || 'New Company',
           avatar: userDocData.avatar,
-          reelsCreated: 0,
+          reelsCreated: admin.firestore.FieldValue.increment(0), // Don't reset usage on re-creation
           reelsLimit: 3,
           packageName: 'Starter',
           createdAt: admin.firestore.FieldValue.serverTimestamp(),

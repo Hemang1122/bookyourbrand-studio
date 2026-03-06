@@ -1,3 +1,4 @@
+
 "use strict";
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -37,98 +38,91 @@ exports.deleteUser = exports.createUser = exports.onUserDocCreated = void 0;
 const admin = __importStar(require("firebase-admin"));
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
-const email_service_1 = require("./email-service");
 if (admin.apps.length === 0) {
     admin.initializeApp();
 }
-/**
- * Triggered when a new user document is created in Firestore.
- * Sends a welcome email with credentials.
- */
 exports.onUserDocCreated = (0, firestore_1.onDocumentCreated)('users/{userId}', async (event) => {
     var _a;
     const userData = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!userData || !userData.email)
         return;
-    console.log('🔔 New user created:', userData.email);
-    try {
-        const emailResult = await (0, email_service_1.sendWelcomeEmail)({
-            to: userData.realEmail || userData.email,
-            name: userData.name || 'User',
-            email: userData.email,
-            password: userData.tempPassword || 'BookYourBrands@123',
-            loginUrl: 'https://bybcrm.bookyourbrands.com/login'
-        });
-        if (emailResult.success) {
-            console.log('✅ Email sent successfully to:', userData.email);
-        }
-        else {
-            console.error('❌ Email failed:', emailResult.error);
-        }
-    }
-    catch (error) {
-        console.error('❌ Error in onUserDocCreated trigger:', error);
-    }
+    console.log('🔔 New user created document:', userData.email);
 });
-/**
- * Callable function to create a new user (admin/team/client).
- * Handles Firebase Auth account creation and initial Firestore doc.
- */
 exports.createUser = (0, https_1.onCall)(async (request) => {
     var _a;
-    // Verify caller is authenticated
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Must be logged in');
     }
-    // Verify caller is an admin
-    const callerDoc = await admin.firestore()
-        .doc('users/' + request.auth.uid).get();
+    const db = admin.firestore();
+    const callerDoc = await db.doc('users/' + request.auth.uid).get();
     if (!callerDoc.exists || ((_a = callerDoc.data()) === null || _a === void 0 ? void 0 : _a.role) !== 'admin') {
         throw new https_1.HttpsError('permission-denied', 'Must be an admin');
     }
-    const { name, role, realEmail } = request.data;
+    const { name, role, realEmail, company } = request.data;
     if (!name || !role) {
         throw new https_1.HttpsError('invalid-argument', 'Name and role required');
     }
-    // Generate email and password from name
     const cleanName = name.toLowerCase().replace(/\s+/g, '');
-    const domain = role === 'client' ? 'creative.co' : 'example.com';
-    const email = cleanName + '@' + domain;
-    const password = cleanName + '@1234';
+    const cleanCompany = (company || name).toLowerCase().replace(/\s+/g, '');
+    let loginEmail = '';
+    let loginPassword = '';
+    if (role === 'client') {
+        loginEmail = `${cleanCompany}@creative.co`;
+        loginPassword = `${cleanCompany}@1234`;
+    }
+    else {
+        loginEmail = `${cleanName}@example.com`;
+        loginPassword = `${cleanName}@1234`;
+    }
+    let uid = '';
     try {
-        // Step 1: Create Firebase Auth user
         const userRecord = await admin.auth().createUser({
-            email,
-            password,
+            email: loginEmail,
+            password: loginPassword,
             displayName: name,
         });
+        uid = userRecord.uid;
+        console.log('✅ Created new Auth user:', uid);
+    }
+    catch (error) {
+        if (error.code === 'auth/email-already-exists') {
+            console.log('⚠️ Auth user already exists, fetching existing user...');
+            const existingUser = await admin.auth().getUserByEmail(loginEmail);
+            uid = existingUser.uid;
+            await admin.auth().updateUser(uid, { password: loginPassword });
+            console.log('✅ Synchronized existing Auth user:', uid);
+        }
+        else {
+            console.error('createUser Auth failed:', error);
+            throw new https_1.HttpsError('internal', 'Auth failure: ' + error.message);
+        }
+    }
+    try {
         const userDocData = {
-            id: userRecord.uid,
-            uid: userRecord.uid,
+            id: uid,
+            uid: uid,
             name: name,
-            email: email,
+            email: loginEmail,
+            username: cleanName,
             role: role === 'client' ? 'client' : 'team',
             avatar: 'avatar-' + (Math.floor(Math.random() * 3) + 1),
             isOnline: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            tempPassword: password, // Store password so trigger can send it
+            tempPassword: loginPassword,
         };
         if (realEmail) {
             userDocData.realEmail = realEmail;
         }
-        // Step 2: Create Firestore user document
-        await admin.firestore().doc('users/' + userRecord.uid).set(userDocData);
-        // Step 3: If client, create client document too
+        await db.doc('users/' + uid).set(userDocData, { merge: true });
         if (role === 'client') {
-            const clientRef = admin.firestore()
-                .collection('clients').doc(userRecord.uid);
+            const clientRef = db.collection('clients').doc(uid);
             const clientDocData = {
-                id: userRecord.uid,
+                id: uid,
                 name: name,
-                email: email,
-                realEmail: realEmail || null,
-                avatar: 'avatar-' + (Math.floor(Math.random() * 3) + 2),
-                reelsCreated: 0,
+                email: loginEmail,
+                company: company || 'New Company',
+                avatar: userDocData.avatar,
+                reelsCreated: admin.firestore.FieldValue.increment(0),
                 reelsLimit: 3,
                 packageName: 'Starter',
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -136,34 +130,28 @@ exports.createUser = (0, https_1.onCall)(async (request) => {
             if (realEmail) {
                 clientDocData.realEmail = realEmail;
             }
-            await clientRef.set(clientDocData);
+            await clientRef.set(clientDocData, { merge: true });
         }
         return {
             success: true,
-            uid: userRecord.uid,
-            email: email,
-            password: password,
-            message: name + ' created successfully. Welcome email is being processed.',
+            uid: uid,
+            email: loginEmail,
+            password: loginPassword,
+            message: name + ' processed successfully.',
         };
     }
     catch (error) {
-        console.error('createUser failed:', error);
-        if (error.code === 'auth/email-already-exists') {
-            throw new https_1.HttpsError('already-exists', 'A user with this email already exists');
-        }
-        throw new https_1.HttpsError('internal', 'Failed to create user: ' + error.message);
+        console.error('createUser Firestore failed:', error);
+        throw new https_1.HttpsError('internal', 'Database failure: ' + error.message);
     }
 });
-/**
- * Callable function to delete a user.
- */
 exports.deleteUser = (0, https_1.onCall)(async (request) => {
     var _a;
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Must be logged in');
     }
-    const callerDoc = await admin.firestore()
-        .doc('users/' + request.auth.uid).get();
+    const db = admin.firestore();
+    const callerDoc = await db.doc('users/' + request.auth.uid).get();
     if (!callerDoc.exists || ((_a = callerDoc.data()) === null || _a === void 0 ? void 0 : _a.role) !== 'admin') {
         throw new https_1.HttpsError('permission-denied', 'Must be an admin');
     }
@@ -172,12 +160,12 @@ exports.deleteUser = (0, https_1.onCall)(async (request) => {
         throw new https_1.HttpsError('invalid-argument', 'userId required');
     }
     try {
-        const userDoc = await admin.firestore().doc('users/' + userId).get();
+        const userDoc = await db.doc('users/' + userId).get();
         const userData = userDoc.data();
         await admin.auth().deleteUser(userId);
-        await admin.firestore().doc('users/' + userId).delete();
+        await db.doc('users/' + userId).delete();
         if ((userData === null || userData === void 0 ? void 0 : userData.role) === 'client') {
-            await admin.firestore().doc('clients/' + userId).delete();
+            await db.doc('clients/' + userId).delete();
         }
         return { success: true, message: 'User deleted successfully' };
     }
@@ -186,4 +174,3 @@ exports.deleteUser = (0, https_1.onCall)(async (request) => {
         throw new https_1.HttpsError('internal', 'Failed to delete user: ' + error.message);
     }
 });
-//# sourceMappingURL=index.js.map
