@@ -16,11 +16,12 @@ export async function GET(request: NextRequest) {
     }
 
     const merchantId = phonePeConfig.MERCHANT_ID;
-    const endpoint = `/v3/transaction/${merchantId}/status/${transactionId}`;
+    // Standard PhonePe v1 Status API endpoint
+    const endpoint = `/pg/v1/status/${merchantId}/${transactionId}`;
     const checksum = generateChecksum('', endpoint);
 
     const response = await axios.get(
-      `${phonePeConfig.API_URL}/transaction/${merchantId}/status/${transactionId}`,
+      `${phonePeConfig.API_URL}${endpoint}`,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response.data);
 
   } catch (error: any) {
-    console.error('Status check error:', error);
+    console.error('Status check error:', error.response?.data || error.message);
     return NextResponse.json(
       { success: false, error: 'Failed to check status' },
       { status: 500 }
