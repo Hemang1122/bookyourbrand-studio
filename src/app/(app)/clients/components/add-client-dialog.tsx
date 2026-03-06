@@ -17,6 +17,7 @@ import { Loader2 } from 'lucide-react';
 import { useFirebaseServices } from '@/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { doc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { sendWelcomeEmailAction } from '@/app/actions/email';
 
 type AddClientDialogProps = {
   children: React.ReactNode;
@@ -44,7 +45,7 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
       let userId = null;
       let generatedPassword = Math.random().toString(36).slice(-8); // Generate random password
 
-      // Try to create Firebase Auth user via Cloud Function (prevents signing out Admin)
+      // 1. Process Auth User via Cloud Function
       try {
         const createUserFn = httpsCallable(functions, 'createUser');
         const result: any = await createUserFn({ 
@@ -57,20 +58,18 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
         generatedPassword = result.data.password;
         console.log('✅ User record processed:', userId);
       } catch (authError: any) {
-        // If user already exists, find them instead (Matching the "already-in-use" logic)
+        // Handle existing users
         if (authError.message?.includes('already exists') || authError.code === 'already-exists') {
-          console.log('⚠️ User already exists, checking Firestore...');
+          console.log('⚠️ User already exists, finding record...');
           
           const usersRef = collection(firestore, 'users');
-          // Note: The function generates an email like name@creative.co, but we check by name or provided realEmail
           const q = query(usersRef, where('name', '==', name));
           const snapshot = await getDocs(q);
           
           if (!snapshot.empty) {
             userId = snapshot.docs[0].id;
-            console.log('✅ Found existing user record:', userId);
           } else {
-            throw new Error('User record conflict. Please use a different name.');
+            throw new Error('User conflict. Please use a different name.');
           }
         } else {
           throw authError;
@@ -79,10 +78,10 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
 
       if (!userId) throw new Error("Could not determine User ID");
 
-      // Create or update Firestore documents using Merge
+      // 2. Update Firestore Documents (Merge to avoid overwriting)
       await setDoc(doc(firestore, 'users', userId), {
         id: userId,
-        email: realEmail, // Use their actual email for the profile
+        email: realEmail,
         name: name,
         role: 'client',
         updatedAt: serverTimestamp(),
@@ -96,33 +95,18 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
         updatedAt: serverTimestamp(),
       }, { merge: true });
 
-      console.log('✅ Client documents merged');
-
-      // Send welcome email via our new API
-      try {
-        const response = await fetch('/api/send-welcome-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: name,
-            email: realEmail,
-            password: generatedPassword
-          })
+      // 3. Trigger Welcome Email via Server Action (Replaces problematic API fetch)
+      const emailResult = await sendWelcomeEmailAction(name, realEmail, generatedPassword);
+      
+      if (emailResult.success) {
+        toast({
+          title: 'Success!',
+          description: `Client created and credentials sent to ${realEmail}.`,
         });
-
-        const result = await response.json();
-        if (result.success) {
-          console.log('✅ Welcome email sent to', realEmail);
-          toast({
-            title: 'Success!',
-            description: `Client created and credentials sent to ${realEmail}.`,
-          });
-        }
-      } catch (emailError) {
-        console.error('❌ Failed to send email:', emailError);
+      } else {
         toast({
           title: 'Client Created',
-          description: 'Client created but welcome email failed to send.',
+          description: 'Account created, but credentials email failed. Please share manually.',
           variant: 'destructive'
         });
       }
