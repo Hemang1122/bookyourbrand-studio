@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import FormData from 'form-data';
@@ -16,17 +17,50 @@ async function getSession() {
     params: { api: 'SYNO.API.Auth', version: 6, method: 'login', account: USERNAME, passwd: PASSWORD, session: 'FileStation', format: 'sid' },
     httpsAgent: agent
   });
-  if (!res.data.success) throw new Error('NAS login failed');
+  if (!res.data.success) { cachedSid = null; throw new Error('NAS login failed'); }
   cachedSid = res.data.data.sid;
   return cachedSid!;
 }
 
+async function generateShareLink(sid: string, filePath: string): Promise<string | null> {
+  try {
+    const res = await axios.get(`${NAS_URL}/webapi/entry.cgi`, {
+      params: {
+        api: 'SYNO.FileStation.Sharing',
+        version: 3,
+        method: 'create',
+        path: filePath,
+        password: '',
+        date_expired: '-1',
+        date_available: '-1',
+        _sid: sid
+      },
+      httpsAgent: agent
+    });
+
+    if (res.data.success && res.data.data?.links?.[0]?.url) {
+      return res.data.data.links[0].url;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { fileName, fileData, clientName, mimeType } = await req.json();
+    const formData = await req.formData();
+    const file = formData.get('file') as File;
+    const clientName = formData.get('clientName') as string;
+
+    if (!file) return NextResponse.json({ success: false, error: 'No file provided' });
+
     const sid = await getSession();
     const uploadPath = `/CLIENT FILES/${clientName}`;
-    const fileBuffer = Buffer.from(fileData, 'base64');
+    const filePath = `${uploadPath}/${file.name}`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const fileBuffer = Buffer.from(arrayBuffer);
 
     const form = new FormData();
     form.append('api', 'SYNO.FileStation.Upload');
@@ -35,15 +69,25 @@ export async function POST(req: NextRequest) {
     form.append('path', uploadPath);
     form.append('create_parents', 'true');
     form.append('overwrite', 'true');
-    form.append('file', fileBuffer, { filename: fileName, contentType: mimeType });
+    form.append('file', fileBuffer, { filename: file.name, contentType: file.type });
 
     const res = await axios.post(`${NAS_URL}/webapi/entry.cgi?_sid=${sid}`, form, {
       headers: form.getHeaders(),
-      httpsAgent: agent
+      httpsAgent: agent,
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity
     });
 
     if (res.data.success) {
-      return NextResponse.json({ success: true, nasPath: `${uploadPath}/${fileName}` });
+      // Generate sharing link
+      const shareUrl = await generateShareLink(sid, filePath);
+      return NextResponse.json({ 
+        success: true, 
+        nasPath: filePath,
+        shareUrl: shareUrl || null,
+        fileName: file.name,
+        fileType: file.type
+      });
     } else {
       cachedSid = null;
       return NextResponse.json({ success: false, error: JSON.stringify(res.data) });

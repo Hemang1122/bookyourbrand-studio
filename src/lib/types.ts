@@ -147,12 +147,14 @@ export type ProjectFile = {
   projectId: string;
   name:string;
   url: string;
+  nasPath?: string;
   uploadedById: string;
   uploadedByName: string;
   uploadedByAvatar: string;
   uploadedAt: Timestamp;
   size?: string;
   type?: string;
+  fileType?: string;
 };
 
 export type ReelUpdate = {
