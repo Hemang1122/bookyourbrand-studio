@@ -4,7 +4,7 @@ import { startNotificationEmailListener } from '@/lib/notification-email-sender'
 /**
  * @fileOverview Background Email Dispatcher Route
  * This endpoint initializes the real-time notification listener.
- * In a serverless environment, this should be triggered periodically via a cron job.
+ * API routes are server-side by default and do not require "use server".
  */
 
 export async function GET(request: NextRequest) {

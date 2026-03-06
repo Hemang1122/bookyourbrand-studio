@@ -6,6 +6,7 @@ import { sendEmail, emailTemplates } from './email-service';
 /**
  * @fileOverview Notification Email Dispatcher
  * Listens for new Firestore notifications and sends corresponding emails.
+ * Note: This file does NOT use "use server" because it exports a non-async listener initialization.
  */
 
 // Initialize a local instance of Firebase for the background listener

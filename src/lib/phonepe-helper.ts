@@ -19,6 +19,14 @@ export function generateChecksum(payload: string, endpoint: string): string {
   return `${sha256Hash}###${saltIndex}`;
 }
 
+/**
+ * Specialized checksum generator for PhonePe Status API.
+ * Added to resolve import errors in status route.
+ */
+export function generatePhonePeChecksum(payload: string, endpoint: string): string {
+  return generateChecksum(payload, endpoint);
+}
+
 export function encodePayload(payload: object): string {
   return Buffer.from(JSON.stringify(payload)).toString('base64');
 }

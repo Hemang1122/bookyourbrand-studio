@@ -3,6 +3,7 @@ import nodemailer from 'nodemailer';
 /**
  * @fileOverview BookYourBrands Email Service
  * Handles onboarding emails and system notifications using BigRock SMTP.
+ * Note: This file does NOT use "use server" because it exports non-function objects.
  */
 
 // CRM Email Transporter - For onboarding and credentials
@@ -62,7 +63,7 @@ export async function sendEmail({ to, subject, html, text }: SendEmailParams) {
 }
 
 // Email Footer Component
-const emailFooter = `
+export const emailFooter = `
   <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
     <p style="color: #666; font-size: 13px; margin: 10px 0;">
       <strong>💬 Need to discuss this?</strong><br>

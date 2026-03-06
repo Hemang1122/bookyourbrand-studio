@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { phonePeConfig } from '@/lib/phonepe-config';
-import { generateChecksum } from '@/lib/phonepe-helper';
+import { generatePhonePeChecksum } from '@/lib/phonepe-helper';
 import axios from 'axios';
 
 export async function GET(request: NextRequest) {
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     const merchantId = phonePeConfig.MERCHANT_ID;
     // Standard PhonePe v1 Status API endpoint
     const endpoint = `/pg/v1/status/${merchantId}/${transactionId}`;
-    const checksum = generateChecksum('', endpoint);
+    const checksum = generatePhonePeChecksum('', endpoint);
 
     const response = await axios.get(
       `${phonePeConfig.API_URL}${endpoint}`,
