@@ -8,6 +8,15 @@ import type { User, Client, Project, Task } from './types';
 export const users: User[] = [
   { id: 'user-admin', name: 'Niddhi Sharma', email: 'niddhi@example.com', avatar: 'avatar-2', role: 'admin', username: 'niddhi' },
   { id: 'user-11', name: 'Himmat Singh', email: 'himmat@example.com', avatar: 'avatar-3', role: 'team', username: 'himmat' },
+  { 
+    id: 'K3lFp8oyoYaTpfg4vr4qj1kGl9c2', 
+    uid: 'K3lFp8oyoYaTpfg4vr4qj1kGl9c2', 
+    name: 'Niddhi', 
+    email: 'niddhi@bookyourbrands.com', 
+    role: 'client', 
+    avatar: 'avatar-2', 
+    username: 'niddhi_client' 
+  },
 ];
 
 export const clients: Client[] = [

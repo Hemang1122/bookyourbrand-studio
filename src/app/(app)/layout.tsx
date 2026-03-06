@@ -1,3 +1,4 @@
+
 'use client';
 import AppLayoutClient from './layout-client';
 import { useEffect, useState, ReactNode }
@@ -55,7 +56,11 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
         const name = authUser.displayName || userEmail.split('@')[0] || 'New User';
         
         let role: User['role'] = 'client';
-        if (userEmail.endsWith('@bookyourbrands.com')) {
+        
+        // Specific check for IDs that override standard domain-based logic
+        if (authUser.uid === 'K3lFp8oyoYaTpfg4vr4qj1kGl9c2') {
+          role = 'client';
+        } else if (userEmail.endsWith('@bookyourbrands.com')) {
           role = 'admin';
         } else if (userEmail.endsWith('@example.com')) {
           role = 'team';
@@ -65,10 +70,10 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
           id: authUser.uid,
           uid: authUser.uid,
           email: userEmail,
-          name: name,
+          name: authUser.uid === 'K3lFp8oyoYaTpfg4vr4qj1kGl9c2' ? 'Niddhi' : name,
           role: role,
           avatar: `avatar-${Math.floor(Math.random() * 3) + 2}`,
-          username: name.toLowerCase().replace(/\s/g, ''),
+          username: name.toLowerCase().replace(/\s+/g, ''),
         };
         
         if (role === 'client') {
@@ -93,10 +98,10 @@ function AppLayoutAuthenticated({ children }: { children: ReactNode }) {
                     facebook: { connected: false },
                 },
             };
-            await setDoc(clientRef, newClient);
+            await setDoc(clientRef, newClient, { merge: true });
         }
         
-        await setDoc(userRef, finalUser);
+        await setDoc(userRef, finalUser, { merge: true });
       }
       
       setAppUser(finalUser);
