@@ -1,4 +1,3 @@
-
 'use client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -39,7 +38,6 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
     setIsProcessing(true);
     try {
       // 1. Call Cloud Function to handle user creation/synchronization
-      // This handles deterministic credentials and conflict resolution
       const result = await createUser({
         name,
         role: 'client',
@@ -47,29 +45,41 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
         company
       });
 
-      // 2. Send welcome email via API using the ACTUAL login credentials returned by the backend
+      // 2. Send welcome email via API with defensive JSON handling
       try {
-        await fetch('/api/send-welcome-email', {
+        const response = await fetch('/api/send-welcome-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: name,
-            email: realEmail,      // Recipient notification address
-            username: result.email,   // Generated CRM username (company@creative.co)
-            password: result.password, // Generated CRM password (firstname@1234)
+            email: realEmail,
+            username: result.email,
+            password: result.password,
             userType: 'client'
           })
         });
         
-        toast({
-          title: 'Success!',
-          description: `Client processed and credentials sent to ${realEmail}.`,
-        });
-      } catch (emailError) {
+        const contentType = response.headers.get("content-type");
+        if (response.ok && contentType && contentType.includes("application/json")) {
+          const data = await response.json();
+          if (data.success) {
+            toast({
+              title: 'Success!',
+              description: `Client processed and credentials sent to ${realEmail}.`,
+            });
+          } else {
+            throw new Error(data.error || 'API reported failure');
+          }
+        } else {
+          const errorText = await response.text();
+          console.error("Non-JSON or Error Response:", errorText);
+          throw new Error('Email server returned an invalid response');
+        }
+      } catch (emailError: any) {
         console.error("Email API failed:", emailError);
         toast({
           title: 'Client Ready',
-          description: 'Account is synchronized, but email failed. Share manually: ' + result.email,
+          description: `Account created, but email failed: ${emailError.message}. Share manually: ${result.email}`,
           variant: 'destructive'
         });
       }
@@ -80,7 +90,7 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
       setRealEmail('');
     } catch (error: any) {
       console.error("Failed to process client:", error);
-      // Toast error handled in data provider
+      // Main error toast handled by DataProvider or here if needed
     } finally {
       setIsProcessing(false);
     }

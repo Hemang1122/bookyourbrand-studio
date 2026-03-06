@@ -12,10 +12,12 @@ import { Upload, CheckCircle, Clock, XCircle, FileText, Loader2 } from 'lucide-r
 import { useToast } from '@/hooks/use-toast';
 import { REQUIRED_DOCUMENTS, type ClientDocument } from '@/lib/document-types';
 import { cn } from '@/lib/utils';
+import { useData } from '../data-provider';
 
 export default function DocumentsPage() {
   const { user } = useAuth();
   const { firestore, firebaseApp, areServicesAvailable } = useFirebaseServices();
+  const { users } = useData();
   const { toast } = useToast();
   const [documents, setDocuments] = useState<ClientDocument[]>([]);
   const [uploading, setUploading] = useState<string | null>(null);
@@ -59,7 +61,7 @@ export default function DocumentsPage() {
       await uploadBytes(storageRef, file);
       const fileUrl = await getDownloadURL(storageRef);
 
-      await addDoc(collection(firestore, 'clientDocuments'), {
+      const docRef = await addDoc(collection(firestore, 'clientDocuments'), {
         clientId: user.id,
         documentType,
         fileName: file.name,
@@ -69,15 +71,20 @@ export default function DocumentsPage() {
         status: 'pending'
       });
 
+      // Find all admin users to notify
+      const adminIds = (users || []).filter(u => u.role === 'admin').map(u => u.id);
+
       // Create notification for admin
-      await addDoc(collection(firestore, 'notifications'), {
-        message: `${user.name} uploaded ${documentType.replace('_', ' ')} document`,
-        type: 'system',
-        url: '/admin/documents',
-        recipients: [], // In a real app, logic would target admins here
-        readBy: [],
-        timestamp: serverTimestamp()
-      });
+      if (adminIds.length > 0) {
+        await addDoc(collection(firestore, 'notifications'), {
+          message: `${user.name} uploaded ${documentType.replace('_', ' ')} document`,
+          type: 'system',
+          url: '/admin/documents',
+          recipients: adminIds,
+          readBy: [],
+          timestamp: serverTimestamp()
+        });
+      }
 
       toast({
         title: 'Success!',

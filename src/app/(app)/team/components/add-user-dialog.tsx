@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -30,7 +29,6 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
   const { createUser } = useData();
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Preview Logic: Matches the pattern CleanName@example.com / CleanName@1234
   const credentialsPreview = useMemo(() => {
     if (!name) return { email: '', password: '' };
     const cleanName = name.toLowerCase().replace(/\s+/g, '');
@@ -48,27 +46,32 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
     
     setIsProcessing(true);
     try {
-      // 1. Create team member in Firebase via Cloud Function
-      // The function uses the same deterministic pattern logic
       const result = await createUser({ 
         name, 
         role: 'team', 
         realEmail: realEmail || undefined 
       });
       
-      // 2. Send welcome email via API with the ACTUAL credentials returned by the backend
       try {
-        await fetch('/api/send-welcome-email', {
+        const response = await fetch('/api/send-welcome-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: name,
-            email: realEmail || result.email, // Inbox to send notification to
-            username: result.email,           // Actual Login Username (fullname@example.com)
-            password: result.password,        // Actual Login Password (fullname@1234)
+            email: realEmail || result.email,
+            username: result.email,
+            password: result.password,
             userType: 'team'
           })
         });
+
+        const contentType = response.headers.get("content-type");
+        if (response.ok && contentType && contentType.includes("application/json")) {
+          const data = await response.json();
+          if (!data.success) {
+            console.warn("Email API reported success false:", data.error);
+          }
+        }
       } catch (emailError) {
         console.error("Email notification failed:", emailError);
       }
@@ -84,7 +87,7 @@ export function AddUserDialog({ children }: AddUserDialogProps) {
       setOpen(false);
       setName('');
       setRealEmail('');
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create team member:", error);
     } finally {
       setIsProcessing(false);
