@@ -44,13 +44,15 @@ export const createUser = onCall(async (request) => {
   // Generation Logic
   const cleanName = name.toLowerCase().replace(/\s+/g, '');
   const cleanCompany = (company || name).toLowerCase().replace(/\s+/g, '');
+  const firstName = name.trim().split(/\s+/)[0].toLowerCase();
+  
   let loginEmail = '';
   let loginPassword = '';
 
   if (role === 'client') {
-    // Clients: companyname@creative.co / companyname@1234
+    // Clients: companyname@creative.co / firstname@1234
     loginEmail = `${cleanCompany}@creative.co`;
-    loginPassword = `${cleanCompany}@1234`;
+    loginPassword = `${firstName}@1234`;
   } else {
     // Team: fullname@example.com / fullname@1234
     loginEmail = `${cleanName}@example.com`;
@@ -69,7 +71,7 @@ export const createUser = onCall(async (request) => {
     uid = userRecord.uid;
     console.log('✅ Created new Auth user:', uid);
   } catch (error: any) {
-    // Step 2: Handle conflict (Erase the error for testing)
+    // Step 2: Handle conflict (Conflict Resolution for testing)
     if (error.code === 'auth/email-already-exists') {
       console.log('⚠️ Auth user already exists, fetching existing user...');
       const existingUser = await admin.auth().getUserByEmail(loginEmail);
@@ -95,7 +97,7 @@ export const createUser = onCall(async (request) => {
         avatar: 'avatar-' + (Math.floor(Math.random() * 3) + 1),
         isOnline: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        tempPassword: loginPassword, // Stored temporarily so trigger or admin can see it
+        tempPassword: loginPassword,
     };
     if (realEmail) {
         userDocData.realEmail = realEmail;
@@ -113,7 +115,7 @@ export const createUser = onCall(async (request) => {
           email: loginEmail,
           company: company || 'New Company',
           avatar: userDocData.avatar,
-          reelsCreated: admin.firestore.FieldValue.increment(0), // Don't reset usage on re-creation
+          reelsCreated: admin.firestore.FieldValue.increment(0),
           reelsLimit: 3,
           packageName: 'Starter',
           createdAt: admin.firestore.FieldValue.serverTimestamp(),

@@ -38,8 +38,8 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
     
     setIsProcessing(true);
     try {
-      // 1. Call Cloud Function to handle user creation with the correct pattern
-      // The function uses: companyname@creative.co / companyname@1234
+      // 1. Call Cloud Function to handle user creation/synchronization
+      // This handles deterministic credentials and conflict resolution
       const result = await createUser({
         name,
         role: 'client',
@@ -54,22 +54,22 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: name,
-            email: realEmail,      // Recipient address
-            username: result.email,   // Generated username (companyname@creative.co)
-            password: result.password, // Generated password (companyname@1234)
+            email: realEmail,      // Recipient notification address
+            username: result.email,   // Generated CRM username (company@creative.co)
+            password: result.password, // Generated CRM password (firstname@1234)
             userType: 'client'
           })
         });
         
         toast({
           title: 'Success!',
-          description: `Client created and credentials sent to ${realEmail}.`,
+          description: `Client processed and credentials sent to ${realEmail}.`,
         });
       } catch (emailError) {
         console.error("Email API failed:", emailError);
         toast({
-          title: 'Client Created',
-          description: 'Account ready, but email failed. Share credentials manually: ' + result.email,
+          title: 'Client Ready',
+          description: 'Account is synchronized, but email failed. Share manually: ' + result.email,
           variant: 'destructive'
         });
       }
@@ -79,7 +79,7 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
       setCompany('');
       setRealEmail('');
     } catch (error: any) {
-      console.error("Failed to create client:", error);
+      console.error("Failed to process client:", error);
       // Toast error handled in data provider
     } finally {
       setIsProcessing(false);
@@ -91,9 +91,9 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add New Client</DialogTitle>
+          <DialogTitle>Add / Update Client</DialogTitle>
           <DialogDescription>
-            This will create a new client account using the company name pattern.
+            This will set up a client account with deterministic CRM credentials.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-6 py-4">
@@ -113,11 +113,16 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
             </p>
           </div>
         </div>
+        <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
+          <p className="text-[10px] text-primary uppercase font-bold tracking-wider mb-1">Preview Login Details</p>
+          <p className="text-xs text-muted-foreground">Username: {company ? company.toLowerCase().replace(/\s+/g, '') : '...'}@creative.co</p>
+          <p className="text-xs text-muted-foreground">Password: {name ? name.trim().split(/\s+/)[0].toLowerCase() : '...'}@1234</p>
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isProcessing}>Cancel</Button>
           <Button onClick={handleAddClient} disabled={isProcessing || !name || !company || !realEmail}>
             {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            {isProcessing ? 'Processing...' : 'Create Client'}
+            {isProcessing ? 'Processing...' : 'Process Client'}
           </Button>
         </DialogFooter>
       </DialogContent>
