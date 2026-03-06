@@ -35,6 +35,7 @@ const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'team', 'client'] },
   { href: '/projects', icon: FolderKanban, label: 'Projects', roles: ['admin', 'team', 'client'] },
   { href: '/time-tracker', icon: Clock, label: 'Time Tracker', roles: ['admin', 'team'] },
+  { href: '/admin/time-tracking', icon: Clock, label: 'Team Tracking', roles: ['admin'] },
   { href: '/packages', icon: CreditCard, label: 'Packages', roles: ['client'] },
   { href: '/admin/packages', icon: Package, label: 'Package Mgmt', roles: ['admin'] },
   { href: '/admin/migration', icon: RefreshCw, label: 'Migration Tool', roles: ['admin'] },
