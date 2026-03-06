@@ -1,11 +1,16 @@
-
 import * as admin from "firebase-admin";
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { onDocumentCreated } from 'firebase/functions/v2/firestore';
+import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { syncUserToFirestore } from './sync-user';
 
 if (admin.apps.length === 0) {
     admin.initializeApp();
 }
+
+/**
+ * Export the sync function
+ */
+export { syncUserToFirestore };
 
 /**
  * Triggered when a new user document is created in Firestore.
