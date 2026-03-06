@@ -3,6 +3,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { syncUserToFirestore } from './sync-user';
 import * as nodemailer from 'nodemailer';
+import { sendProjectCompletedEmail } from './email-service';
 
 if (admin.apps.length === 0) {
     admin.initializeApp();
@@ -340,5 +341,34 @@ export const deleteUser = onCall(async (request) => {
   } catch (error: any) {
     console.error('deleteUser failed:', error);
     throw new HttpsError('internal', 'Failed to delete user: ' + error.message);
+  }
+});
+
+/**
+ * Send an email to the client when a project is completed.
+ */
+export const sendProjectCompletionEmail = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const { clientEmail, clientName, projectName, projectUrl } = request.data;
+
+  if (!clientEmail || !projectName) {
+    throw new HttpsError('invalid-argument', 'Missing required fields');
+  }
+
+  try {
+    const result = await sendProjectCompletedEmail({
+      to: clientEmail,
+      clientName: clientName || 'Valued Client',
+      projectName,
+      projectUrl: projectUrl || 'https://bybcrm.bookyourbrands.com/projects'
+    });
+
+    return result;
+  } catch (error: any) {
+    console.error('Error sending email:', error);
+    throw new HttpsError('internal', 'Failed to send email: ' + error.message);
   }
 });

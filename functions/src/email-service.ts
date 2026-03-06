@@ -14,6 +14,15 @@ const crmTransporter = nodemailer.createTransport({
   }
 });
 
+// Gmail Transporter - For Project Completion
+const gmailTransporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'bookyourbrandscrm@gmail.com',
+    pass: 'qzng wikf gddz ppwc'
+  }
+});
+
 export interface WelcomeEmailParams {
   to: string;
   name: string;
@@ -176,6 +185,146 @@ export async function sendWelcomeEmail(params: WelcomeEmailParams) {
     });
     
     console.log('✅ Welcome email sent:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error: any) {
+    console.error('❌ Email error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+interface ProjectCompletedEmailParams {
+  to: string;
+  clientName: string;
+  projectName: string;
+  projectUrl: string;
+}
+
+export async function sendProjectCompletedEmail(params: ProjectCompletedEmailParams) {
+  const { to, clientName, projectName, projectUrl } = params;
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { 
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          line-height: 1.6; 
+          color: #333;
+          margin: 0;
+          padding: 0;
+        }
+        .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
+        .header { 
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+          color: white; 
+          padding: 40px 30px; 
+          text-align: center;
+        }
+        .header h1 { margin: 0; font-size: 28px; }
+        .content { padding: 40px 30px; background: #ffffff; }
+        .highlight-box { 
+          background: #f0fdf4; 
+          border-left: 4px solid #22c55e; 
+          padding: 20px; 
+          margin: 25px 0;
+          border-radius: 5px;
+        }
+        .project-name {
+          font-size: 20px;
+          font-weight: bold;
+          color: #22c55e;
+          margin: 10px 0;
+        }
+        .button { 
+          display: inline-block; 
+          background: #22c55e; 
+          color: white !important; 
+          padding: 15px 40px; 
+          text-decoration: none; 
+          border-radius: 5px; 
+          margin-top: 20px;
+          font-weight: 600;
+        }
+        .support-box {
+          background: #e7f3ff;
+          border-left: 4px solid #2196F3;
+          padding: 20px;
+          margin: 25px 0;
+          border-radius: 5px;
+        }
+        .footer { 
+          text-align: center; 
+          padding: 30px;
+          background: #f8f9fa;
+          color: #666; 
+          font-size: 13px;
+          border-top: 1px solid #e9ecef;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div style="font-size: 40px; margin-bottom: 10px;">🎉</div>
+          <h1>Your Project is Complete!</h1>
+        </div>
+        
+        <div class="content">
+          <p style="font-size: 16px;">Hello <strong>${clientName}</strong>,</p>
+          
+          <p>Great news! Your project has been completed and is ready for review.</p>
+          
+          <div class="highlight-box">
+            <p style="margin: 0; color: #666;">✅ <strong>Project Completed</strong></p>
+            <p class="project-name">${projectName}</p>
+            <p style="margin: 0; color: #666; font-size: 14px;">All deliverables are now available in your dashboard.</p>
+          </div>
+
+          <p>You can now:</p>
+          <ul style="line-height: 1.8;">
+            <li>📥 <strong>Download</strong> your completed reels</li>
+            <li>👀 <strong>Review</strong> the final output</li>
+            <li>💬 <strong>Share feedback</strong> if needed</li>
+          </ul>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${projectUrl}" class="button">View Project</a>
+          </div>
+
+          <div class="support-box">
+            <p style="margin: 0 0 10px 0;"><strong>💬 Need Help or Have Feedback?</strong></p>
+            <p style="margin: 0; font-size: 14px;">
+              If you have any questions or concerns about the project, please feel free to chat with our team using the <strong>Project Chat</strong> feature in your dashboard, or reach out via our <strong>Support Chat</strong>.
+            </p>
+          </div>
+
+          <p style="margin-top: 30px;">Thank you for choosing BookYourBrands!</p>
+          
+          <p>Best regards,<br>
+          <strong>BookYourBrands Team</strong></p>
+        </div>
+        
+        <div class="footer">
+          <p><strong>BookYourBrands</strong> - Your Creative Partner</p>
+          <p>© ${new Date().getFullYear()} BookYourBrands. All rights reserved.</p>
+          <p style="margin-top: 10px; color: #999;">⚠️ This is an automated email. Please do not reply to this message.<br>Use the chat features in your dashboard to communicate with our team.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const info = await gmailTransporter.sendMail({
+      from: '"BookYourBrands Team" <bookyourbrandscrm@gmail.com>',
+      to,
+      subject: `🎉 Your Project "${projectName}" is Complete!`,
+      html: htmlContent,
+      text: `Hello ${clientName},\n\nGreat news! Your project "${projectName}" has been completed.\n\nView it here: ${projectUrl}\n\nIf you have any questions, please use the Project Chat feature in your dashboard.\n\nBest regards,\nBookYourBrands Team`
+    });
+    
+    console.log('✅ Project completion email sent:', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error: any) {
     console.error('❌ Email error:', error);

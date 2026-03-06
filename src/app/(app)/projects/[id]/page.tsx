@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '../../data-provider';
 import type { Project, Client, User, ProjectStatus } from '@/lib/types';
 import { useAuth } from '@/firebase/provider';
+import { useFirebaseServices } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { ManageTeamDialog } from './components/manage-team-dialog';
 import { EditProjectDialog } from './components/edit-project-dialog';
@@ -20,6 +21,8 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { format } from 'date-fns';
+import { httpsCallable } from 'firebase/functions';
+import { serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import dynamic from 'next/dynamic';
 
 const ProjectChat = dynamic(() => import('./components/project-chat'), {
@@ -30,6 +33,7 @@ export default function ProjectDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const { user } = useAuth();
+  const { firestore, functions } = useFirebaseServices();
   const { projects, isLoading, deleteProject, updateProject, users } = useData();
   const { toast } = useToast();
   const router = useRouter();
@@ -38,13 +42,39 @@ export default function ProjectDetailPage() {
     return projects.find((p) => p.id === id);
   }, [id, projects]);
   
-  const handleStatusChange = (newStatus: ProjectStatus) => {
-    if (project) {
+  const handleStatusChange = async (newStatus: ProjectStatus) => {
+    if (project && firestore) {
+      // Update locally and in DB
       updateProject(project.id, { status: newStatus });
-      toast({
-        title: 'Status Updated',
-        description: `Project status changed to ${newStatus}.`,
-      });
+
+      // If project is marked as Completed, trigger the completion email
+      if (newStatus === 'Completed' && project.client?.email && functions) {
+        try {
+          const sendEmailFn = httpsCallable(functions, 'sendProjectCompletionEmail');
+          await sendEmailFn({
+            clientEmail: project.client.email,
+            clientName: project.client.name,
+            projectName: project.name,
+            projectUrl: `${window.location.origin}/projects/${project.id}`
+          });
+          toast({
+            title: 'Project Completed',
+            description: 'The client has been notified via email.',
+          });
+        } catch (error: any) {
+          console.error('Failed to send completion email:', error);
+          toast({
+            title: 'Email Failed',
+            description: 'Status updated, but client notification email failed.',
+            variant: 'destructive'
+          });
+        }
+      } else {
+        toast({
+          title: 'Status Updated',
+          description: `Project status changed to ${newStatus}.`,
+        });
+      }
     }
   };
 
