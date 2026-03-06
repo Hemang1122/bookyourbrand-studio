@@ -35,6 +35,8 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendWelcomeEmail = sendWelcomeEmail;
 exports.sendProjectCompletedEmail = sendProjectCompletedEmail;
+exports.sendTaskAssignedEmail = sendTaskAssignedEmail;
+exports.sendProjectChatMessageEmail = sendProjectChatMessageEmail;
 const nodemailer = __importStar(require("nodemailer"));
 // CRM Email Transporter - For onboarding
 const crmTransporter = nodemailer.createTransport({
@@ -49,12 +51,12 @@ const crmTransporter = nodemailer.createTransport({
         rejectUnauthorized: false
     }
 });
-// Gmail Transporter - For Project Completion
+// Gmail Transporter - For System Notifications
 const gmailTransporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: 'bookyourbrandscrm@gmail.com',
-        pass: 'qzng wikf gddz ppwc'
+        user: process.env.GMAIL_USER || 'bookyourbrandscrm@gmail.com',
+        pass: process.env.GMAIL_PASS || 'qzng wikf gddz ppwc'
     }
 });
 /**
@@ -344,6 +346,243 @@ async function sendProjectCompletedEmail(params) {
             text: `Hello ${clientName},\n\nGreat news! Your project "${projectName}" has been completed.\n\nView it here: ${projectUrl}\n\nIf you have any questions, please use the Project Chat feature in your dashboard.\n\nBest regards,\nBookYourBrands Team`
         });
         console.log('✅ Project completion email sent:', info.messageId);
+        return { success: true, messageId: info.messageId };
+    }
+    catch (error) {
+        console.error('❌ Email error:', error);
+        return { success: false, error: error.message };
+    }
+}
+async function sendTaskAssignedEmail(params) {
+    const { to, clientName, projectName, taskName, taskDescription, dueDate, projectUrl } = params;
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { 
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          line-height: 1.6; 
+          color: #333;
+          margin: 0;
+          padding: 0;
+        }
+        .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
+        .header { 
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+          color: white; 
+          padding: 40px 30px; 
+          text-align: center;
+        }
+        .header h1 { margin: 0; font-size: 28px; }
+        .content { padding: 40px 30px; background: #ffffff; }
+        .task-box { 
+          background: #f0f9ff; 
+          border-left: 4px solid #3b82f6; 
+          padding: 20px; 
+          margin: 25px 0;
+          border-radius: 5px;
+        }
+        .task-name {
+          font-size: 18px;
+          font-weight: bold;
+          color: #1e40af;
+          margin-bottom: 10px;
+        }
+        .button { 
+          display: inline-block; 
+          background: #3b82f6; 
+          color: white !important; 
+          padding: 15px 40px; 
+          text-decoration: none; 
+          border-radius: 5px; 
+          margin-top: 20px;
+          font-weight: 600;
+        }
+        .support-box {
+          background: #e7f3ff;
+          border-left: 4px solid #2196F3;
+          padding: 20px;
+          margin: 25px 0;
+          border-radius: 5px;
+        }
+        .footer { 
+          text-align: center; 
+          padding: 30px;
+          background: #f8f9fa;
+          color: #666; 
+          font-size: 13px;
+          border-top: 1px solid #e9ecef;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div style="font-size: 40px; margin-bottom: 10px;">📋</div>
+          <h1>New Task Added</h1>
+        </div>
+        
+        <div class="content">
+          <p style="font-size: 16px;">Hello <strong>${clientName}</strong>,</p>
+          
+          <p>A new task has been added to your project <strong>"${projectName}"</strong>.</p>
+          
+          <div class="task-box">
+            <div class="task-name">📌 ${taskName}</div>
+            <p style="margin: 10px 0; color: #64748b;">${taskDescription || 'No description provided'}</p>
+            ${dueDate ? `<p style="margin: 10px 0 0 0; font-size: 14px;"><strong>Due Date:</strong> ${dueDate}</p>` : ''}
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${projectUrl}" class="button">View Project</a>
+          </div>
+
+          <div class="support-box">
+            <p style="margin: 0 0 10px 0;"><strong>💬 Have Questions?</strong></p>
+            <p style="margin: 0; font-size: 14px;">
+              Use the <strong>Project Chat</strong> to discuss this task with our team, or reach out via <strong>Support Chat</strong> for any assistance.
+            </p>
+          </div>
+
+          <p style="margin-top: 30px;">Best regards,<br>
+          <strong>BookYourBrands Team</strong></p>
+        </div>
+        
+        <div class="footer">
+          <p><strong>BookYourBrands</strong> - Your Creative Partner</p>
+          <p>© ${new Date().getFullYear()} BookYourBrands. All rights reserved.</p>
+          <p style="margin-top: 10px; color: #999;">⚠️ This is an automated email. Please do not reply to this message.<br>Use the chat features in your dashboard to communicate with our team.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+    try {
+        const info = await gmailTransporter.sendMail({
+            from: '"BookYourBrands Team" <bookyourbrandscrm@gmail.com>',
+            to,
+            subject: `📋 New Task: ${taskName} - ${projectName}`,
+            html: htmlContent,
+            text: `Hello ${clientName},\n\nA new task has been added to your project "${projectName}".\n\nTask: ${taskName}\n${taskDescription}\n\nView project: ${projectUrl}\n\nBest regards,\nBookYourBrands Team`
+        });
+        console.log('✅ Task notification email sent:', info.messageId);
+        return { success: true, messageId: info.messageId };
+    }
+    catch (error) {
+        console.error('❌ Email error:', error);
+        return { success: false, error: error.message };
+    }
+}
+async function sendProjectChatMessageEmail(params) {
+    const { to, clientName, projectName, senderName, messagePreview, projectUrl } = params;
+    const truncated = messagePreview.length > 150 ? messagePreview.substring(0, 150) + '...' : messagePreview;
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { 
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          line-height: 1.6; 
+          color: #333;
+          margin: 0;
+          padding: 0;
+        }
+        .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
+        .header { 
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+          color: white; 
+          padding: 40px 30px; 
+          text-align: center;
+        }
+        .header h1 { margin: 0; font-size: 28px; }
+        .content { padding: 40px 30px; background: #ffffff; }
+        .message-box { 
+          background: #fef3c7; 
+          border-left: 4px solid #f59e0b; 
+          padding: 20px; 
+          margin: 25px 0;
+          border-radius: 5px;
+        }
+        .sender {
+          font-size: 14px;
+          font-weight: bold;
+          color: #92400e;
+          margin-bottom: 10px;
+        }
+        .message {
+          color: #451a03;
+          font-style: italic;
+          font-size: 15px;
+        }
+        .button { 
+          display: inline-block; 
+          background: #f59e0b; 
+          color: white !important; 
+          padding: 15px 40px; 
+          text-decoration: none; 
+          border-radius: 5px; 
+          margin-top: 20px;
+          font-weight: 600;
+        }
+        .footer { 
+          text-align: center; 
+          padding: 30px;
+          background: #f8f9fa;
+          color: #666; 
+          font-size: 13px;
+          border-top: 1px solid #e9ecef;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div style="font-size: 40px; margin-bottom: 10px;">💬</div>
+          <h1>New Project Message</h1>
+        </div>
+        
+        <div class="content">
+          <p style="font-size: 16px;">Hello <strong>${clientName}</strong>,</p>
+          
+          <p>You have a new message in your project <strong>"${projectName}"</strong>.</p>
+          
+          <div class="message-box">
+            <div class="sender">💼 ${senderName} wrote:</div>
+            <div class="message">"${truncated}"</div>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${projectUrl}" class="button">Reply in Project Chat</a>
+          </div>
+
+          <p style="color: #64748b; font-size: 14px; margin-top: 30px;">
+            💡 <strong>Tip:</strong> Use the Project Chat for quick communication with our team about this specific project.
+          </p>
+
+          <p style="margin-top: 30px;">Best regards,<br>
+          <strong>BookYourBrands Team</strong></p>
+        </div>
+        
+        <div class="footer">
+          <p><strong>BookYourBrands</strong> - Your Creative Partner</p>
+          <p>© ${new Date().getFullYear()} BookYourBrands. All rights reserved.</p>
+          <p style="margin-top: 10px; color: #999;">⚠️ This is an automated email. Please do not reply to this message.<br>Reply directly in the project chat on your dashboard.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+    try {
+        const info = await gmailTransporter.sendMail({
+            from: '"BookYourBrands Team" <bookyourbrandscrm@gmail.com>',
+            to,
+            subject: `💬 New message from ${senderName} - ${projectName}`,
+            html: htmlContent,
+            text: `Hello ${clientName},\n\nYou have a new message in your project "${projectName}".\n\n${senderName} wrote: "${truncated}"\n\nReply here: ${projectUrl}\n\nBest regards,\nBookYourBrands Team`
+        });
+        console.log('✅ Project chat notification email sent:', info.messageId);
         return { success: true, messageId: info.messageId };
     }
     catch (error) {

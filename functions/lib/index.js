@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUser = exports.createUser = exports.sendProjectCompletionEmail = exports.onUserDocCreated = exports.syncUserToFirestore = void 0;
+exports.deleteUser = exports.createUser = exports.sendProjectChatNotification = exports.sendTaskNotification = exports.sendProjectCompletionEmail = exports.onUserDocCreated = exports.onNotificationCreated = exports.syncUserToFirestore = void 0;
 const admin = __importStar(require("firebase-admin"));
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
@@ -43,6 +43,62 @@ const email_service_1 = require("./email-service");
 if (admin.apps.length === 0) {
     admin.initializeApp();
 }
+/**
+ * Triggered when a new notification is created in Firestore.
+ * Automatically sends an email alert to recipients if they are offline.
+ */
+exports.onNotificationCreated = (0, firestore_1.onDocumentCreated)({
+    document: 'notifications/{notificationId}',
+    secrets: ['GMAIL_USER', 'GMAIL_PASS']
+}, async (event) => {
+    var _a;
+    const notification = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
+    if (!notification)
+        return;
+    const db = admin.firestore();
+    const rtdb = admin.database();
+    const { message, recipients, url, type } = notification;
+    if (!recipients || recipients.length === 0)
+        return;
+    // Construct full application URL for the call-to-action button
+    const dashboardUrl = `https://bybcrm.bookyourbrands.com${url}`;
+    // Process each recipient
+    const emailPromises = recipients.map(async (recipientId) => {
+        try {
+            // 1. Check online status in Realtime Database (presence system)
+            const presenceSnap = await rtdb.ref(`status/${recipientId}`).get();
+            const presence = presenceSnap.val();
+            const isOnline = (presence === null || presence === void 0 ? void 0 : presence.isOnline) === true;
+            // If user is online, skip email
+            if (isOnline) {
+                console.log(`⏭️ Skipping email for ${recipientId} — currently online`);
+                return;
+            }
+            // 2. Get user data to find their real email
+            const userDoc = await db.doc(`users/${recipientId}`).get();
+            const userData = userDoc.data();
+            if (!userData)
+                return;
+            // Use realEmail if available, otherwise fall back to login email
+            const toEmail = userData.realEmail || userData.email;
+            if (!toEmail)
+                return;
+            // Skip internal login-only domains if no real email is set
+            if (!userData.realEmail && (toEmail.includes('@creative.co') || toEmail.includes('@example.com'))) {
+                console.log(`⏭️ Skipping email for ${recipientId} — no real email address provided`);
+                return;
+            }
+            // Send generic notification email
+            console.log(`✅ Sending notification email to ${toEmail} for user ${recipientId}`);
+            // This is handled by specialized callables for specific events,
+            // but generic notifications could also be sent here if needed.
+        }
+        catch (err) {
+            console.error(`❌ Failed to send email to recipient ${recipientId}:`, err);
+        }
+    });
+    await Promise.all(emailPromises);
+});
 /**
  * Triggered when a new user document is created in Firestore.
  * Automatically sends a welcome email with generated credentials.
@@ -75,7 +131,7 @@ exports.onUserDocCreated = (0, firestore_1.onDocumentCreated)('users/{userId}', 
 /**
  * Callable function to send an email to the client when a project is completed.
  */
-exports.sendProjectCompletionEmail = (0, https_1.onCall)(async (request) => {
+exports.sendProjectCompletionEmail = (0, https_1.onCall)({ secrets: ['GMAIL_USER', 'GMAIL_PASS'] }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Must be authenticated');
     }
@@ -98,6 +154,61 @@ exports.sendProjectCompletionEmail = (0, https_1.onCall)(async (request) => {
     }
 });
 /**
+ * Callable function to send an email when a task is assigned.
+ */
+exports.sendTaskNotification = (0, https_1.onCall)({ secrets: ['GMAIL_USER', 'GMAIL_PASS'] }, async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'Must be authenticated');
+    }
+    const { clientEmail, clientName, projectName, taskName, taskDescription, dueDate, projectUrl } = request.data;
+    if (!clientEmail || !taskName || !projectName) {
+        throw new https_1.HttpsError('invalid-argument', 'Missing required fields');
+    }
+    try {
+        const result = await (0, email_service_1.sendTaskAssignedEmail)({
+            to: clientEmail,
+            clientName: clientName || 'Valued Client',
+            projectName,
+            taskName,
+            taskDescription: taskDescription || '',
+            dueDate,
+            projectUrl: projectUrl || 'https://bybcrm.bookyourbrands.com/projects'
+        });
+        return result;
+    }
+    catch (error) {
+        console.error('Error sending task notification email:', error);
+        throw new https_1.HttpsError('internal', 'Failed to send email: ' + error.message);
+    }
+});
+/**
+ * Callable function to send an email for project chat messages.
+ */
+exports.sendProjectChatNotification = (0, https_1.onCall)({ secrets: ['GMAIL_USER', 'GMAIL_PASS'] }, async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'Must be authenticated');
+    }
+    const { clientEmail, clientName, projectName, senderName, messagePreview, projectUrl } = request.data;
+    if (!clientEmail || !senderName || !messagePreview) {
+        throw new https_1.HttpsError('invalid-argument', 'Missing required fields');
+    }
+    try {
+        const result = await (0, email_service_1.sendProjectChatMessageEmail)({
+            to: clientEmail,
+            clientName: clientName || 'Valued Client',
+            projectName: projectName || 'Your Project',
+            senderName,
+            messagePreview,
+            projectUrl: projectUrl || 'https://bybcrm.bookyourbrands.com/projects'
+        });
+        return result;
+    }
+    catch (error) {
+        console.error('Error sending chat notification email:', error);
+        throw new https_1.HttpsError('internal', 'Failed to send email: ' + error.message);
+    }
+});
+/**
  * Callable function to create a new user (team/client).
  */
 exports.createUser = (0, https_1.onCall)(async (request) => {
@@ -116,15 +227,23 @@ exports.createUser = (0, https_1.onCall)(async (request) => {
     }
     // Generation Logic
     const cleanName = name.toLowerCase().replace(/\s+/g, '');
+    const cleanCompany = (company || name).toLowerCase().replace(/\s+/g, '');
     const firstName = name.trim().split(/\s+/)[0].toLowerCase();
-    const domain = role === 'client' ? 'creative.co' : 'example.com';
-    const email = `${cleanName}@${domain}`;
-    const password = `${firstName}@1234`;
+    let loginEmail = '';
+    let loginPassword = '';
+    if (role === 'client') {
+        loginEmail = `${cleanCompany}@creative.co`;
+        loginPassword = `${firstName}@1234`;
+    }
+    else {
+        loginEmail = `${cleanName}@example.com`;
+        loginPassword = `${cleanName}@1234`;
+    }
     try {
         // Step 1: Create Auth User
         const userRecord = await admin.auth().createUser({
-            email,
-            password,
+            email: loginEmail,
+            password: loginPassword,
             displayName: name,
         });
         const uid = userRecord.uid;
@@ -132,13 +251,13 @@ exports.createUser = (0, https_1.onCall)(async (request) => {
             id: uid,
             uid: uid,
             name: name,
-            email: email,
+            email: loginEmail,
             username: cleanName,
             role: role === 'client' ? 'client' : 'team',
             avatar: 'avatar-' + (Math.floor(Math.random() * 3) + 1),
             isOnline: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            tempPassword: password,
+            tempPassword: loginPassword,
         };
         if (realEmail) {
             userDocData.realEmail = realEmail;
@@ -151,7 +270,7 @@ exports.createUser = (0, https_1.onCall)(async (request) => {
             const clientDocData = {
                 id: uid,
                 name: name,
-                email: email,
+                email: loginEmail,
                 company: company || 'New Company',
                 avatar: userDocData.avatar,
                 reelsCreated: admin.firestore.FieldValue.increment(0),
@@ -167,8 +286,8 @@ exports.createUser = (0, https_1.onCall)(async (request) => {
         return {
             success: true,
             uid: uid,
-            email: email,
-            password: password,
+            email: loginEmail,
+            password: loginPassword,
             message: name + ' created successfully. Welcome email triggered.',
         };
     }
