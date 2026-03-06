@@ -8,6 +8,8 @@ import { SupportChatList } from './components/SupportChatList';
 import { MessageSquare, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
+import { useCollection, useMemoFirebase, useFirebaseServices } from '@/firebase';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 
 const SupportChatRoom = dynamic(() => import('./components/SupportChatRoom'), {
   ssr: false,
@@ -21,14 +23,30 @@ const SupportChatRoom = dynamic(() => import('./components/SupportChatRoom'), {
 
 export default function SupportPage() {
   const { user: currentUser } = useAuth();
-  const { users, chats, getOrCreateChat, isLoading } = useData();
+  const { firestore } = useFirebaseServices();
+  const { users, chats: clientChats, getOrCreateChat, isLoading: dataLoading } = useData();
   const [selectedChatPartner, setSelectedChatPartner] = useState<User | null>(null);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+
+  // Local query for Admins - load support chats on demand
+  const { data: adminSupportChats, isLoading: adminChatsLoading } = useCollection<Chat>(
+    useMemoFirebase(() => {
+      if (!firestore || !currentUser || currentUser.role !== 'admin') return null;
+      return query(
+        collection(firestore, 'chats'),
+        where('type', '==', 'support'),
+        orderBy('lastMessageAt', 'desc')
+      );
+    }, [firestore, currentUser])
+  );
+
+  const chats = currentUser?.role === 'admin' ? (adminSupportChats || []) : clientChats;
+  const isLoading = dataLoading || (currentUser?.role === 'admin' && adminChatsLoading);
 
   // For Admins: The "partners" are the clients who have support chats
   // For Clients: They only have one partner - the Support Team
   const supportContacts = useMemo(() => {
-    if (!currentUser || !users) return [];
+    if (!currentUser || !users || !chats) return [];
     if (currentUser.role === 'admin') {
       // Find all clients who have a support chat record
       const clientsWithChats = chats
@@ -73,6 +91,7 @@ export default function SupportPage() {
               contacts={supportContacts}
               selectedContact={selectedChatPartner}
               onSelectContact={setSelectedChatPartner}
+              chats={chats}
             />
           </div>
         )}

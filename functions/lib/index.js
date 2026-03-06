@@ -1,4 +1,3 @@
-
 "use strict";
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -34,13 +33,20 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUser = exports.createUser = exports.onUserDocCreated = void 0;
+exports.deleteUser = exports.createUser = exports.onUserDocCreated = exports.syncUserToFirestore = void 0;
 const admin = __importStar(require("firebase-admin"));
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
+const sync_user_1 = require("./sync-user");
+Object.defineProperty(exports, "syncUserToFirestore", { enumerable: true, get: function () { return sync_user_1.syncUserToFirestore; } });
 if (admin.apps.length === 0) {
     admin.initializeApp();
 }
+/**
+ * Triggered when a new user document is created in Firestore.
+ * Currently just logs, as email dispatch is handled via the Next.js API route
+ * for more granular control over templates and passwords.
+ */
 exports.onUserDocCreated = (0, firestore_1.onDocumentCreated)('users/{userId}', async (event) => {
     var _a;
     const userData = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
@@ -48,6 +54,11 @@ exports.onUserDocCreated = (0, firestore_1.onDocumentCreated)('users/{userId}', 
         return;
     console.log('🔔 New user created document:', userData.email);
 });
+/**
+ * Callable function to create a new user (admin/team/client).
+ * Handles Firebase Auth account creation and initial Firestore doc.
+ * Returns the generated credentials so the frontend can send them via email.
+ */
 exports.createUser = (0, https_1.onCall)(async (request) => {
     var _a;
     if (!request.auth) {
@@ -62,20 +73,25 @@ exports.createUser = (0, https_1.onCall)(async (request) => {
     if (!name || !role) {
         throw new https_1.HttpsError('invalid-argument', 'Name and role required');
     }
+    // Generation Logic
     const cleanName = name.toLowerCase().replace(/\s+/g, '');
     const cleanCompany = (company || name).toLowerCase().replace(/\s+/g, '');
+    const firstName = name.trim().split(/\s+/)[0].toLowerCase();
     let loginEmail = '';
     let loginPassword = '';
     if (role === 'client') {
+        // Clients: companyname@creative.co / firstname@1234
         loginEmail = `${cleanCompany}@creative.co`;
-        loginPassword = `${cleanCompany}@1234`;
+        loginPassword = `${firstName}@1234`;
     }
     else {
+        // Team: fullname@example.com / fullname@1234
         loginEmail = `${cleanName}@example.com`;
         loginPassword = `${cleanName}@1234`;
     }
     let uid = '';
     try {
+        // Step 1: Attempt to create the user
         const userRecord = await admin.auth().createUser({
             email: loginEmail,
             password: loginPassword,
@@ -85,10 +101,12 @@ exports.createUser = (0, https_1.onCall)(async (request) => {
         console.log('✅ Created new Auth user:', uid);
     }
     catch (error) {
+        // Step 2: Handle conflict (Conflict Resolution for testing)
         if (error.code === 'auth/email-already-exists') {
             console.log('⚠️ Auth user already exists, fetching existing user...');
             const existingUser = await admin.auth().getUserByEmail(loginEmail);
             uid = existingUser.uid;
+            // Update password to match the expected pattern for consistency during testing
             await admin.auth().updateUser(uid, { password: loginPassword });
             console.log('✅ Synchronized existing Auth user:', uid);
         }
@@ -113,7 +131,9 @@ exports.createUser = (0, https_1.onCall)(async (request) => {
         if (realEmail) {
             userDocData.realEmail = realEmail;
         }
+        // Step 3: Create or update Firestore user document
         await db.doc('users/' + uid).set(userDocData, { merge: true });
+        // Step 4: If client, create/update client document
         if (role === 'client') {
             const clientRef = db.collection('clients').doc(uid);
             const clientDocData = {
@@ -145,6 +165,9 @@ exports.createUser = (0, https_1.onCall)(async (request) => {
         throw new https_1.HttpsError('internal', 'Database failure: ' + error.message);
     }
 });
+/**
+ * Callable function to delete a user.
+ */
 exports.deleteUser = (0, https_1.onCall)(async (request) => {
     var _a;
     if (!request.auth) {
@@ -174,3 +197,4 @@ exports.deleteUser = (0, https_1.onCall)(async (request) => {
         throw new https_1.HttpsError('internal', 'Failed to delete user: ' + error.message);
     }
 });
+//# sourceMappingURL=index.js.map

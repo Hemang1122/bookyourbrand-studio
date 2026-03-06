@@ -19,6 +19,7 @@ type SupportChatListProps = {
     contacts: User[];
     selectedContact: User | null;
     onSelectContact: (contact: User) => void;
+    chats: Chat[];
 };
 
 type Filter = 'all' | 'client' | 'team';
@@ -91,9 +92,8 @@ const ChatListItem = ({ contact, isSelected, onSelect, chats, currentUser }: { c
     );
 };
 
-export function SupportChatList({ contacts, selectedContact, onSelectContact }: SupportChatListProps) {
+export function SupportChatList({ contacts, selectedContact, onSelectContact, chats }: SupportChatListProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const { chats } = useData();
   const { user: currentUser } = useAuth();
   
   const totalUnread = useMemo(() => {

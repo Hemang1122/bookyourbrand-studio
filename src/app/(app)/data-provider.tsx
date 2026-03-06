@@ -138,14 +138,11 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   
   const chatsQuery = useMemoFirebase(() => {
     if (!firestore || !authUid || !currentUser) return null;
-    if (currentUser.role === 'admin') {
-      // Admins see all support chats
-      return query(
-        collection(firestore, 'chats'), 
-        where('type', '==', 'support'),
-        orderBy('lastMessageAt', 'desc')
-      );
-    }
+    
+    // Only clients need chats in global state for real-time unread notifications.
+    // Admins and team members access chats on-demand on the support page to save bandwidth.
+    if (currentUser.role !== 'client') return null;
+    
     return query(
       collection(firestore, 'chats'), 
       where('participants', 'array-contains', authUid), 

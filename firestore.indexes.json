@@ -1,3 +1,4 @@
+
 {
   "indexes": [
     {
@@ -7,6 +8,25 @@
         {
           "fieldPath": "participants",
           "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "lastMessageAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "chats",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "type",
+          "order": "ASCENDING"
         },
         {
           "fieldPath": "lastMessageAt",
