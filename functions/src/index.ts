@@ -14,9 +14,7 @@ if (admin.apps.length === 0) {
 export { syncUserToFirestore };
 
 // ─── Email Transporter ───────────────────────────────────────────────────────
-// Note: In production, these should be set via:
-// firebase functions:secrets:set GMAIL_USER
-// firebase functions:secrets:set GMAIL_PASS
+// Note: Secrets are injected via the function signature and accessed via process.env
 const getTransporter = () => nodemailer.createTransport({
   service: 'gmail',
   auth: {
@@ -104,66 +102,69 @@ const notificationEmailTemplate = (recipientName: string, message: string, url: 
 `;
 
 // ─── Notification Email Trigger ───────────────────────────────────────────────
-export const onNotificationCreated = onDocumentCreated('notifications/{notificationId}', async (event) => {
-  const notification = event.data?.data();
-  if (!notification) return;
+export const onNotificationCreated = onDocumentCreated(
+  { document: 'notifications/{notificationId}', secrets: ['GMAIL_USER', 'GMAIL_PASS'] },
+  async (event) => {
+    const notification = event.data?.data();
+    if (!notification) return;
 
-  const db = admin.firestore();
-  const rtdb = admin.database();
+    const db = admin.firestore();
+    const rtdb = admin.database();
 
-  const { message, recipients, url, type } = notification;
-  if (!recipients || recipients.length === 0) return;
+    const { message, recipients, url, type } = notification;
+    if (!recipients || recipients.length === 0) return;
 
-  // Process each recipient
-  const emailPromises = recipients.map(async (recipientId: string) => {
-    try {
-      // 1. Check online status in Realtime Database (presence system)
-      const presenceSnap = await rtdb.ref(`status/${recipientId}`).get();
-      const presence = presenceSnap.val();
-      
-      // If user is online, skip email
-      if (presence?.isOnline === true) {
-        console.log(`⏭️ Skipping email for ${recipientId} — currently online`);
-        return;
-      }
-
-      // 2. Get user data to find their real email
-      const userDoc = await db.doc(`users/${recipientId}`).get();
-      const userData = userDoc.data();
-      if (!userData) return;
-
-      // Use realEmail if available, otherwise fall back to login email
-      const toEmail = userData.realEmail || userData.email;
-      
-      // Skip sending to dummy login emails if no real email set
-      if (!toEmail || toEmail.includes('@creative.co') || toEmail.includes('@example.com')) {
-        if (!userData.realEmail) {
-          console.log(`⏭️ Skipping email for ${recipientId} — no real email address provided`);
+    // Process each recipient
+    const emailPromises = recipients.map(async (recipientId: string) => {
+      try {
+        // 1. Check online status in Realtime Database (presence system)
+        const presenceSnap = await rtdb.ref(`status/${recipientId}`).get();
+        const presence = presenceSnap.val();
+        
+        // If user is online, skip email
+        if (presence?.isOnline === true) {
+          console.log(`⏭️ Skipping email for ${recipientId} — currently online`);
           return;
         }
+
+        // 2. Get user data to find their real email
+        const userDoc = await db.doc(`users/${recipientId}`).get();
+        const userData = userDoc.data();
+        if (!userData) return;
+
+        // Use realEmail if available, otherwise fall back to login email
+        const toEmail = userData.realEmail || userData.email;
+        
+        // Skip sending to dummy login emails if no real email set
+        if (!toEmail || toEmail.includes('@creative.co') || toEmail.includes('@example.com')) {
+          if (!userData.realEmail) {
+            console.log(`⏭️ Skipping email for ${recipientId} — no real email address provided`);
+            return;
+          }
+        }
+
+        const recipientName = userData.name || 'there';
+        // Construct the production URL
+        const dashboardUrl = `https://studio-app--studio-6449361728-f6242.us-central1.hosted.app${url}`;
+
+        // 3. Send email
+        const transporter = getTransporter();
+        await transporter.sendMail({
+          from: `"BookYourBrands Studio" <${process.env.GMAIL_USER}>`,
+          to: toEmail,
+          subject: getEmailSubject(type, message),
+          html: notificationEmailTemplate(recipientName, message, dashboardUrl),
+        });
+
+        console.log(`✅ Notification email sent to ${toEmail} for user ${recipientId}`);
+      } catch (err) {
+        console.error(`❌ Failed to send email to recipient ${recipientId}:`, err);
       }
+    });
 
-      const recipientName = userData.name || 'there';
-      // Construct the production URL
-      const dashboardUrl = `https://studio-app--studio-6449361728-f6242.us-central1.hosted.app${url}`;
-
-      // 3. Send email
-      const transporter = getTransporter();
-      await transporter.sendMail({
-        from: `"BookYourBrands Studio" <${process.env.GMAIL_USER}>`,
-        to: toEmail,
-        subject: getEmailSubject(type, message),
-        html: notificationEmailTemplate(recipientName, message, dashboardUrl),
-      });
-
-      console.log(`✅ Notification email sent to ${toEmail} for user ${recipientId}`);
-    } catch (err) {
-      console.error(`❌ Failed to send email to recipient ${recipientId}:`, err);
-    }
-  });
-
-  await Promise.all(emailPromises);
-});
+    await Promise.all(emailPromises);
+  }
+);
 
 const getEmailSubject = (type: string, message: string): string => {
   if (type === 'chat') return '💬 New message on BookYourBrands Studio';
