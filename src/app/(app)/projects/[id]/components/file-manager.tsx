@@ -48,7 +48,7 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
       formData.append('clientName', clientName);
       formData.append('projectId', projectId);
 
-      const response = await fetch('/api/nas-upload', {
+      const response = await fetch('/api/upload-to-nas', {
         method: 'POST',
         body: formData
       });
@@ -97,7 +97,7 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
             <div className="flex items-center justify-between p-4 border-b border-white/10">
               <p className="text-white font-medium truncate">{previewFile.name}</p>
               <div className="flex items-center gap-2">
-                {previewFile.url && !previewFile.url.startsWith('/CRM-Uploads') && (
+                {previewFile.url && (
                   <a href={previewFile.url} target="_blank" rel="noopener noreferrer" download={previewFile.name}>
                     <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
                       <Download className="h-4 w-4 mr-2" /> Download
@@ -112,20 +112,20 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
 
             {/* Modal Content */}
             <div className="p-4 flex items-center justify-center min-h-[300px] max-h-[75vh] overflow-auto">
-              {isVideo(previewFile.name) && previewFile.url && !previewFile.url.startsWith('/CRM-Uploads') ? (
+              {isVideo(previewFile.name) && previewFile.url ? (
                 <video controls autoPlay className="w-full max-h-[65vh] rounded-xl" src={previewFile.url}>
                   Your browser does not support video playback.
                 </video>
-              ) : isImage(previewFile.name) && previewFile.url && !previewFile.url.startsWith('/CRM-Uploads') ? (
+              ) : isImage(previewFile.name) && previewFile.url ? (
                 <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-[65vh] rounded-xl object-contain" />
-              ) : isPdf(previewFile.name) && previewFile.url && !previewFile.url.startsWith('/CRM-Uploads') ? (
+              ) : isPdf(previewFile.name) && previewFile.url ? (
                 <iframe src={previewFile.url} className="w-full h-[65vh] rounded-xl" />
               ) : (
                 <div className="text-center text-muted-foreground py-12">
                   <FileIcon className="h-16 w-16 mx-auto mb-4 text-purple-400" />
                   <p className="text-white font-medium mb-2">{previewFile.name}</p>
                   <p className="text-sm mb-4">Preview not available for this file type.</p>
-                  {previewFile.url && !previewFile.url.startsWith('/CRM-Uploads') && (
+                  {previewFile.url && (
                     <a href={previewFile.url} target="_blank" rel="noopener noreferrer" download={previewFile.name}>
                       <Button className="bg-purple-600 hover:bg-purple-700 text-white">
                         <Download className="h-4 w-4 mr-2" /> Download File
