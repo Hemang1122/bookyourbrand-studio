@@ -7,7 +7,6 @@ const NAS_URL = 'https://byb.i234.me:5001';
 const NAS_USER = 'crm-uploads';
 const NAS_PASS = '0TYuOj>a';
 
-// Create HTTPS agent that ignores SSL certificate errors
 const httpsAgent = new https.Agent({ 
   rejectUnauthorized: false 
 });
@@ -23,7 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
     }
 
-    console.log('📁 Uploading:', file.name, 'for client:', clientName);
+    console.log('📁 Uploading:', file.name, 'Size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
 
     // Step 1: Login to NAS
     const loginResponse = await axios.get(`${NAS_URL}/webapi/auth.cgi`, {
@@ -40,16 +39,15 @@ export async function POST(request: NextRequest) {
     });
 
     if (!loginResponse.data.success) {
-      throw new Error('NAS login failed: ' + JSON.stringify(loginResponse.data));
+      throw new Error('NAS login failed');
     }
 
     const sid = loginResponse.data.data.sid;
     console.log('✅ NAS login successful');
 
-    // Step 2: Create folder structure and upload
+    // Step 2: Upload file
     const uploadPath = `/CRM-Uploads/${clientName}/${projectId}`;
     const nasFormData = new FormData();
-    
     const buffer = Buffer.from(await file.arrayBuffer());
     
     nasFormData.append('api', 'SYNO.FileStation.Upload');
@@ -63,6 +61,8 @@ export async function POST(request: NextRequest) {
       contentType: file.type || 'application/octet-stream'
     });
 
+    console.log('📤 Uploading to NAS path:', uploadPath);
+
     const uploadResponse = await axios.post(
       `${NAS_URL}/webapi/entry.cgi?_sid=${sid}`,
       nasFormData,
@@ -70,15 +70,17 @@ export async function POST(request: NextRequest) {
         headers: nasFormData.getHeaders(),
         httpsAgent,
         maxContentLength: Infinity,
-        maxBodyLength: Infinity
+        maxBodyLength: Infinity,
+        timeout: 300000 // 5 minutes for large files
       }
     );
 
     if (!uploadResponse.data.success) {
-      throw new Error(`Upload failed: ${JSON.stringify(uploadResponse.data)}`);
+      console.error('Upload failed:', uploadResponse.data);
+      throw new Error('Upload failed: ' + JSON.stringify(uploadResponse.data));
     }
 
-    console.log('✅ File uploaded to NAS');
+    console.log('✅ File uploaded successfully');
 
     // Step 3: Create share link
     const filePath = `${uploadPath}/${file.name}`;
@@ -98,7 +100,7 @@ export async function POST(request: NextRequest) {
 
       if (shareResponse.data.success && shareResponse.data.data?.links?.[0]) {
         shareUrl = shareResponse.data.data.links[0].url;
-        console.log('✅ Share link created');
+        console.log('✅ Share link created:', shareUrl);
       }
     } catch (error) {
       console.log('⚠️ Share link creation failed (file still uploaded)');
@@ -117,7 +119,7 @@ export async function POST(request: NextRequest) {
         httpsAgent
       });
     } catch (error) {
-      console.log('⚠️ Logout failed (non-critical)');
+      // Ignore logout errors
     }
 
     return NextResponse.json({
