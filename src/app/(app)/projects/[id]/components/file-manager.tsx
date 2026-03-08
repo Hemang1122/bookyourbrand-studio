@@ -46,32 +46,43 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
       const formData = new FormData();
       formData.append('file', file);
       formData.append('clientName', clientName);
-      formData.append('projectId', projectId);
 
-      const response = await fetch('/api/upload-to-nas', {
+      console.log(`📤 Starting upload for ${file.name}...`);
+
+      const response = await fetch('/api/nas-upload', {
         method: 'POST',
         body: formData
       });
 
       const result = await response.json();
+      console.log('📥 Server response:', result);
 
-      if (result.success) {
-        addFile({
-          projectId,
-          name: file.name,
-          url: result.shareUrl || result.nasPath,
-          uploadedById: user.id,
-          uploadedByName: user.name,
-          uploadedByAvatar: user.avatar,
-          type: 'nas',
-          size: `${(file.size / 1024 / 1024).toFixed(2)} MB`
-        });
-        toast({ title: '✅ File Uploaded', description: `${file.name} uploaded to NAS successfully.` });
-      } else {
-        throw new Error(result.error || 'Upload failed');
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || `Upload failed with status ${response.status}`);
       }
+
+      addFile({
+        projectId,
+        name: file.name,
+        url: result.shareUrl || result.nasPath,
+        uploadedById: user.id,
+        uploadedByName: user.name,
+        uploadedByAvatar: user.avatar,
+        type: 'nas',
+        size: `${(file.size / 1024 / 1024).toFixed(2)} MB`
+      });
+
+      toast({ 
+        title: '✅ File Uploaded', 
+        description: `${file.name} uploaded to NAS successfully.` 
+      });
     } catch (error: any) {
-      toast({ title: '❌ Upload Failed', description: error.message, variant: 'destructive' });
+      console.error('❌ Upload execution error:', error);
+      toast({ 
+        title: '❌ Upload Failed', 
+        description: error.message || 'Could not complete the transfer to NAS.', 
+        variant: 'destructive' 
+      });
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -93,7 +104,6 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
       {previewFile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-[#13131F] rounded-2xl border border-white/10 w-full max-w-4xl max-h-[90vh] overflow-hidden">
-            {/* Modal Header */}
             <div className="flex items-center justify-between p-4 border-b border-white/10">
               <p className="text-white font-medium truncate">{previewFile.name}</p>
               <div className="flex items-center gap-2">
@@ -110,7 +120,6 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
               </div>
             </div>
 
-            {/* Modal Content */}
             <div className="p-4 flex items-center justify-center min-h-[300px] max-h-[75vh] overflow-auto">
               {isVideo(previewFile.name) && previewFile.url ? (
                 <video controls autoPlay className="w-full max-h-[65vh] rounded-xl" src={previewFile.url}>
@@ -145,8 +154,18 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
           <h2 className="text-xl font-bold text-white">File Management</h2>
           <p className="text-sm text-muted-foreground">Upload and access all project-related files.</p>
         </div>
-        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="*/*" />
-        <Button onClick={handleUploadClick} disabled={isUploading} className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0">
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          onChange={handleFileChange} 
+          className="hidden" 
+          accept="*/*" 
+        />
+        <Button 
+          onClick={handleUploadClick} 
+          disabled={isUploading} 
+          className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0"
+        >
           {isUploading ? (
             <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Uploading...</>
           ) : (
