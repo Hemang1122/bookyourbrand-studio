@@ -4,85 +4,135 @@ import FormData from 'form-data';
 import https from 'https';
 
 const NAS_URL = 'https://byb.i234.me:8080';
-const USERNAME = 'crm-uploads';
-const PASSWORD = '0TYuOj>a';
-const agent = new https.Agent({ rejectUnauthorized: false });
+const NAS_USER = 'crm-uploads';
+const NAS_PASS = '0TYuOj>a';
 
-let cachedSid: string | null = null;
-
-export const maxDuration = 60;
-export const dynamic = 'force-dynamic';
-
-async function getSession() {
-  if (cachedSid) return cachedSid;
-  const res = await axios.get(`${NAS_URL}/webapi/auth.cgi`, {
-    params: { api: 'SYNO.API.Auth', version: 6, method: 'login', account: USERNAME, passwd: PASSWORD, session: 'FileStation', format: 'sid' },
-    httpsAgent: agent
-  });
-  if (!res.data.success) { cachedSid = null; throw new Error('NAS login failed'); }
-  cachedSid = res.data.data.sid;
-  return cachedSid!;
-}
-
-async function generateShareLink(sid: string, filePath: string): Promise<string | null> {
+export async function POST(request: NextRequest) {
   try {
-    const res = await axios.get(`${NAS_URL}/webapi/entry.cgi`, {
-      params: { api: 'SYNO.FileStation.Sharing', version: 3, method: 'create', path: filePath, password: '', date_expired: '-1', date_available: '-1', _sid: sid },
-      httpsAgent: agent
-    });
-    if (res.data.success && res.data.data?.links?.[0]?.url) return res.data.data.links[0].url;
-    return null;
-  } catch { return null; }
-}
-
-export async function POST(req: NextRequest) {
-  try {
-    // Parse multipart manually using request body
-    const contentType = req.headers.get('content-type') || '';
-    
-    if (!contentType.includes('multipart/form-data')) {
-      return NextResponse.json({ success: false, error: 'Expected multipart/form-data' });
-    }
-
-    const formData = await req.formData();
+    // Parse the incoming FormData
+    const formData = await request.formData();
     const file = formData.get('file') as File;
-    const clientName = (formData.get('clientName') as string) || 'Unknown Client';
+    const clientName = formData.get('clientName') as string;
 
-    if (!file) return NextResponse.json({ success: false, error: 'No file provided' });
+    if (!file) {
+      return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
+    }
 
-    const sid = await getSession();
-    const uploadPath = `/CLIENT FILES/${clientName}`;
-    const filePath = `${uploadPath}/${file.name}`;
+    console.log('📁 Uploading file:', file.name, 'for client:', clientName);
 
-    const arrayBuffer = await file.arrayBuffer();
-    const fileBuffer = Buffer.from(arrayBuffer);
-
-    const form = new FormData();
-    form.append('api', 'SYNO.FileStation.Upload');
-    form.append('version', '2');
-    form.append('method', 'upload');
-    form.append('path', uploadPath);
-    form.append('create_parents', 'true');
-    form.append('overwrite', 'true');
-    form.append('file', fileBuffer, { filename: file.name, contentType: file.type || 'application/octet-stream' });
-
-    const res = await axios.post(`${NAS_URL}/webapi/entry.cgi?_sid=${sid}`, form, {
-      headers: form.getHeaders(),
-      httpsAgent: agent,
-      maxBodyLength: Infinity,
-      maxContentLength: Infinity,
-      timeout: 300000
+    // Step 1: Login to NAS
+    const loginParams = new URLSearchParams({
+      api: 'SYNO.API.Auth',
+      version: '6',
+      method: 'login',
+      account: NAS_USER,
+      passwd: NAS_PASS,
+      session: 'FileStation',
+      format: 'sid'
     });
 
-    if (res.data.success) {
-      const shareUrl = await generateShareLink(sid, filePath);
-      return NextResponse.json({ success: true, nasPath: filePath, shareUrl: shareUrl || null, fileName: file.name, fileType: file.type });
-    } else {
-      cachedSid = null;
-      return NextResponse.json({ success: false, error: JSON.stringify(res.data) });
+    const loginResponse = await axios.get(`${NAS_URL}/webapi/auth.cgi?${loginParams}`, {
+      httpsAgent: new https.Agent({ rejectUnauthorized: false })
+    });
+
+    if (!loginResponse.data.success) {
+      throw new Error('NAS login failed: ' + JSON.stringify(loginResponse.data.error));
     }
+
+    const sid = loginResponse.data.data.sid;
+    console.log('✅ NAS login successful');
+
+    // Step 2: Upload file to NAS
+    const uploadPath = `/CLIENT FILES/${clientName}`;
+    const nasFormData = new FormData();
+    
+    // Convert File to Buffer
+    const buffer = Buffer.from(await file.arrayBuffer());
+    
+    nasFormData.append('api', 'SYNO.FileStation.Upload');
+    nasFormData.append('version', '2');
+    nasFormData.append('method', 'upload');
+    nasFormData.append('path', uploadPath);
+    nasFormData.append('create_parents', 'true');
+    nasFormData.append('overwrite', 'true');
+    nasFormData.append('file', buffer, {
+      filename: file.name,
+      contentType: file.type || 'application/octet-stream'
+    });
+
+    const uploadResponse = await axios.post(
+      `${NAS_URL}/webapi/entry.cgi?_sid=${sid}`,
+      nasFormData,
+      {
+        headers: nasFormData.getHeaders(),
+        httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity
+      }
+    );
+
+    if (!uploadResponse.data.success) {
+      throw new Error(`Upload failed: ${JSON.stringify(uploadResponse.data)}`);
+    }
+
+    console.log('✅ File uploaded successfully');
+
+    // Step 3: Create share link
+    const filePath = `${uploadPath}/${file.name}`;
+    let shareUrl = null;
+
+    try {
+      const shareParams = new URLSearchParams({
+        api: 'SYNO.FileStation.Sharing',
+        version: '3',
+        method: 'create',
+        path: filePath,
+        password: '',
+        date_expired: '-1',
+        date_available: '-1',
+        _sid: sid
+      });
+
+      const shareResponse = await axios.get(`${NAS_URL}/webapi/entry.cgi?${shareParams}`, {
+        httpsAgent: new https.Agent({ rejectUnauthorized: false })
+      });
+
+      if (shareResponse.data.success && shareResponse.data.data?.links?.[0]?.url) {
+        shareUrl = shareResponse.data.data.links[0].url;
+        console.log('✅ Share link created:', shareUrl);
+      }
+    } catch (error) {
+      console.log('⚠️ Share link creation failed, file still uploaded');
+    }
+
+    // Step 4: Logout
+    try {
+      await axios.get(`${NAS_URL}/webapi/auth.cgi`, {
+        params: {
+          api: 'SYNO.API.Auth',
+          version: '6',
+          method: 'logout',
+          session: 'FileStation',
+          _sid: sid
+        },
+        httpsAgent: new https.Agent({ rejectUnauthorized: false })
+      });
+    } catch (error) {
+      console.log('⚠️ Logout failed (non-critical)');
+    }
+
+    return NextResponse.json({
+      success: true,
+      nasPath: filePath,
+      shareUrl: shareUrl,
+      fileName: file.name
+    });
+
   } catch (error: any) {
-    cachedSid = null;
-    return NextResponse.json({ success: false, error: error.message });
+    console.error('❌ Upload error:', error.message);
+    return NextResponse.json(
+      { success: false, error: error.message || 'Upload failed' },
+      { status: 500 }
+    );
   }
 }
