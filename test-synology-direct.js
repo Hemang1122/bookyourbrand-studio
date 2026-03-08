@@ -1,91 +1,74 @@
 const axios = require('axios');
+const https = require('https');
 
-const NAS_URL = 'https://bybvasai.quickconnect.to';
 const USERNAME = 'crm-uploads';
 const PASSWORD = '0TYuOj>a';
 
-async function testMultipleMethods() {
-  console.log('🔐 Testing Synology NAS Connection...\n');
-  
-  // Method 1: Try API version 3
-  console.log('📡 Method 1: Trying API version 3...');
-  try {
-    const response = await axios.get(`${NAS_URL}/webapi/auth.cgi`, {
-      params: {
-        api: 'SYNO.API.Auth',
-        version: 3,
-        method: 'login',
-        account: USERNAME,
-        passwd: PASSWORD,
-        session: 'FileStation',
-        format: 'sid'
-      },
-      timeout: 10000
-    });
+// Common Synology ports
+const PORTS_TO_TRY = [
+  { port: 5001, protocol: 'https' },  // Default DSM HTTPS
+  { port: 8080, protocol: 'https' },  // Your current port
+  { port: 5000, protocol: 'http' },   // Default DSM HTTP
+  { port: 443, protocol: 'https' }    // Standard HTTPS
+];
+
+async function testAllPorts() {
+  for (const { port, protocol } of PORTS_TO_TRY) {
+    const url = `${protocol}://byb.i234.me:${port}`;
+    console.log(`\n🔐 Testing ${protocol.toUpperCase()} on port ${port}...`);
+    console.log('URL:', url);
     
-    console.log('Response:', JSON.stringify(response.data, null, 2));
-    
-    if (response.data && response.data.success) {
-      console.log('✅ Method 1 SUCCESS!');
-      console.log('SID:', response.data.data.sid);
-      return true;
+    try {
+      const config = {
+        params: {
+          api: 'SYNO.API.Auth',
+          version: 6,
+          method: 'login',
+          account: USERNAME,
+          passwd: PASSWORD,
+          session: 'FileStation',
+          format: 'sid'
+        },
+        timeout: 5000,
+        validateStatus: () => true
+      };
+      
+      // Add HTTPS agent if needed
+      if (protocol === 'https') {
+        config.httpsAgent = new https.Agent({ 
+          rejectUnauthorized: false,
+          secureProtocol: 'TLSv1_2_method'
+        });
+      }
+      
+      const response = await axios.get(`${url}/webapi/auth.cgi`, config);
+      
+      console.log('Status:', response.status);
+      
+      if (response.data && typeof response.data === 'object') {
+        console.log('Response:', JSON.stringify(response.data, null, 2));
+        
+        if (response.data.success) {
+          console.log('\n✅✅✅ SUCCESS! ✅✅✅');
+          console.log('Working URL:', url);
+          console.log('SID:', response.data.data.sid);
+          console.log('\n🎉 Use this URL in your CRM!');
+          return;
+        }
+      } else {
+        console.log('Response (first 200 chars):', String(response.data).substring(0, 200));
+      }
+      
+    } catch (error) {
+      console.log('Error:', error.message);
     }
-  } catch (error) {
-    console.log('❌ Method 1 failed:', error.message);
   }
   
-  // Method 2: Try API version 2
-  console.log('\n📡 Method 2: Trying API version 2...');
-  try {
-    const response = await axios.get(`${NAS_URL}/webapi/auth.cgi`, {
-      params: {
-        api: 'SYNO.API.Auth',
-        version: 2,
-        method: 'login',
-        account: USERNAME,
-        passwd: PASSWORD,
-        session: 'FileStation',
-        format: 'sid'
-      },
-      timeout: 10000
-    });
-    
-    console.log('Response:', JSON.stringify(response.data, null, 2));
-    
-    if (response.data && response.data.success) {
-      console.log('✅ Method 2 SUCCESS!');
-      console.log('SID:', response.data.data.sid);
-      return true;
-    }
-  } catch (error) {
-    console.log('❌ Method 2 failed:', error.message);
-  }
-  
-  // Method 3: Check if we're getting redirected
-  console.log('\n📡 Method 3: Checking for redirects...');
-  try {
-    const response = await axios.get(NAS_URL, {
-      maxRedirects: 0,
-      validateStatus: () => true
-    });
-    
-    console.log('Status:', response.status);
-    console.log('Headers:', response.headers.location || 'No redirect');
-    
-    if (response.headers.location) {
-      console.log('🔄 QuickConnect is redirecting to:', response.headers.location);
-      console.log('💡 We might need to use this URL instead!');
-    }
-  } catch (error) {
-    console.log('Error checking redirects:', error.message);
-  }
-  
-  console.log('\n❌ All methods failed. Please check:');
-  console.log('1. Is the NAS online and accessible?');
-  console.log('2. Are the credentials correct?');
-  console.log('3. Is QuickConnect enabled on the NAS?');
-  
-  return false;
+  console.log('\n❌ None of the ports worked.');
+  console.log('Please verify:');
+  console.log('1. The correct domain/IP: byb.i234.me');
+  console.log('2. Which port DSM is running on');
+  console.log('3. Firewall settings');
 }
 
-testMultipleMethods();
+testAllPorts();
