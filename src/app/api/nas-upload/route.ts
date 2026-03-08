@@ -7,7 +7,6 @@ const NAS_URL = 'https://byb.i234.me:5001';
 const NAS_USER = 'crm-uploads';
 const NAS_PASS = '0TYuOj>a';
 
-// Create HTTPS agent that ignores SSL certificate errors
 const httpsAgent = new https.Agent({ 
   rejectUnauthorized: false 
 });
@@ -16,7 +15,7 @@ let cachedSid: string | null = null;
 
 async function getSession() {
   if (cachedSid) return cachedSid;
-  const loginResponse = await axios.get(`${NAS_URL}/webapi/auth.cgi`, {
+  const res = await axios.get(`${NAS_URL}/webapi/auth.cgi`, {
     params: {
       api: 'SYNO.API.Auth',
       version: 6,
@@ -29,11 +28,11 @@ async function getSession() {
     httpsAgent
   });
 
-  if (!loginResponse.data.success) {
-    throw new Error('NAS login failed: ' + JSON.stringify(loginResponse.data));
+  if (!res.data.success) {
+    throw new Error('NAS login failed: ' + JSON.stringify(res.data));
   }
 
-  cachedSid = loginResponse.data.data.sid;
+  cachedSid = res.data.data.sid;
   return cachedSid!;
 }
 
@@ -51,12 +50,10 @@ export async function POST(request: NextRequest) {
     console.log('📁 Uploading:', file.name, 'for client:', clientName);
 
     const sid = await getSession();
-    console.log('✅ NAS session active');
 
-    // Step 2: Create folder structure and upload
+    // Step 2: Upload file
     const uploadPath = `/CRM-Uploads/${clientName}/${projectId}`;
     const nasFormData = new FormData();
-    
     const buffer = Buffer.from(await file.arrayBuffer());
     
     nasFormData.append('api', 'SYNO.FileStation.Upload');
@@ -86,8 +83,6 @@ export async function POST(request: NextRequest) {
       throw new Error(`Upload failed: ${JSON.stringify(uploadResponse.data)}`);
     }
 
-    console.log('✅ File uploaded to NAS');
-
     // Step 3: Create share link
     const filePath = `${uploadPath}/${file.name}`;
     let shareUrl = null;
@@ -106,10 +101,9 @@ export async function POST(request: NextRequest) {
 
       if (shareResponse.data.success && shareResponse.data.data?.links?.[0]) {
         shareUrl = shareResponse.data.data.links[0].url;
-        console.log('✅ Share link created');
       }
     } catch (error) {
-      console.log('⚠️ Share link creation failed (file still uploaded)');
+      console.log('Share link creation skipped');
     }
 
     return NextResponse.json({
