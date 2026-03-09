@@ -106,15 +106,23 @@ function MockPaymentContent() {
           </div>
 
           <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-            <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Account Details</p>
+            <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">Bank Transfer Details</p>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
+              <div className="flex justify-between items-start">
                 <span className="text-gray-400 text-xs">A/C Name</span>
                 <span className="text-white font-medium text-xs text-right">Book Your Brands</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between items-start">
                 <span className="text-gray-400 text-xs">Bank</span>
-                <span className="text-white font-medium text-xs text-right">HDFC Bank Ltd.</span>
+                <span className="text-white font-medium text-xs text-right">Bank Of India, Vasai (west)</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-gray-400 text-xs">A/C No.</span>
+                <span className="text-white font-mono text-xs text-right">017820110000167</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-gray-400 text-xs">IFSC Code</span>
+                <span className="text-white font-mono text-xs text-right">BKID0000178</span>
               </div>
             </div>
           </div>
