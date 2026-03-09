@@ -20,8 +20,11 @@ export function ClientAnalytics({ dateRange }: { dateRange: number }) {
   const { clients, projects } = useData();
 
   const analyticsData = useMemo(() => {
-    return clients.map(client => {
-      const clientProjects = projects.filter(p => p.client.id === client.id);
+    const safeClients = clients || [];
+    const safeProjects = projects || [];
+
+    return safeClients.map(client => {
+      const clientProjects = safeProjects.filter(p => p?.client?.id === client.id);
       const revenue = getPackagePrice(client.packageName) * clientProjects.length;
 
       return {

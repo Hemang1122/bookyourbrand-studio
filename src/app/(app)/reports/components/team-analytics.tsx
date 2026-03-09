@@ -23,18 +23,22 @@ export function TeamAnalytics({ dateRange }: { dateRange: number }) {
 
   const analyticsData = useMemo(() => {
     const cutoffDate = subDays(new Date(), dateRange);
+    const safeTasks = tasks || [];
+    const safeTimerSessions = timerSessions || [];
+    const safeTeamMembers = teamMembers || [];
 
-    return teamMembers.map(member => {
-        const completedTasks = (tasks || []).filter(task => {
-            const remark = task.remarks.find(r => r.toStatus === 'Completed');
-            if (task.assignedTo.id === member.id && remark) {
+    return safeTeamMembers.map(member => {
+        const completedTasks = safeTasks.filter(task => {
+            const remarks = task?.remarks || [];
+            const remark = remarks.find(r => r.toStatus === 'Completed');
+            if (task?.assignedTo?.id === member.id && remark) {
                 return isAfter(parseISO(remark.timestamp), cutoffDate);
             }
             return false;
         }).length;
         
-        const totalTime = (timerSessions || [])
-            .filter(session => session.userId === member.id && isAfter(parseISO(session.date), cutoffDate))
+        const totalTime = safeTimerSessions
+            .filter(session => session?.userId === member.id && session?.date && isAfter(parseISO(session.date), cutoffDate))
             .reduce((acc, session) => acc + (session.endTime ? session.endTime - session.startTime : 0), 0);
 
         return {
