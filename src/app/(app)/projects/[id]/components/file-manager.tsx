@@ -98,7 +98,15 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
   const isVideo = (name: string) => /\.(mp4|mov|avi|mkv|webm)$/i.test(name);
   const isImage = (name: string) => /\.(jpg|jpeg|png|gif|webp)$/i.test(name);
   const isPdf = (name: string) => /\.pdf$/i.test(name);
-  const hasShareUrl = (url: string) => url && !url.startsWith('/CLIENT');
+  
+  const getDisplayUrl = (url: string) => {
+    if (!url) return '';
+    // If it's an internal path, use the preview proxy
+    if (url.startsWith('/CLIENT')) {
+      return `/api/nas-preview?path=${encodeURIComponent(url)}`;
+    }
+    return url;
+  };
 
   return (
     <div className="space-y-4">
@@ -109,37 +117,33 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
             <div className="flex items-center justify-between p-4 border-b border-white/10">
               <p className="text-white font-medium truncate">{previewFile.name}</p>
               <div className="flex items-center gap-2">
-                {hasShareUrl(previewFile.url) && (
-                  <a href={previewFile.url} target="_blank" rel="noopener noreferrer" download={previewFile.name}>
-                    <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
-                      <Download className="h-4 w-4 mr-2" /> Download
-                    </Button>
-                  </a>
-                )}
+                <a href={getDisplayUrl(previewFile.url)} target="_blank" rel="noopener noreferrer" download={previewFile.name}>
+                  <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
+                    <Download className="h-4 w-4 mr-2" /> Download
+                  </Button>
+                </a>
                 <Button variant="ghost" size="icon" onClick={() => setPreviewFile(null)} className="text-muted-foreground hover:text-white">
                   <X className="h-5 w-5" />
                 </Button>
               </div>
             </div>
             <div className="p-4 flex items-center justify-center min-h-[300px] max-h-[75vh] overflow-auto">
-              {isVideo(previewFile.name) && hasShareUrl(previewFile.url) ? (
-                <video controls autoPlay className="w-full max-h-[65vh] rounded-xl" src={previewFile.url} />
-              ) : isImage(previewFile.name) && hasShareUrl(previewFile.url) ? (
-                <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-[65vh] rounded-xl object-contain" />
-              ) : isPdf(previewFile.name) && hasShareUrl(previewFile.url) ? (
-                <iframe src={previewFile.url} className="w-full h-[65vh] rounded-xl" />
+              {isVideo(previewFile.name) ? (
+                <video controls autoPlay className="w-full max-h-[65vh] rounded-xl" src={getDisplayUrl(previewFile.url)} />
+              ) : isImage(previewFile.name) ? (
+                <img src={getDisplayUrl(previewFile.url)} alt={previewFile.name} className="max-w-full max-h-[65vh] rounded-xl object-contain" />
+              ) : isPdf(previewFile.name) ? (
+                <iframe src={getDisplayUrl(previewFile.url)} className="w-full h-[65vh] rounded-xl" title={previewFile.name} />
               ) : (
                 <div className="text-center text-muted-foreground py-12">
                   <FileIcon className="h-16 w-16 mx-auto mb-4 text-purple-400" />
                   <p className="text-white font-medium mb-2">{previewFile.name}</p>
-                  <p className="text-sm mb-4">Preview not available.</p>
-                  {hasShareUrl(previewFile.url) && (
-                    <a href={previewFile.url} target="_blank" rel="noopener noreferrer">
-                      <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-                        <Download className="h-4 w-4 mr-2" /> Download File
-                      </Button>
-                    </a>
-                  )}
+                  <p className="text-sm mb-4">Preview not available for this file type.</p>
+                  <a href={getDisplayUrl(previewFile.url)} target="_blank" rel="noopener noreferrer">
+                    <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                      <Download className="h-4 w-4 mr-2" /> Download File
+                    </Button>
+                  </a>
                 </div>
               )}
             </div>
