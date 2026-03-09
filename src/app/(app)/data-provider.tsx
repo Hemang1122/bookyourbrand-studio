@@ -2,7 +2,7 @@
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus, TimerSession, Chat, ChatMessage, ClientDocument, ClientPackage } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus, TimerSession, Chat, ChatMessage, ClientDocument, ClientPackage, ProjectFolder } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -22,6 +22,7 @@ type DataContextType = {
   users: User[];
   scrumUpdates: ScrumUpdate[];
   files: ProjectFile[];
+  folders: ProjectFolder[];
   clientDocuments: ClientDocument[];
   notifications: Notification[];
   timerSessions: TimerSession[];
@@ -47,6 +48,8 @@ type DataContextType = {
   addFile: (file: Omit<ProjectFile, 'id'>) => void;
   updateFile: (fileId: string, data: Partial<ProjectFile>) => void;
   deleteFile: (fileId: string) => void;
+  addFolder: (folder: Omit<ProjectFolder, 'id' | 'createdAt'>) => Promise<string>;
+  deleteFolder: (folderId: string) => Promise<void>;
   addClientDocument: (document: Omit<ClientDocument, 'id' | 'uploadedAt' | 'uploadedById' | 'url' | 'storagePath' | 'fileName'>, file: File) => Promise<void>;
   deleteClientDocument: (document: ClientDocument) => Promise<void>;
   addNotification: (message: string, url: string, recipients: string[], type: 'system' | 'chat', chatId?: string) => void;
@@ -102,6 +105,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
   const { data: files, isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? query(collection(firestore, 'files')) : null, [firestore]));
+  const { data: foldersData, isLoading: foldersLoading } = useCollection<ProjectFolder>(useMemoFirebase(() => firestore ? query(collection(firestore, 'folders')) : null, [firestore]));
   
   const clientsQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
@@ -140,8 +144,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const chatsQuery = useMemoFirebase(() => {
     if (!firestore || !authUid || !currentUser) return null;
     
-    // IMPORTANT: Only query chats for clients in global state.
-    // Admins and team members access chats differently (e.g., on-demand on the support page)
     if (currentUser.role === 'admin' || currentUser.role === 'team') {
       return null;
     }
@@ -173,7 +175,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     return () => unsubscribes.forEach(unsub => unsub());
   }, [chatsData, firestore, authUid]);
 
-  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading || (currentUser?.role === 'client' && chatsLoading) || documentsLoading || clientPackagesLoading;
+  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading || (currentUser?.role === 'client' && chatsLoading) || documentsLoading || clientPackagesLoading || foldersLoading;
   
   const teamEditorMapping = useMemo(() => {
     if (!usersData) return new Map<string, string>();
@@ -239,6 +241,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   }, [tasksData, projects, currentUser, usersData, anonymizeUser]);
 
   const scrumUpdates = useMemo(() => scrumUpdatesData || [], [scrumUpdatesData]);
+  const folders = useMemo(() => foldersData || [], [foldersData]);
     
   const getOrCreateChat = useCallback(async (partnerId: string, isSupport: boolean = false): Promise<string | null> => {
     if (!firestore || !currentUser || !authUid) return null;
@@ -270,7 +273,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         if (!isSupport) {
           addNotification(`New chat with ${currentUser.name}.`, `/support?chatId=${chatId}`, [partnerId], 'chat', chatId);
         } else {
-          // RESTRICTION: Only notify the admin named "Niddhi" for new support requests
           const niddhi = usersData?.find(u => u.role === 'admin' && u.name.toLowerCase().includes('niddhi'));
           const adminIds = niddhi ? [niddhi.id] : [];
           
@@ -317,8 +319,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       lastMessageAt: serverTimestamp() 
     });
     
-    // Fetch chat data directly instead of relying on chatsData
-    // (chatsData is null for admins in global state)
     getDoc(chatDocRef).then((chatSnap) => {
       if (!chatSnap.exists()) return;
       const chat = chatSnap.data();
@@ -327,15 +327,12 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       
       if (chat.type === 'support') {
         if (currentUser.role === 'admin') {
-          // Admin sent message → notify the client
           recipients = chat.clientId ? [chat.clientId] : [];
         } else {
-          // Client sent message → notify all admins
           const adminUsers = usersData?.filter(u => u.role === 'admin') || [];
           recipients = adminUsers.map(u => u.id).filter(id => id !== authUid);
         }
       } else {
-        // Direct chat → notify the other participant
         recipients = (chat.participants || []).filter((pId: string) => pId !== authUid);
       }
       
@@ -407,7 +404,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     setDocumentNonBlocking(doc(firestore, 'tasks', newTask.id), newTask, {});
     addNotification(`New task '${newTask.title}' added.`, `/projects/${project.id}`, [project.client.id, ...project.team_ids].filter(id => id !== authUid), 'system');
 
-    // Trigger task notification email if client has a real email
     if (project.client?.realEmail && functions) {
       const sendEmailFn = httpsCallable(functions, 'sendTaskNotification');
       sendEmailFn({
@@ -448,7 +444,6 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     if (!firestore) return;
     updateDocumentNonBlocking(doc(firestore, 'clients', clientId), clientData);
     
-    // Also sync realEmail to users collection if updated
     if (clientData.realEmail) {
       updateDocumentNonBlocking(doc(firestore, 'users', clientId), { 
         realEmail: clientData.realEmail 
@@ -514,6 +509,17 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     deleteDocumentNonBlocking(doc(firestore, 'files', fileId));
   };
 
+  const addFolder = async (folderData: Omit<ProjectFolder, 'id' | 'createdAt'>) => {
+    if (!firestore) throw new Error("Firestore not available");
+    const newDoc = await addDoc(collection(firestore, 'folders'), { ...folderData, createdAt: serverTimestamp() });
+    return newDoc.id;
+  };
+
+  const deleteFolder = async (folderId: string) => {
+    if (!firestore) return;
+    await deleteDoc(doc(firestore, 'folders', folderId));
+  };
+
   const addClientDocument = async (documentData: Omit<ClientDocument, 'id' | 'uploadedAt' | 'uploadedById' | 'url' | 'storagePath' | 'fileName'>, file: File) => {
     if (!firestore || !currentUser) return;
     const url = await uploadFile(file, `documents/${documentData.clientId}/${documentData.type}/${file.name}`);
@@ -546,7 +552,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   return (
     <DataContext.Provider value={{ 
-        projects, tasks, clients, teamMembers, users, scrumUpdates, files, clientDocuments: clientDocuments || [], notifications: notificationsData, chats: chatsData || [], getOrCreateChat, sendMessage, timerSessions: timerSessions || [], clientPackages: clientPackages || [], addProject, addTask, deleteTask, updateProjectTeam, updateTaskStatus, createUser, deleteUser, updateClient, selectPackage, updateTeamMember, addScrumUpdate, addTimerSession, isLoading, deleteProject, updateProject, addFile, updateFile, deleteFile, addClientDocument, deleteClientDocument, addNotification, markNotificationsAsRead, markChatNotificationsAsRead,
+        projects, tasks, clients, teamMembers, users, scrumUpdates, files, folders, clientDocuments: clientDocuments || [], notifications: notificationsData, chats: chatsData || [], getOrCreateChat, sendMessage, timerSessions: timerSessions || [], clientPackages: clientPackages || [], addProject, addTask, deleteTask, updateProjectTeam, updateTaskStatus, createUser, deleteUser, updateClient, selectPackage, updateTeamMember, addScrumUpdate, addTimerSession, isLoading, deleteProject, updateProject, addFile, updateFile, deleteFile, addFolder, deleteFolder, addClientDocument, deleteClientDocument, addNotification, markNotificationsAsRead, markChatNotificationsAsRead,
     }}>
       {children}
     </DataContext.Provider>

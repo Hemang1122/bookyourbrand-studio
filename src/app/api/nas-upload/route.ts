@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import https from 'https';
 import Busboy from 'busboy';
@@ -26,7 +27,7 @@ async function getSession(): Promise<string> {
   return cachedSid!;
 }
 
-function parseMultipart(req: NextRequest, contentType: string): Promise<{ fileBuffer: Buffer; fileName: string; clientName: string; mimeType: string; chunkIndex: number; totalChunks: number }> {
+function parseMultipart(req: NextRequest, contentType: string): Promise<{ fileBuffer: Buffer; fileName: string; clientName: string; folderName: string; mimeType: string; chunkIndex: number; totalChunks: number }> {
   return new Promise(async (resolve, reject) => {
     const busboy = Busboy({
       headers: { 'content-type': contentType },
@@ -35,6 +36,7 @@ function parseMultipart(req: NextRequest, contentType: string): Promise<{ fileBu
 
     let fileName = 'upload';
     let clientName = 'Unknown Client';
+    let folderName = '';
     let mimeType = 'application/octet-stream';
     let chunkIndex = 0;
     let totalChunks = 1;
@@ -51,13 +53,14 @@ function parseMultipart(req: NextRequest, contentType: string): Promise<{ fileBu
 
     busboy.on('field', (fieldname, value) => {
       if (fieldname === 'clientName') clientName = value;
+      if (fieldname === 'folderName') folderName = value;
       if (fieldname === 'chunkIndex') chunkIndex = parseInt(value);
       if (fieldname === 'totalChunks') totalChunks = parseInt(value);
     });
 
     busboy.on('finish', () => {
       if (!fileReceived || chunks.length === 0) return reject(new Error('No file received'));
-      resolve({ fileBuffer: Buffer.concat(chunks), fileName, clientName, mimeType, chunkIndex, totalChunks });
+      resolve({ fileBuffer: Buffer.concat(chunks), fileName, clientName, folderName, mimeType, chunkIndex, totalChunks });
     });
 
     busboy.on('error', reject);
@@ -88,7 +91,6 @@ async function uploadChunkToNAS(sid: string, fileBuffer: Buffer, fileName: strin
     chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`));
   };
 
-  // For chunked upload use temp filename
   const tempFileName = totalChunks > 1 ? `${fileName}.part${chunkIndex}` : fileName;
 
   addField('api', 'SYNO.FileStation.Upload');
@@ -121,11 +123,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Expected multipart/form-data' });
     }
 
-    const { fileBuffer, fileName, clientName, mimeType, chunkIndex, totalChunks } = await parseMultipart(req, contentType);
-    console.log(`Chunk ${chunkIndex + 1}/${totalChunks} - File: ${fileName} Size: ${fileBuffer.length}`);
+    const { fileBuffer, fileName, clientName, folderName, mimeType, chunkIndex, totalChunks } = await parseMultipart(req, contentType);
+    console.log(`Chunk ${chunkIndex + 1}/${totalChunks} - File: ${fileName} Folder: ${folderName}`);
 
     const sid = await getSession();
-    const uploadPath = `/CLIENT FILES/${clientName}`;
+    const uploadPath = folderName 
+      ? `/CLIENT FILES/${clientName}/${folderName}`
+      : `/CLIENT FILES/${clientName}`;
     const filePath = `${uploadPath}/${fileName}`;
 
     const uploadData = await uploadChunkToNAS(sid, fileBuffer, fileName, mimeType, uploadPath, chunkIndex, totalChunks);
@@ -135,15 +139,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: JSON.stringify(uploadData) });
     }
 
-    // If this is the last chunk, merge parts and generate share link
     if (chunkIndex === totalChunks - 1 && totalChunks > 1) {
-      // Merge all parts using FileStation rename/move
-      // For now return success - parts are on NAS
       const shareUrl = await generateShareLink(sid, `${uploadPath}/${fileName}.part${chunkIndex}`);
       return NextResponse.json({ success: true, nasPath: filePath, shareUrl, fileName, done: true });
     }
 
-    // Single file upload complete
     if (totalChunks === 1) {
       const shareUrl = await generateShareLink(sid, filePath);
       return NextResponse.json({ success: true, nasPath: filePath, shareUrl, fileName, done: true });
