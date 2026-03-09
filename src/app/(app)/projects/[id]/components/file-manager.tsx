@@ -9,16 +9,11 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useData } from '../../../data-provider';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+
+const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
 
 type FileManagerProps = {
   projectId: string;
@@ -36,7 +31,17 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
 
   const files = allFiles.filter(f => f.projectId === projectId);
 
-  const handleUploadClick = () => fileInputRef.current?.click();
+  const uploadChunk = async (chunk: Blob, fileName: string, chunkIndex: number, totalChunks: number): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', chunk, fileName);
+    formData.append('clientName', clientName);
+    formData.append('chunkIndex', String(chunkIndex));
+    formData.append('totalChunks', String(totalChunks));
+
+    const response = await fetch('/api/nas-upload', { method: 'POST', body: formData });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,39 +51,28 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
     setUploadProgress(0);
 
     try {
-      console.log('📤 Starting upload:', file.name, 'Size:', file.size);
-      setUploadProgress(10);
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      let shareUrl: string | null = null;
 
-      // Create FormData
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('clientName', clientName);
-      
-      console.log('📡 Sending to /api/nas-upload...');
-      setUploadProgress(30);
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunk = file.slice(start, end);
 
-      // Upload to server
-      const response = await fetch('/api/nas-upload', { 
-        method: 'POST', 
-        body: formData 
-      });
+        const result = await uploadChunk(chunk, file.name, i, totalChunks);
 
-      setUploadProgress(60);
-      
-      const result = await response.json();
-      console.log('📥 Server response:', result);
+        if (!result.success) throw new Error(result.error || 'Chunk upload failed');
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || `HTTP ${response.status}`);
+        const progress = Math.round(((i + 1) / totalChunks) * 100);
+        setUploadProgress(progress);
+
+        if (result.shareUrl) shareUrl = result.shareUrl;
       }
 
-      setUploadProgress(90);
-
-      // Add to Firestore
       addFile({
         projectId,
         name: file.name,
-        url: result.shareUrl || result.nasPath,
+        url: shareUrl || `/CLIENT FILES/${clientName}/${file.name}`,
         uploadedById: user.id,
         uploadedByName: user.name,
         uploadedByAvatar: user.avatar,
@@ -86,20 +80,9 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
         size: `${(file.size / 1024 / 1024).toFixed(2)} MB`
       });
 
-      setUploadProgress(100);
-
-      toast({ 
-        title: '✅ File Uploaded', 
-        description: `${file.name} uploaded to NAS successfully.` 
-      });
-
+      toast({ title: '✅ File Uploaded', description: `${file.name} uploaded to NAS successfully.` });
     } catch (error: any) {
-      console.error('❌ Upload error:', error);
-      toast({ 
-        title: '❌ Upload Failed', 
-        description: error.message, 
-        variant: 'destructive' 
-      });
+      toast({ title: '❌ Upload Failed', description: error.message, variant: 'destructive' });
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -115,6 +98,7 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
   const isVideo = (name: string) => /\.(mp4|mov|avi|mkv|webm)$/i.test(name);
   const isImage = (name: string) => /\.(jpg|jpeg|png|gif|webp)$/i.test(name);
   const isPdf = (name: string) => /\.pdf$/i.test(name);
+  const hasShareUrl = (url: string) => url && !url.startsWith('/CLIENT');
 
   return (
     <div className="space-y-4">
@@ -125,7 +109,7 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
             <div className="flex items-center justify-between p-4 border-b border-white/10">
               <p className="text-white font-medium truncate">{previewFile.name}</p>
               <div className="flex items-center gap-2">
-                {previewFile.url && !previewFile.url.startsWith('/CRM-Uploads') && (
+                {hasShareUrl(previewFile.url) && (
                   <a href={previewFile.url} target="_blank" rel="noopener noreferrer" download={previewFile.name}>
                     <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
                       <Download className="h-4 w-4 mr-2" /> Download
@@ -138,18 +122,18 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
               </div>
             </div>
             <div className="p-4 flex items-center justify-center min-h-[300px] max-h-[75vh] overflow-auto">
-              {isVideo(previewFile.name) && previewFile.url && !previewFile.url.startsWith('/CRM-Uploads') ? (
+              {isVideo(previewFile.name) && hasShareUrl(previewFile.url) ? (
                 <video controls autoPlay className="w-full max-h-[65vh] rounded-xl" src={previewFile.url} />
-              ) : isImage(previewFile.name) && previewFile.url && !previewFile.url.startsWith('/CRM-Uploads') ? (
+              ) : isImage(previewFile.name) && hasShareUrl(previewFile.url) ? (
                 <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-[65vh] rounded-xl object-contain" />
-              ) : isPdf(previewFile.name) && previewFile.url && !previewFile.url.startsWith('/CRM-Uploads') ? (
+              ) : isPdf(previewFile.name) && hasShareUrl(previewFile.url) ? (
                 <iframe src={previewFile.url} className="w-full h-[65vh] rounded-xl" />
               ) : (
                 <div className="text-center text-muted-foreground py-12">
                   <FileIcon className="h-16 w-16 mx-auto mb-4 text-purple-400" />
                   <p className="text-white font-medium mb-2">{previewFile.name}</p>
                   <p className="text-sm mb-4">Preview not available.</p>
-                  {previewFile.url && !previewFile.url.startsWith('/CRM-Uploads') && (
+                  {hasShareUrl(previewFile.url) && (
                     <a href={previewFile.url} target="_blank" rel="noopener noreferrer">
                       <Button className="bg-purple-600 hover:bg-purple-700 text-white">
                         <Download className="h-4 w-4 mr-2" /> Download File
@@ -170,11 +154,9 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
           <p className="text-sm text-muted-foreground">Upload and access all project-related files.</p>
         </div>
         <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="*/*" />
-        <Button onClick={handleUploadClick} disabled={isUploading} className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0">
+        <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0">
           {isUploading ? (
-            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {uploadProgress > 0 ? `Uploading ${uploadProgress}%` : 'Uploading...'}
-            </>
+            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{uploadProgress > 0 ? `Uploading ${uploadProgress}%` : 'Uploading...'}</>
           ) : (
             <><Upload className="mr-2 h-4 w-4" />Upload to NAS</>
           )}
