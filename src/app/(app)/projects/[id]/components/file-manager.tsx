@@ -46,10 +46,10 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
     setUploadProgress(0);
 
     try {
-      console.log('📤 Starting upload:', file.name);
+      console.log('📤 Starting upload:', file.name, 'Size:', file.size);
       setUploadProgress(10);
 
-      // Always use server upload (skip browser direct upload)
+      // Create FormData
       const formData = new FormData();
       formData.append('file', file);
       formData.append('clientName', clientName);
@@ -57,6 +57,7 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
       console.log('📡 Sending to /api/nas-upload...');
       setUploadProgress(30);
 
+      // Upload to server
       const response = await fetch('/api/nas-upload', { 
         method: 'POST', 
         body: formData 
@@ -67,12 +68,13 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
       const result = await response.json();
       console.log('📥 Server response:', result);
 
-      setUploadProgress(90);
-
       if (!response.ok || !result.success) {
-        throw new Error(result.error || `Upload failed with status ${response.status}`);
+        throw new Error(result.error || `HTTP ${response.status}`);
       }
 
+      setUploadProgress(90);
+
+      // Add to Firestore
       addFile({
         projectId,
         name: file.name,
@@ -120,11 +122,10 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
       {previewFile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-[#13131F] rounded-2xl border border-white/10 w-full max-w-4xl max-h-[90vh] overflow-hidden">
-            {/* Modal Header */}
             <div className="flex items-center justify-between p-4 border-b border-white/10">
               <p className="text-white font-medium truncate">{previewFile.name}</p>
               <div className="flex items-center gap-2">
-                {previewFile.url && !previewFile.url.startsWith('/CLIENT') && (
+                {previewFile.url && !previewFile.url.startsWith('/CRM-Uploads') && (
                   <a href={previewFile.url} target="_blank" rel="noopener noreferrer" download={previewFile.name}>
                     <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
                       <Download className="h-4 w-4 mr-2" /> Download
@@ -136,24 +137,20 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
                 </Button>
               </div>
             </div>
-
-            {/* Modal Content */}
             <div className="p-4 flex items-center justify-center min-h-[300px] max-h-[75vh] overflow-auto">
-              {isVideo(previewFile.name) && previewFile.url && !previewFile.url.startsWith('/CLIENT') ? (
-                <video controls autoPlay className="w-full max-h-[65vh] rounded-xl" src={previewFile.url}>
-                  Your browser does not support video playback.
-                </video>
-              ) : isImage(previewFile.name) && previewFile.url && !previewFile.url.startsWith('/CLIENT') ? (
+              {isVideo(previewFile.name) && previewFile.url && !previewFile.url.startsWith('/CRM-Uploads') ? (
+                <video controls autoPlay className="w-full max-h-[65vh] rounded-xl" src={previewFile.url} />
+              ) : isImage(previewFile.name) && previewFile.url && !previewFile.url.startsWith('/CRM-Uploads') ? (
                 <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-[65vh] rounded-xl object-contain" />
-              ) : isPdf(previewFile.name) && previewFile.url && !previewFile.url.startsWith('/CLIENT') ? (
+              ) : isPdf(previewFile.name) && previewFile.url && !previewFile.url.startsWith('/CRM-Uploads') ? (
                 <iframe src={previewFile.url} className="w-full h-[65vh] rounded-xl" />
               ) : (
                 <div className="text-center text-muted-foreground py-12">
                   <FileIcon className="h-16 w-16 mx-auto mb-4 text-purple-400" />
                   <p className="text-white font-medium mb-2">{previewFile.name}</p>
-                  <p className="text-sm mb-4">Preview not available for this file type.</p>
-                  {previewFile.url && !previewFile.url.startsWith('/CLIENT') && (
-                    <a href={previewFile.url} target="_blank" rel="noopener noreferrer" download={previewFile.name}>
+                  <p className="text-sm mb-4">Preview not available.</p>
+                  {previewFile.url && !previewFile.url.startsWith('/CRM-Uploads') && (
+                    <a href={previewFile.url} target="_blank" rel="noopener noreferrer">
                       <Button className="bg-purple-600 hover:bg-purple-700 text-white">
                         <Download className="h-4 w-4 mr-2" /> Download File
                       </Button>
@@ -175,12 +172,21 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
         <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="*/*" />
         <Button onClick={handleUploadClick} disabled={isUploading} className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0">
           {isUploading ? (
-            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Uploading ({uploadProgress}%)...</>
+            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {uploadProgress > 0 ? `Uploading ${uploadProgress}%` : 'Uploading...'}
+            </>
           ) : (
             <><Upload className="mr-2 h-4 w-4" />Upload to NAS</>
           )}
         </Button>
       </div>
+
+      {/* Progress Bar */}
+      {isUploading && uploadProgress > 0 && (
+        <div className="w-full bg-white/5 rounded-full h-2 mb-4">
+          <div className="bg-gradient-to-r from-purple-600 to-pink-500 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+        </div>
+      )}
 
       {/* File Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -188,15 +194,8 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
           const uploadedAtDate = file.uploadedAt?.toDate ? file.uploadedAt.toDate() : new Date(file.uploadedAt);
           return (
             <div key={file.id} className="rounded-xl p-4 flex items-center gap-4 bg-[#13131F] border border-white/5 hover:border-purple-500/20 transition-all">
-              <div
-                className="p-3 rounded-xl bg-purple-500/10 cursor-pointer hover:bg-purple-500/20 transition-all"
-                onClick={() => setPreviewFile(file)}
-              >
-                {isVideo(file.name) ? (
-                  <Play className="h-5 w-5 text-purple-400" />
-                ) : (
-                  <FileIcon className="h-5 w-5 text-purple-400" />
-                )}
+              <div className="p-3 rounded-xl bg-purple-500/10 cursor-pointer hover:bg-purple-500/20 transition-all" onClick={() => setPreviewFile(file)}>
+                {isVideo(file.name) ? <Play className="h-5 w-5 text-purple-400" /> : <FileIcon className="h-5 w-5 text-purple-400" />}
               </div>
               <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setPreviewFile(file)}>
                 <p className="text-sm font-medium text-white truncate">{file.name}</p>

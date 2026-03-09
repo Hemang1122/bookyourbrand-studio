@@ -1,9 +1,8 @@
 runConfig:
   runtime: nodejs20
-  cpu: 1
-  memoryMiB: 512
+  cpu: 2
+  memoryMiB: 4096
   concurrency: 80
   minInstances: 0
-
 buildConfig:
   npmInstallCommand: npm ci --legacy-peer-deps
