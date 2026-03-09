@@ -1,10 +1,19 @@
+
 'use client';
 
 import { Suspense, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Loader2, XCircle, Building2, CreditCard, Copy, Check } from 'lucide-react';
+import { CheckCircle, Loader2, XCircle, Building2, CreditCard, Copy, Check, QrCode } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 function MockPaymentContent() {
   const searchParams = useSearchParams();
@@ -17,6 +26,8 @@ function MockPaymentContent() {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const qrImage = PlaceHolderImages.find(img => img.id === 'payment-qr')?.imageUrl;
 
   const handlePaymentSuccess = async () => {
     setIsProcessing(true);
@@ -92,16 +103,49 @@ function MockPaymentContent() {
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1">Official UPI ID</p>
-                <p className="text-white font-mono text-sm">bookyourbrands@upi</p>
+                <p className="text-white font-mono text-sm">harshalalani@okhdfcbank</p>
               </div>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8 text-gray-500 hover:text-white"
-                onClick={() => copyToClipboard('bookyourbrands@upi', 'UPI ID')}
-              >
-                {copiedField === 'UPI ID' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-              </Button>
+              <div className="flex items-center gap-1">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+                      title="Show QR Code"
+                    >
+                      <QrCode className="h-4 w-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-[#13131F] border-white/10 text-white sm:max-w-sm">
+                    <DialogHeader>
+                      <DialogTitle>Scan to Pay</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col items-center justify-center p-6 bg-white rounded-2xl">
+                      {qrImage && (
+                        <img 
+                          src={qrImage} 
+                          alt="UPI QR Code" 
+                          className="w-full h-auto mb-4"
+                          data-ai-hint="payment qr"
+                        />
+                      )}
+                      <div className="text-center">
+                        <p className="text-black text-sm font-bold uppercase tracking-tight">Harsha Lalani</p>
+                        <p className="text-gray-500 text-[10px] font-mono">harshalalani@okhdfcbank</p>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 text-gray-500 hover:text-white"
+                  onClick={() => copyToClipboard('harshalalani@okhdfcbank', 'UPI ID')}
+                >
+                  {copiedField === 'UPI ID' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
           </div>
 
