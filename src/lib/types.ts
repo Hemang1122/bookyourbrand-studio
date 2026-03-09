@@ -147,7 +147,7 @@ export type AssetCategory = 'raw' | 'deliverable';
 export type ProjectFile = {
   id: string;
   projectId: string;
-  category: AssetCategory;
+  category?: AssetCategory;
   name:string;
   description?: string;
   url: string;
