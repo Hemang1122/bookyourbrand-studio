@@ -14,9 +14,8 @@ async function getSession(): Promise<string> {
     api: 'SYNO.API.Auth', version: '6', method: 'login',
     account: USERNAME, passwd: PASSWORD, session: 'FileStation', format: 'sid'
   });
-  const res = await fetch(`${NAS_URL}/webapi/auth.cgi?${params}`, { 
-    // @ts-ignore
-    agent: httpsAgent 
+  const res = await fetch(`${NAS_URL}/webapi/auth.cgi?${params}`, {
+    agent: httpsAgent
   } as any);
   const data = await res.json();
   if (!data.success) throw new Error('NAS login failed');
@@ -30,8 +29,13 @@ export async function GET(req: NextRequest) {
     const filePath = searchParams.get('path');
     if (!filePath) return NextResponse.json({ error: 'No path provided' }, { status: 400 });
 
-    const sid = await getSession();
+    // If it's a NAS share URL (https://byb.i234.me...), redirect directly
+    if (filePath.startsWith('http')) {
+      return NextResponse.redirect(filePath);
+    }
 
+    // Otherwise it's an internal path like /CLIENT FILES/...
+    const sid = await getSession();
     const params = new URLSearchParams({
       api: 'SYNO.FileStation.Download',
       version: '2',
@@ -42,7 +46,6 @@ export async function GET(req: NextRequest) {
     });
 
     const fileRes = await fetch(`${NAS_URL}/webapi/entry.cgi?${params}`, {
-      // @ts-ignore
       agent: httpsAgent
     } as any);
 
