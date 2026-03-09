@@ -8,9 +8,9 @@ export const PREDEFINED_PACKAGES: Package[] = [
     reelOptions: [10, 15, 30],
     durationOptions: [30],
     prices: {
-      10: { 30: 2500 },
-      15: { 30: 3450 },
-      30: { 30: 6300 }
+      10: { 30: 3000 },
+      15: { 30: 4200 },
+      30: { 30: 7800 }
     },
     features: ['Up to 30 seconds', 'Basic editing', '48-72 hour delivery']
   },

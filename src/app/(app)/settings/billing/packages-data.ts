@@ -1,4 +1,4 @@
-import { Award, Medal, Trophy, Wand2, Mic } from 'lucide-react';
+import { Award, Medal, Trophy, Wand2, Mic, Diamond } from 'lucide-react';
 
 export const packages = [
     {
@@ -6,9 +6,9 @@ export const packages = [
         icon: Award,
         color: 'text-amber-700',
         tiers: [
-            { reels: 10, duration: 'Up to 30 seconds', price: '2,500' },
-            { reels: 15, duration: 'Up to 30 seconds', price: '3,450' },
-            { reels: 30, duration: 'Up to 30 seconds', price: '6,300' },
+            { reels: 10, duration: 'Up to 30 seconds', price: '3,000' },
+            { reels: 15, duration: 'Up to 30 seconds', price: '4,200' },
+            { reels: 30, duration: 'Up to 30 seconds', price: '7,800' },
         ],
     },
     {
@@ -16,9 +16,9 @@ export const packages = [
         icon: Medal,
         color: 'text-slate-400',
         tiers: [
-            { reels: 10, duration: 'Up to 60 seconds', price: '5,000' },
-            { reels: 15, duration: 'Up to 60 seconds', price: '7,200' },
-            { reels: 30, duration: 'Up to 60 seconds', price: '13,800' },
+            { reels: 10, duration: 'Up to 45 seconds', price: '4,000' },
+            { reels: 15, duration: 'Up to 45 seconds', price: '5,700' },
+            { reels: 30, duration: 'Up to 45 seconds', price: '10,800' },
         ],
     },
     {
@@ -26,9 +26,19 @@ export const packages = [
         icon: Trophy,
         color: 'text-amber-500',
         tiers: [
-            { reels: 10, duration: 'Up to 90 seconds', price: '7,000' },
-            { reels: 15, duration: 'Up to 90 seconds', price: '10,200' },
-            { reels: 30, duration: 'Up to 90 seconds', price: '19,800' },
+            { reels: 10, duration: 'Up to 60 seconds', price: '5,000' },
+            { reels: 15, duration: 'Up to 60 seconds', price: '7,200' },
+            { reels: 30, duration: 'Up to 60 seconds', price: '13,800' },
+        ],
+    },
+    {
+        name: 'Diamond',
+        icon: Diamond,
+        color: 'text-blue-400',
+        tiers: [
+            { reels: 10, duration: 'Up to 90 seconds', price: '7,500' },
+            { reels: 15, duration: 'Up to 90 seconds', price: '10,950' },
+            { reels: 30, duration: 'Up to 90 seconds', price: '21,300' },
         ],
     },
     {
