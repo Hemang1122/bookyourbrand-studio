@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useState, useRef } from 'react';
 import type { ProjectFile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Trash2, File as FileIcon, Upload, Loader2, Download, Play, X, Info } from 'lucide-react';
+import { Trash2, File as FileIcon, Upload, Loader2, Download, Play, X, Info, Link as LinkIcon, Plus } from 'lucide-react';
 import { useAuth } from '@/firebase/provider';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -14,6 +13,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
+import { AddFileLinkDialog } from './add-file-link-dialog';
 
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
 
@@ -92,6 +92,21 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
     }
   };
 
+  const handleAddFileLink = (name: string, url: string) => {
+    if (!user) return;
+    addFile({
+      projectId,
+      name,
+      url,
+      uploadedById: user.id,
+      uploadedByName: user.name,
+      uploadedByAvatar: user.avatar,
+      type: 'link',
+      size: 'External Link'
+    });
+    toast({ title: 'Link Added', description: `"${name}" has been added to the project.` });
+  };
+
   const handleDeleteFile = (file: ProjectFile) => {
     deleteFile(file.id);
     toast({ title: 'File Deleted', description: `${file.name} has been removed.` });
@@ -118,20 +133,34 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
             <div className="p-6 space-y-6">
               <div className="text-center">
                 <div className="w-20 h-20 bg-white/5 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-inner">
-                  {isVideo(selectedFile.name) ? <Play className="h-10 w-10 text-purple-400" /> : <FileIcon className="h-10 w-10 text-purple-400" />}
+                  {selectedFile.type === 'link' ? (
+                    <LinkIcon className="h-10 w-10 text-blue-400" />
+                  ) : isVideo(selectedFile.name) ? (
+                    <Play className="h-10 w-10 text-purple-400" />
+                  ) : (
+                    <FileIcon className="h-10 w-10 text-purple-400" />
+                  )}
                 </div>
                 <h4 className="font-bold text-white break-words">{selectedFile.name}</h4>
-                <p className="text-[10px] text-muted-foreground mt-2 uppercase tracking-widest">Synology NAS Storage</p>
+                <p className="text-[10px] text-muted-foreground mt-2 uppercase tracking-widest">
+                  {selectedFile.type === 'link' ? 'External File Link' : 'Synology NAS Storage'}
+                </p>
               </div>
 
               <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Type</span>
+                  <span className="text-white capitalize">{selectedFile.type || 'File'}</span>
+                </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Size</span>
                   <span className="text-white">{selectedFile.size || 'Unknown'}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Uploaded</span>
-                  <span className="text-white">{format(selectedFile.uploadedAt?.toDate ? selectedFile.uploadedAt.toDate() : new Date(selectedFile.uploadedAt), 'PP')}</span>
+                  <span className="text-white">
+                    {selectedFile.uploadedAt?.toDate ? format(selectedFile.uploadedAt.toDate(), 'PP') : format(new Date(selectedFile.uploadedAt), 'PP')}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">By</span>
@@ -139,10 +168,11 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
                 </div>
               </div>
 
-              <div className="pt-4 space-y-3">
+              <div className="pt-4">
                 <a href={getDownloadUrl(selectedFile.url)} target="_blank" rel="noopener noreferrer" className="block">
                   <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold">
-                    <Download className="h-4 w-4 mr-2" /> Download Asset
+                    {selectedFile.type === 'link' ? <LinkIcon className="h-4 w-4 mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+                    {selectedFile.type === 'link' ? 'Open Link' : 'Download Asset'}
                   </Button>
                 </a>
               </div>
@@ -152,19 +182,27 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="text-xl font-bold text-white">File Management</h2>
-          <p className="text-sm text-muted-foreground">Upload and access all project-related files stored on the NAS.</p>
+          <h2 className="text-xl font-bold text-white">Project Assets</h2>
+          <p className="text-sm text-muted-foreground">Manage storage files and external shared links.</p>
         </div>
-        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="*/*" />
-        <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0">
-          {isUploading ? (
-            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{uploadProgress > 0 ? `Uploading ${uploadProgress}%` : 'Uploading...'}</>
-          ) : (
-            <><Upload className="mr-2 h-4 w-4" />Upload to NAS</>
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          <AddFileLinkDialog onAddFile={handleAddFileLink}>
+            <Button variant="outline" className="border-white/10 text-white hover:bg-white/5">
+              <Plus className="h-4 w-4 mr-2" /> Add Link
+            </Button>
+          </AddFileLinkDialog>
+          
+          <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="*/*" />
+          <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0">
+            {isUploading ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{uploadProgress > 0 ? `Uploading ${uploadProgress}%` : 'Uploading...'}</>
+            ) : (
+              <><Upload className="mr-2 h-4 w-4" />Upload to NAS</>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Progress Bar */}
@@ -178,14 +216,30 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {files.map((file) => {
           const uploadedAtDate = file.uploadedAt?.toDate ? file.uploadedAt.toDate() : new Date(file.uploadedAt);
+          const isLink = file.type === 'link';
+          
           return (
             <div key={file.id} className="rounded-xl p-4 flex items-center gap-4 bg-[#13131F] border border-white/5 hover:border-purple-500/20 transition-all">
-              <div className="p-3 rounded-xl bg-purple-500/10 cursor-pointer hover:bg-purple-500/20 transition-all" onClick={() => setSelectedFile(file)}>
-                {isVideo(file.name) ? <Play className="h-5 w-5 text-purple-400" /> : <FileIcon className="h-5 w-5 text-purple-400" />}
+              <div 
+                className={cn(
+                  "p-3 rounded-xl cursor-pointer transition-all",
+                  isLink ? "bg-blue-500/10 hover:bg-blue-500/20" : "bg-purple-500/10 hover:bg-purple-500/20"
+                )} 
+                onClick={() => setSelectedFile(file)}
+              >
+                {isLink ? (
+                  <LinkIcon className="h-5 w-5 text-blue-400" />
+                ) : isVideo(file.name) ? (
+                  <Play className="h-5 w-5 text-purple-400" />
+                ) : (
+                  <FileIcon className="h-5 w-5 text-purple-400" />
+                )}
               </div>
               <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setSelectedFile(file)}>
                 <p className="text-sm font-medium text-white truncate">{file.name}</p>
-                <p className="text-xs text-muted-foreground">{file.size || 'NAS'} · {format(uploadedAtDate, 'PP')}</p>
+                <p className="text-xs text-muted-foreground">
+                  {isLink ? 'Link' : (file.size || 'NAS')} · {format(uploadedAtDate, 'PP')}
+                </p>
               </div>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -196,11 +250,16 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                    <AlertDialogDescription>This will remove the reference to "{file.name}" from the CRM. The physical file on the NAS will not be deleted.</AlertDialogDescription>
+                    <AlertDialogDescription>
+                      {isLink 
+                        ? `This will remove the link to "${file.name}" from the project.`
+                        : `This will remove the reference to "${file.name}" from the project. The physical file on the NAS will not be deleted.`
+                      }
+                    </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleDeleteFile(file)} className="bg-destructive hover:bg-destructive/90">Delete Reference</AlertDialogAction>
+                    <AlertDialogAction onClick={() => handleDeleteFile(file)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
@@ -208,7 +267,9 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
           );
         })}
         {files.length === 0 && (
-          <div className="md:col-span-2 lg:col-span-3 text-center text-muted-foreground py-12">No files uploaded yet.</div>
+          <div className="md:col-span-2 lg:col-span-3 text-center text-muted-foreground py-12 border border-dashed border-white/5 rounded-2xl">
+            No project assets found.
+          </div>
         )}
       </div>
     </div>
