@@ -22,6 +22,7 @@ export type User = {
   photoURL?: string;
   packageName?: PackageName;
   reelsLimit?: number;
+  hasCompletedTour?: boolean;
 };
 
 export type PackageName = 'Bronze' | 'Silver' | 'Gold' | 'Diamond' | 'Advanced Editing' | 'Podcast' | 'Custom';

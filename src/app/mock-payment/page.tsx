@@ -27,7 +27,7 @@ function MockPaymentContent() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  const qrImage = PlaceHolderImages.find(img => img.id === 'payment-qr')?.imageUrl;
+  const qrImage = "/upi-qr.jpg";
 
   const handlePaymentSuccess = async () => {
     setIsProcessing(true);

@@ -89,7 +89,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex-1 space-y-6">
+    <div className="flex-1 space-y-6" id="dashboard-container">
       <div className="relative overflow-hidden rounded-2xl p-8 mb-6 animate-fade-up stagger-1"
           style={{
           background: 'linear-gradient(135deg, #1a0533 0%, #0f0f1a 50%, #1a0a2e 100%)',
@@ -160,9 +160,11 @@ export default function DashboardPage() {
         </div>
       </div>
       
-      {user.role === 'admin' && <AdminDashboard />}
-      {user.role === 'team' && <TeamDashboard />}
-      {user.role === 'client' && <ClientDashboard />}
+      <div id="dashboard-content">
+        {user.role === 'admin' && <AdminDashboard />}
+        {user.role === 'team' && <TeamDashboard />}
+        {user.role === 'client' && <ClientDashboard />}
+      </div>
 
       <div className="mt-6 pt-4 border-t border-white/5 text-center md:hidden">
         <p className="text-xs text-muted-foreground mb-1">
