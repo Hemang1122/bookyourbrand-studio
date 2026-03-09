@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useRef, useMemo } from 'react';
@@ -15,7 +14,6 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { AddFileLinkDialog } from './add-file-link-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,6 +43,7 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Folders for this project
   const folders = useMemo(() => 
     allFolders.filter(f => f.projectId === projectId), 
   [allFolders, projectId]);
@@ -53,9 +52,15 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
     folders.find(f => f.id === currentFolderId), 
   [folders, currentFolderId]);
 
-  const files = useMemo(() => 
+  // Files specifically inside the currently selected folder (or root files with folderId === null)
+  const filesInView = useMemo(() => 
     allFiles.filter(f => f.projectId === projectId && f.folderId === currentFolderId), 
   [allFiles, projectId, currentFolderId]);
+
+  // "Legacy" or "Ungrouped" files that have no folderId field at all, or it's empty
+  const ungroupedFiles = useMemo(() => 
+    allFiles.filter(f => f.projectId === projectId && !f.folderId), 
+  [allFiles, projectId]);
 
   const uploadChunk = async (chunk: Blob, fileName: string, chunkIndex: number, totalChunks: number): Promise<any> => {
     const formData = new FormData();
@@ -167,6 +172,51 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
     setFileDescription(file.description || '');
   };
 
+  const renderFileCard = (file: ProjectFile) => (
+    <div 
+      key={file.id} 
+      className="group rounded-xl p-4 flex items-center gap-4 bg-[#13131F] border border-white/5 hover:border-purple-500/30 transition-all relative"
+    >
+      <div className="p-3 rounded-xl bg-white/5 border border-white/5">
+        <FileIcon className="h-6 w-6 text-gray-400" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-white truncate pr-6">{file.name}</p>
+        <p className="text-[10px] text-muted-foreground mt-0.5">
+          {file.size || 'NAS'} · {file.uploadedAt ? format(file.uploadedAt?.toDate ? file.uploadedAt.toDate() : new Date(file.uploadedAt), 'MMM d') : 'Recently'}
+        </p>
+      </div>
+      
+      <div className="flex items-center gap-1">
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-purple-400" onClick={(e) => openInfo(e, file)}>
+          <Info className={cn("h-4 w-4", file.description && "text-purple-400 fill-purple-400/20")} />
+        </Button>
+        <a href={`/api/nas-preview?path=${encodeURIComponent(file.url)}`} target="_blank" rel="noopener noreferrer">
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-white">
+            <Download className="h-4 w-4" />
+          </Button>
+        </a>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-400">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent className="bg-[#13131F] border-white/10 text-white">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete file?</AlertDialogTitle>
+              <AlertDialogDescription>Remove "{file.name}" from this project?</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => handleDeleteFile(file)} className="bg-red-600">Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       {/* File Info Dialog */}
@@ -205,13 +255,13 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
       {/* Header & Controls */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <h2 className="text-xl font-bold text-white">Project Files</h2>
+          <h2 className="text-xl font-bold text-white">Project Workspace</h2>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <button 
               onClick={() => setCurrentFolderId(null)}
               className={cn("hover:text-purple-400 transition-colors", !currentFolderId && "text-white font-bold")}
             >
-              Files
+              All Files
             </button>
             {currentFolder && (
               <>
@@ -248,7 +298,7 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsNewFolderOpen(false)}>Cancel</Button>
                 <Button onClick={handleCreateFolder} disabled={isCreatingFolder || !newFolderName.trim()}>
-                  {isCreatingFolder ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  {isCreatingFolder ? <Loader2 className="mr-2 h-4 w-4 animate-spin mr-2" /> : null}
                   Create
                 </Button>
               </DialogFooter>
@@ -314,57 +364,32 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
           </div>
         ))}
 
-        {/* Render Files */}
-        {files.map(file => (
-          <div 
-            key={file.id} 
-            className="group rounded-xl p-4 flex items-center gap-4 bg-[#13131F] border border-white/5 hover:border-purple-500/30 transition-all relative"
-          >
-            <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-              <FileIcon className="h-6 w-6 text-gray-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate pr-6">{file.name}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{file.size || 'NAS'} · {format(file.uploadedAt?.toDate ? file.uploadedAt.toDate() : new Date(file.uploadedAt), 'MMM d')}</p>
-            </div>
-            
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-purple-400" onClick={(e) => openInfo(e, file)}>
-                <Info className={cn("h-4 w-4", file.description && "text-purple-400 fill-purple-400/20")} />
-              </Button>
-              <a href={`/api/nas-preview?path=${encodeURIComponent(file.url)}`} target="_blank" rel="noopener noreferrer">
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-white">
-                  <Download className="h-4 w-4" />
-                </Button>
-              </a>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-400">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent className="bg-[#13131F] border-white/10 text-white">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete file?</AlertDialogTitle>
-                    <AlertDialogDescription>Remove "{file.name}" from this project?</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleDeleteFile(file)} className="bg-red-600">Delete</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </div>
-        ))}
-
-        {folders.length === 0 && files.length === 0 && (
-          <div className="col-span-full py-20 text-center rounded-2xl border border-dashed border-white/5">
-            <FileIcon className="h-10 w-10 text-muted-foreground/20 mx-auto mb-4" />
-            <p className="text-gray-500">Empty workspace. Create a folder or upload a file.</p>
-          </div>
-        )}
+        {/* Render Folder-Specific Files */}
+        {filesInView.map(file => renderFileCard(file))}
       </div>
+
+      {/* Ungrouped/Legacy Files Section (Only visible at Root) */}
+      {!currentFolderId && ungroupedFiles.length > 0 && (
+        <div className="space-y-4 pt-8 border-t border-white/5">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-white/5">
+              <FileIcon className="h-4 w-4 text-gray-400" />
+            </div>
+            <h3 className="font-semibold text-white">Ungrouped Files</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {ungroupedFiles.map(file => renderFileCard(file))}
+          </div>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {folders.length === 0 && filesInView.length === 0 && (!currentFolderId ? ungroupedFiles.length === 0 : true) && (
+        <div className="col-span-full py-20 text-center rounded-2xl border border-dashed border-white/5">
+          <FileIcon className="h-10 w-10 text-muted-foreground/20 mx-auto mb-4" />
+          <p className="text-gray-500">Empty workspace. Create a folder or upload a file.</p>
+        </div>
+      )}
     </div>
   );
 }
