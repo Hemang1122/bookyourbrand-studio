@@ -445,6 +445,13 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   const updateClient = async (clientId: string, clientData: Partial<Client>) => {
     if (!firestore) return;
     updateDocumentNonBlocking(doc(firestore, 'clients', clientId), clientData);
+    
+    // Also sync realEmail to users collection if updated
+    if (clientData.realEmail) {
+      updateDocumentNonBlocking(doc(firestore, 'users', clientId), { 
+        realEmail: clientData.realEmail 
+      });
+    }
   }
 
   const selectPackage = async (packageData: Omit<ClientPackage, 'id' | 'startDate' | 'reelsUsed' | 'status' | 'clientId'>) => {
