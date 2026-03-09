@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import https from 'https';
+import Busboy from 'busboy';
+import { Readable } from 'stream';
 
 const NAS_URL = 'https://byb.i234.me:5001';
 const NAS_USER = 'crm-uploads';
@@ -10,41 +12,66 @@ const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+// Helper to parse multipart form data using busboy
+async function parseFormData(request: NextRequest): Promise<{ file: Buffer; fileName: string; clientName: string }> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const contentType = request.headers.get('content-type') || '';
+      
+      const busboy = Busboy({ headers: { 'content-type': contentType } });
+      
+      let fileBuffer: Buffer | null = null;
+      let fileName = '';
+      let clientName = 'Unknown';
+      
+      busboy.on('file', (fieldname, file, info) => {
+        fileName = info.filename;
+        const chunks: Buffer[] = [];
+        
+        file.on('data', (chunk) => chunks.push(chunk));
+        file.on('end', () => {
+          fileBuffer = Buffer.concat(chunks);
+        });
+      });
+      
+      busboy.on('field', (fieldname, val) => {
+        if (fieldname === 'clientName') clientName = val;
+      });
+      
+      busboy.on('finish', () => {
+        if (!fileBuffer || !fileName) {
+          reject(new Error('No file received'));
+        } else {
+          resolve({ file: fileBuffer, fileName, clientName });
+        }
+      });
+      
+      busboy.on('error', (err) => {
+        console.error('Busboy error:', err);
+        reject(err);
+      });
+      
+      // Convert request body to stream and pipe to busboy
+      const arrayBuffer = await request.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const stream = Readable.from(buffer);
+      stream.pipe(busboy);
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     console.log('🔄 Starting NAS upload...');
-    console.log('📋 Content-Type:', request.headers.get('content-type'));
     
-    // Parse FormData with proper error handling
-    let formData;
-    try {
-      formData = await request.formData();
-    } catch (parseError: any) {
-      console.error('❌ FormData parse error:', parseError.message);
-      
-      // Try alternative parsing
-      const contentType = request.headers.get('content-type') || '';
-      if (!contentType.includes('multipart/form-data')) {
-        return NextResponse.json({ 
-          success: false, 
-          error: 'Invalid Content-Type. Expected multipart/form-data.' 
-        }, { status: 400 });
-      }
-      
-      throw parseError;
-    }
+    // Parse the multipart form data
+    const { file, fileName, clientName } = await parseFormData(request);
     
-    const file = formData.get('file') as File;
-    const clientName = (formData.get('clientName') as string) || 'Unknown';
+    console.log('📁 File:', fileName, 'Size:', file.length, 'Client:', clientName);
 
-    if (!file) {
-      console.error('❌ No file in FormData');
-      return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
-    }
-
-    console.log('📁 File:', file.name, 'Size:', file.size, 'Client:', clientName);
-
-    // Step 1: Login
+    // Step 1: Login to NAS
     const loginParams = new URLSearchParams({
       api: 'SYNO.API.Auth',
       version: '6',
@@ -55,7 +82,7 @@ export async function POST(request: NextRequest) {
       format: 'sid'
     });
 
-    console.log('🔐 Attempting login to:', NAS_URL);
+    console.log('🔐 Logging in to NAS...');
     
     const loginResponse = await fetch(`${NAS_URL}/webapi/auth.cgi?${loginParams.toString()}`, { 
       method: 'GET',
@@ -64,7 +91,6 @@ export async function POST(request: NextRequest) {
     });
     
     const loginData = await loginResponse.json();
-    console.log('📥 Login response:', JSON.stringify(loginData, null, 2));
     
     if (!loginData.success) {
       const errorCodes: Record<number, string> = {
@@ -84,34 +110,33 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json({ 
         success: false, 
-        error: `NAS Login Failed: ${errorMessage}. Check username/password.` 
+        error: `NAS Login Failed: ${errorMessage}` 
       }, { status: 401 });
     }
 
     const sid = loginData.data.sid;
-    console.log('✅ Login successful! SID:', sid.substring(0, 30) + '...');
+    console.log('✅ Login successful!');
 
-    // Step 2: Upload file
+    // Step 2: Upload file to NAS
     const uploadPath = `/CRM-Uploads/${clientName}`;
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
 
     const boundary = `----FormBoundary${Math.random().toString(36).substring(2)}`;
     const chunks: Buffer[] = [];
 
+    // Build multipart form data manually
     chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="api"\r\n\r\nSYNO.FileStation.Upload\r\n`));
     chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="version"\r\n\r\n2\r\n`));
     chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="method"\r\n\r\nupload\r\n`));
     chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="path"\r\n\r\n${uploadPath}\r\n`));
     chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="create_parents"\r\n\r\ntrue\r\n`));
     chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="overwrite"\r\n\r\ntrue\r\n`));
-    chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${file.name}"\r\nContent-Type: ${file.type || 'application/octet-stream'}\r\n\r\n`));
-    chunks.push(buffer);
+    chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: application/octet-stream\r\n\r\n`));
+    chunks.push(file);
     chunks.push(Buffer.from(`\r\n--${boundary}--\r\n`));
 
     const body = Buffer.concat(chunks);
 
-    console.log('📤 Uploading to:', uploadPath);
+    console.log('📤 Uploading file to NAS...');
 
     const uploadResponse = await fetch(`${NAS_URL}/webapi/entry.cgi?_sid=${sid}`, {
       method: 'POST',
@@ -125,7 +150,6 @@ export async function POST(request: NextRequest) {
     });
 
     const uploadData = await uploadResponse.json();
-    console.log('📥 Upload response:', JSON.stringify(uploadData, null, 2));
 
     if (!uploadData.success) {
       console.error('❌ Upload failed:', uploadData);
@@ -137,8 +161,8 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ File uploaded successfully!');
 
-    // Step 3: Create share link
-    const filePath = `${uploadPath}/${file.name}`;
+    // Step 3: Create share link (optional)
+    const filePath = `${uploadPath}/${fileName}`;
     let shareUrl = null;
 
     try {
@@ -158,33 +182,31 @@ export async function POST(request: NextRequest) {
 
       if (shareData.success && shareData.data?.links?.[0]?.url) {
         shareUrl = shareData.data.links[0].url;
-        console.log('✅ Share link created:', shareUrl);
+        console.log('✅ Share link created');
       }
     } catch (e) {
-      console.log('⚠️ Share link failed (non-critical)');
+      console.log('⚠️ Share link creation failed (non-critical)');
     }
 
-    // Logout
+    // Step 4: Logout
     try {
       await fetch(`${NAS_URL}/webapi/auth.cgi?api=SYNO.API.Auth&version=6&method=logout&session=FileStation&_sid=${sid}`, {
         // @ts-ignore
         agent: httpsAgent
       });
-      console.log('✅ Logged out');
     } catch (e) {
-      console.log('⚠️ Logout failed');
+      // Ignore logout errors
     }
 
     return NextResponse.json({
       success: true,
       nasPath: filePath,
       shareUrl: shareUrl,
-      fileName: file.name
+      fileName: fileName
     });
 
   } catch (error: any) {
     console.error('❌ Fatal error:', error.message);
-    console.error('Stack:', error.stack);
     return NextResponse.json({ 
       success: false, 
       error: error.message || 'Unknown error' 
