@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { AddFileLinkDialog } from './add-file-link-dialog';
+import { cn } from '@/lib/utils';
 
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
 
