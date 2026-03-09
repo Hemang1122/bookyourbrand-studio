@@ -13,18 +13,38 @@ export const runtime = 'nodejs';
 export async function POST(request: NextRequest) {
   try {
     console.log('🔄 Starting NAS upload...');
+    console.log('📋 Content-Type:', request.headers.get('content-type'));
     
-    const formData = await request.formData();
+    // Parse FormData with proper error handling
+    let formData;
+    try {
+      formData = await request.formData();
+    } catch (parseError: any) {
+      console.error('❌ FormData parse error:', parseError.message);
+      
+      // Try alternative parsing
+      const contentType = request.headers.get('content-type') || '';
+      if (!contentType.includes('multipart/form-data')) {
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Invalid Content-Type. Expected multipart/form-data.' 
+        }, { status: 400 });
+      }
+      
+      throw parseError;
+    }
+    
     const file = formData.get('file') as File;
     const clientName = (formData.get('clientName') as string) || 'Unknown';
 
     if (!file) {
+      console.error('❌ No file in FormData');
       return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
     }
 
     console.log('📁 File:', file.name, 'Size:', file.size, 'Client:', clientName);
 
-    // Step 1: Login with detailed error logging
+    // Step 1: Login
     const loginParams = new URLSearchParams({
       api: 'SYNO.API.Auth',
       version: '6',
@@ -36,7 +56,6 @@ export async function POST(request: NextRequest) {
     });
 
     console.log('🔐 Attempting login to:', NAS_URL);
-    console.log('👤 Username:', NAS_USER);
     
     const loginResponse = await fetch(`${NAS_URL}/webapi/auth.cgi?${loginParams.toString()}`, { 
       method: 'GET',
@@ -65,7 +84,7 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json({ 
         success: false, 
-        error: `NAS Login Failed: ${errorMessage}. Please check NAS credentials.` 
+        error: `NAS Login Failed: ${errorMessage}. Check username/password.` 
       }, { status: 401 });
     }
 
@@ -92,7 +111,7 @@ export async function POST(request: NextRequest) {
 
     const body = Buffer.concat(chunks);
 
-    console.log('📤 Uploading to path:', uploadPath);
+    console.log('📤 Uploading to:', uploadPath);
 
     const uploadResponse = await fetch(`${NAS_URL}/webapi/entry.cgi?_sid=${sid}`, {
       method: 'POST',
@@ -109,6 +128,7 @@ export async function POST(request: NextRequest) {
     console.log('📥 Upload response:', JSON.stringify(uploadData, null, 2));
 
     if (!uploadData.success) {
+      console.error('❌ Upload failed:', uploadData);
       return NextResponse.json({ 
         success: false, 
         error: `Upload failed: ${JSON.stringify(uploadData)}` 
@@ -117,7 +137,7 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ File uploaded successfully!');
 
-    // Step 3: Create share link (optional)
+    // Step 3: Create share link
     const filePath = `${uploadPath}/${file.name}`;
     let shareUrl = null;
 
@@ -141,7 +161,7 @@ export async function POST(request: NextRequest) {
         console.log('✅ Share link created:', shareUrl);
       }
     } catch (e) {
-      console.log('⚠️ Share link creation failed (non-critical)');
+      console.log('⚠️ Share link failed (non-critical)');
     }
 
     // Logout
@@ -152,7 +172,7 @@ export async function POST(request: NextRequest) {
       });
       console.log('✅ Logged out');
     } catch (e) {
-      console.log('⚠️ Logout failed (non-critical)');
+      console.log('⚠️ Logout failed');
     }
 
     return NextResponse.json({
@@ -163,7 +183,8 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('❌ Fatal error:', error);
+    console.error('❌ Fatal error:', error.message);
+    console.error('Stack:', error.stack);
     return NextResponse.json({ 
       success: false, 
       error: error.message || 'Unknown error' 
