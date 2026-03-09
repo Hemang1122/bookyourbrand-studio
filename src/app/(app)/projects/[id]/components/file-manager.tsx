@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useRef, useMemo } from 'react';
-import type { ProjectFile, ProjectFolder, AssetCategory } from '@/lib/types';
+import type { ProjectFile, AssetCategory } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -13,12 +13,6 @@ import {
   Upload, 
   Loader2, 
   Download, 
-  FolderPlus, 
-  FolderOpen, 
-  ChevronRight, 
-  MoreVertical,
-  ArrowLeft,
-  HardDrive,
   Info,
   Pencil,
   FileVideo,
@@ -32,12 +26,6 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -51,10 +39,9 @@ type FileManagerProps = {
 export function FileManager({ projectId, clientName = 'Unknown Client' }: FileManagerProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { addFile, updateFile, files: allFiles, deleteFile, folders: allFolders, addFolder, deleteFolder } = useData();
+  const { addFile, updateFile, files: allFiles, deleteFile } = useData();
   
   const [activeCategory, setActiveCategory] = useState<AssetCategory>('raw');
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState<ProjectFile | null>(null);
@@ -64,19 +51,9 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Memoized data
-  const folders = useMemo(() => 
-    allFolders.filter(f => f.projectId === projectId && f.category === activeCategory),
-    [allFolders, projectId, activeCategory]
-  );
-
   const files = useMemo(() => 
-    allFiles.filter(f => f.projectId === projectId && f.category === activeCategory && f.folderId === currentFolderId),
-    [allFiles, projectId, activeCategory, currentFolderId]
-  );
-
-  const currentFolder = useMemo(() => 
-    allFolders.find(f => f.id === currentFolderId),
-    [allFolders, currentFolderId]
+    allFiles.filter(f => f.projectId === projectId && f.category === activeCategory),
+    [allFiles, projectId, activeCategory]
   );
 
   // Logic
@@ -118,7 +95,6 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
 
       addFile({
         projectId,
-        folderId: currentFolderId,
         category: activeCategory,
         name: file.name,
         url: shareUrl || `/CLIENT FILES/${clientName}/${file.name}`,
@@ -139,18 +115,6 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
     }
   };
 
-  const handleCreateFolder = () => {
-    const name = prompt('Enter a collection name:');
-    if (!name || !user) return;
-
-    addFolder({
-      projectId,
-      name,
-      category: activeCategory,
-      createdBy: user.id
-    });
-  };
-
   const handleSaveDescription = () => {
     if (!selectedFile) return;
     updateFile(selectedFile.id, { description: tempDescription });
@@ -165,9 +129,9 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
       <div className="lg:col-span-3 space-y-6">
-        {/* Navigation & Controls */}
+        {/* Category Tabs & Upload */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#13131F] p-4 rounded-2xl border border-white/5 shadow-xl">
-          <Tabs value={activeCategory} onValueChange={(v) => { setActiveCategory(v as AssetCategory); setCurrentFolderId(null); }} className="w-full sm:w-auto">
+          <Tabs value={activeCategory} onValueChange={(v) => { setActiveCategory(v as AssetCategory); setSelectedFile(null); }} className="w-full sm:w-auto">
             <TabsList className="bg-black/40 border-white/10">
               <TabsTrigger value="raw" className="gap-2 data-[state=active]:bg-purple-600">
                 <FileVideo className="h-4 w-4" /> Raw Material
@@ -179,9 +143,6 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
           </Tabs>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Button variant="outline" size="sm" onClick={handleCreateFolder} className="flex-1 sm:flex-none border-white/10 hover:bg-white/5">
-              <FolderPlus className="h-4 w-4 mr-2" /> New Collection
-            </Button>
             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
             <Button size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="flex-1 sm:flex-none bg-gradient-to-r from-purple-600 to-pink-500 border-0">
               {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
@@ -190,45 +151,15 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
           </div>
         </div>
 
-        {/* Breadcrumbs */}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-black/20 p-2 px-4 rounded-full border border-white/5 w-fit">
-          <button onClick={() => setCurrentFolderId(null)} className="hover:text-white transition-colors">Root</button>
-          {currentFolder && (
-            <>
-              <ChevronRight className="h-3 w-3" />
-              <span className="text-purple-400 font-bold">{currentFolder.name}</span>
-            </>
-          )}
-        </div>
+        {/* Progress Bar */}
+        {isUploading && uploadProgress > 0 && (
+          <div className="w-full bg-white/5 rounded-full h-2">
+            <div className="bg-gradient-to-r from-purple-600 to-pink-500 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+          </div>
+        )}
 
-        {/* Grid Display */}
+        {/* Assets Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-          {/* Folders */}
-          {!currentFolderId && folders.map(folder => (
-            <div 
-              key={folder.id} 
-              onDoubleClick={() => setCurrentFolderId(folder.id)}
-              className="relative group rounded-2xl p-4 bg-[#13131F] border border-white/5 hover:border-purple-500/30 transition-all cursor-pointer flex flex-col items-center text-center shadow-lg"
-            >
-              <div className="p-4 rounded-2xl bg-purple-500/10 mb-3 group-hover:scale-110 transition-transform">
-                <FolderOpen className="h-10 w-10 text-purple-400" />
-              </div>
-              <p className="text-sm font-bold text-white truncate w-full">{folder.name}</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Collection</p>
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => deleteFolder(folder.id)} className="text-red-400"><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-          ))}
-
-          {/* Files */}
           {files.map(file => (
             <div 
               key={file.id} 
@@ -246,10 +177,10 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
             </div>
           ))}
 
-          {!folders.length && !files.length && (
+          {files.length === 0 && (
             <div className="col-span-full py-20 text-center border border-dashed border-white/10 rounded-3xl">
-              <FolderOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground/20" />
-              <p className="text-gray-500">No assets in this collection.</p>
+              <FileIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground/20" />
+              <p className="text-gray-500">No assets in this category.</p>
             </div>
           )}
         </div>
@@ -272,14 +203,14 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
                     {isVideo(selectedFile.name) ? <FileVideo className="h-10 w-10 text-purple-400" /> : <FileIcon className="h-10 w-10 text-gray-400" />}
                   </div>
                   <h4 className="font-bold text-white break-words px-2">{selectedFile.name}</h4>
-                  <p className="text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
-                    <HardDrive className="h-3 w-3" /> Stored on Synology NAS
+                  <p className="text-[10px] text-muted-foreground mt-2 uppercase tracking-widest">
+                    Stored on Synology NAS
                   </p>
                 </div>
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <Label className="text-[10px] uppercase font-bold tracking-widest text-gray-500">Description</Label>
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-gray-500">Description</span>
                     {!isEditingDescription && (
                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setTempDescription(selectedFile.description || ''); setIsEditingDescription(true); }}>
                         <Pencil className="h-3 w-3" />
