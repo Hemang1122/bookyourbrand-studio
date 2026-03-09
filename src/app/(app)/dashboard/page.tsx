@@ -160,7 +160,7 @@ export default function DashboardPage() {
         </div>
       </div>
       
-      <div id="dashboard-content">
+      <div id="dashboard-content" data-tour="dashboard-content">
         {user.role === 'admin' && <AdminDashboard />}
         {user.role === 'team' && <TeamDashboard />}
         {user.role === 'client' && <ClientDashboard />}

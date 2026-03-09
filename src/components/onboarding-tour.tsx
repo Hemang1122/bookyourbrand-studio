@@ -1,86 +1,95 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { X, ArrowRight, ArrowLeft, Sparkles } from 'lucide-react';
 import { useAuth } from '@/firebase/provider';
 import { useData } from '@/app/(app)/data-provider';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { ChevronLeft, ChevronRight, X, Sparkles } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import { cn } from '@/lib/utils';
-import { createPortal } from 'react-dom';
 
-interface TourStep {
+type TourStep = {
+  id: string;
   title: string;
   description: string;
-  targetId?: string;
-  position: 'center' | 'bottom' | 'right' | 'left' | 'top';
-}
+  path?: string;
+  elementSelector?: string;
+  position?: 'top' | 'bottom' | 'left' | 'right' | 'center';
+};
 
 const TOUR_STEPS: TourStep[] = [
   {
-    title: "Welcome to BookYourBrands! 👋",
+    id: 'welcome',
+    title: 'Welcome to BookYourBrands! 👋',
     description: "Let's take a quick tour to help you get started. It'll only take a minute.",
+    path: '/dashboard',
     position: 'center',
   },
   {
-    title: "Your Command Center",
-    description: "This is your Client Dashboard. Here you can see your active subscription, active projects, and delivery status at a glance.",
-    targetId: 'dashboard-content',
+    id: 'dashboard',
+    title: 'Your Command Center',
+    description: 'This is your Client Dashboard. Here you can see your active subscription, active projects, and delivery status at a glance.',
+    path: '/dashboard',
+    elementSelector: '[data-tour="dashboard-content"]',
     position: 'bottom',
   },
   {
-    title: "Project Management",
-    description: "This is where all your video projects live. Click on any project to view tasks, upload raw clips, and download your edited videos.",
-    targetId: 'nav-projects',
+    id: 'projects',
+    title: 'Project Management',
+    description: 'This is where all your video projects live. Click on any project to view tasks, upload raw clips, and download your edited videos.',
+    path: '/projects',
+    elementSelector: '#nav-projects',
     position: 'right',
   },
   {
-    title: "File Organization",
-    description: "Inside each project, use the Files tab to upload your raw video clips in organized folders. Your editor will deliver the final videos here too.",
-    targetId: 'nav-projects',
-    position: 'right',
-  },
-  {
-    title: "Manage Your Plan",
+    id: 'packages',
+    title: 'Manage Your Plan',
     description: "View and manage your content package here. You can see how many reels you've used and upgrade your plan anytime.",
-    targetId: 'nav-packages',
+    path: '/packages',
+    elementSelector: '#nav-packages',
     position: 'right',
   },
   {
-    title: "Direct Support",
-    description: "Need help? Use the Support Chat to talk directly with the BookYourBrands team. We respond within 24 hours.",
-    targetId: 'nav-support',
+    id: 'support',
+    title: 'Direct Support',
+    description: 'Need help? Use the Support Chat to talk directly with the BookYourBrands team. We respond within 24 hours.',
+    path: '/dashboard',
+    elementSelector: '#nav-support',
     position: 'right',
   },
   {
+    id: 'complete',
     title: "You're all set! 🎉",
     description: "You now know your way around. Let's create something amazing together!",
+    path: '/dashboard',
     position: 'center',
-  }
+  },
 ];
 
 export function OnboardingTour() {
   const { user } = useAuth();
   const { completeTour } = useData();
+  const router = useRouter();
+  const pathname = usePathname();
+  
   const [currentStep, setCurrentStep] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
 
   useEffect(() => {
-    if (user?.role === 'client' && !user.hasCompletedTour) {
-      // Delay slightly to ensure elements are rendered
-      const timer = setTimeout(() => setIsVisible(true), 1500);
+    if (user?.role === 'client' && !user?.hasCompletedTour) {
+      const timer = setTimeout(() => setIsVisible(true), 2000);
       return () => clearTimeout(timer);
     }
   }, [user]);
 
-  useEffect(() => {
+  const updateTargetRect = useCallback(() => {
     const step = TOUR_STEPS[currentStep];
-    if (step.targetId && isVisible) {
-      const element = document.getElementById(step.targetId);
+    if (step.elementSelector) {
+      const element = document.querySelector(step.elementSelector);
       if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
         setTargetRect(element.getBoundingClientRect());
       } else {
         setTargetRect(null);
@@ -88,20 +97,30 @@ export function OnboardingTour() {
     } else {
       setTargetRect(null);
     }
-  }, [currentStep, isVisible]);
-
-  // Recalculate rect on window resize
-  useEffect(() => {
-    const handleResize = () => {
-      const step = TOUR_STEPS[currentStep];
-      if (step.targetId) {
-        const element = document.getElementById(step.targetId);
-        if (element) setTargetRect(element.getBoundingClientRect());
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
   }, [currentStep]);
+
+  useEffect(() => {
+    if (!isVisible) return;
+
+    const step = TOUR_STEPS[currentStep];
+    
+    if (step.path && pathname !== step.path) {
+      router.push(step.path);
+    }
+
+    // Give time for navigation and rendering
+    const timer = setTimeout(updateTargetRect, 500);
+    return () => clearTimeout(timer);
+  }, [currentStep, isVisible, pathname, router, updateTargetRect]);
+
+  useEffect(() => {
+    window.addEventListener('resize', updateTargetRect);
+    window.addEventListener('scroll', updateTargetRect);
+    return () => {
+      window.removeEventListener('resize', updateTargetRect);
+      window.removeEventListener('scroll', updateTargetRect);
+    };
+  }, [updateTargetRect]);
 
   const handleNext = () => {
     if (currentStep < TOUR_STEPS.length - 1) {
@@ -120,6 +139,12 @@ export function OnboardingTour() {
   const handleFinish = async () => {
     setIsVisible(false);
     await completeTour();
+    confetti({
+      particleCount: 150,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#7C3AED', '#EC4899', '#ffffff']
+    });
   };
 
   const handleSkip = async () => {
@@ -127,7 +152,7 @@ export function OnboardingTour() {
     await completeTour();
   };
 
-  if (!isVisible) return null;
+  if (!isVisible || !user) return null;
 
   const step = TOUR_STEPS[currentStep];
   const isFirst = currentStep === 0;
@@ -138,8 +163,8 @@ export function OnboardingTour() {
     left: targetRect.left - 8,
     width: targetRect.width + 16,
     height: targetRect.height + 16,
-    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.8), 0 0 20px 2px rgba(124, 58, 237, 0.6)',
-    borderRadius: '8px',
+    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.7), 0 0 20px 2px rgba(124, 58, 237, 0.6)',
+    borderRadius: '12px',
     position: 'fixed',
     zIndex: 9998,
     pointerEvents: 'none',
@@ -149,7 +174,7 @@ export function OnboardingTour() {
     left: 0,
     width: '100vw',
     height: '100vh',
-    background: 'rgba(0, 0, 0, 0.8)',
+    background: 'rgba(0, 0, 0, 0.7)',
     position: 'fixed',
     zIndex: 9998,
     pointerEvents: 'none',
@@ -158,29 +183,30 @@ export function OnboardingTour() {
   const tooltipPosition: React.CSSProperties = (() => {
     if (!targetRect) return { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
 
+    const padding = 20;
     switch (step.position) {
       case 'bottom':
-        return { top: targetRect.bottom + 20, left: targetRect.left + (targetRect.width / 2), transform: 'translateX(-50%)' };
+        return { top: targetRect.bottom + padding, left: targetRect.left + (targetRect.width / 2), transform: 'translateX(-50%)' };
       case 'right':
-        return { top: targetRect.top + (targetRect.height / 2), left: targetRect.right + 20, transform: 'translateY(-50%)' };
+        return { top: targetRect.top + (targetRect.height / 2), left: targetRect.right + padding, transform: 'translateY(-50%)' };
       case 'left':
         return { top: targetRect.top + (targetRect.height / 2), left: targetRect.left - 340, transform: 'translateY(-50%)' };
       case 'top':
-        return { top: targetRect.top - 200, left: targetRect.left + (targetRect.width / 2), transform: 'translateX(-50%)' };
+        return { top: targetRect.top - 250, left: targetRect.left + (targetRect.width / 2), transform: 'translateX(-50%)' };
       default:
         return { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
     }
   })();
 
-  return createPortal(
+  return (
     <div className="fixed inset-0 z-[9999] pointer-events-none">
-      <div style={spotlightStyle} />
+      <div style={spotlightStyle} className="transition-all duration-300" />
       
       <div 
         style={tooltipPosition}
-        className="absolute w-80 pointer-events-auto animate-in zoom-in-95 fade-in duration-300"
+        className="absolute w-[340px] pointer-events-auto animate-in zoom-in-95 fade-in duration-300"
       >
-        <Card className="bg-[#13131F] border-primary/30 shadow-2xl p-6 relative overflow-hidden">
+        <div className="bg-[#13131F] border border-primary/30 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
           {isLast && (
             <div className="absolute inset-0 z-0 pointer-events-none opacity-20">
               <div className="absolute top-[-50px] left-[-50px] w-full h-full bg-gradient-to-br from-primary to-pink-500 rounded-full blur-3xl animate-pulse" />
@@ -195,42 +221,55 @@ export function OnboardingTour() {
               <X className="h-4 w-4" />
             </button>
 
-            {isLast && <Sparkles className="h-8 w-8 text-yellow-400 mb-4 animate-bounce" />}
+            {(isFirst || isLast) && (
+              <div className="mb-4 flex justify-center">
+                <Sparkles className="h-10 w-10 text-purple-400 animate-pulse" />
+              </div>
+            )}
             
-            <h3 className="text-xl font-bold text-white mb-2">{step.title}</h3>
+            <h3 className="text-xl font-bold text-white mb-2 leading-tight">{step.title}</h3>
             <p className="text-sm text-gray-400 leading-relaxed mb-6">
               {step.description}
             </p>
 
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
-                Step {currentStep + 1} of {TOUR_STEPS.length}
-              </span>
-              
-              <div className="flex gap-2">
-                {!isFirst && !isLast && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={handleBack}
-                    className="h-8 text-xs text-gray-400 hover:text-white"
-                  >
-                    <ChevronLeft className="h-3 w-3 mr-1" /> Back
-                  </Button>
-                )}
+            <div className="space-y-4">
+              <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
+                <div 
+                  className="bg-gradient-to-r from-purple-600 to-pink-500 h-full transition-all duration-500"
+                  style={{ width: `${((currentStep + 1) / TOUR_STEPS.length) * 100}%` }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                  Step {currentStep + 1} / {TOUR_STEPS.length}
+                </span>
                 
-                <Button 
-                  size="sm" 
-                  onClick={handleNext}
-                  className="h-8 text-xs bg-gradient-to-r from-purple-600 to-pink-500 border-0"
-                >
-                  {isLast ? "Start Creating →" : "Next"}
-                  {!isLast && <ChevronRight className="h-3 w-3 ml-1" />}
-                </Button>
+                <div className="flex gap-2">
+                  {!isFirst && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={handleBack}
+                      className="h-8 text-xs text-gray-400 hover:text-white"
+                    >
+                      <ArrowLeft className="h-3 w-3 mr-1" /> Back
+                    </Button>
+                  )}
+                  
+                  <Button 
+                    size="sm" 
+                    onClick={handleNext}
+                    className="h-8 text-xs bg-gradient-to-r from-purple-600 to-pink-500 border-0 shadow-lg"
+                  >
+                    {isLast ? "Start Creating →" : "Next Step"}
+                    {!isLast && <ArrowRight className="h-3 w-3 ml-1" />}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
-        </Card>
+        </div>
         
         {!isLast && (
           <Button 
@@ -243,7 +282,6 @@ export function OnboardingTour() {
           </Button>
         )}
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }
