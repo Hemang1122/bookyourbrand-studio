@@ -82,7 +82,7 @@ export function MainNav({ userRole }: { userRole: UserRole }) {
                  )}
               </SidebarMenuButton>
               {item.href === '/support' && unreadSupportCount > 0 && !isMobile && (
-                <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 justify-center p-0">{unreadSupportCount > 99 ? '99+' : unreadSupportCount}</Badge>
+                <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 justify-center p-0" id={item.id === 'nav-support' ? 'nav-support' : undefined}>{unreadSupportCount > 99 ? '99+' : unreadSupportCount}</Badge>
               )}
             </Link>
           </SidebarMenuItem>
