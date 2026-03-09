@@ -22,7 +22,6 @@ import { Logo } from '@/components/logo';
 import { NotificationBell } from './notification-bell';
 import { useAuth } from '@/firebase/provider';
 import { usePresence } from '@/firebase';
-import { OnboardingTour } from '@/components/onboarding-tour';
 
 function AppHeader() {
     const { user } = useAuth();
@@ -91,7 +90,6 @@ export default function AppLayoutClient({
           </div>
       </div>
       </SidebarProvider>
-      <OnboardingTour />
     </DataProvider>
   );
 }

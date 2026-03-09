@@ -55,7 +55,6 @@ type DataContextType = {
   addNotification: (message: string, url: string, recipients: string[], type: 'system' | 'chat', chatId?: string) => void;
   markNotificationsAsRead: (type?: 'system' | 'chat') => void;
   markChatNotificationsAsRead: (chatId: string) => void;
-  completeTour: () => Promise<void>;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -551,19 +550,9 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     await batch.commit();
   }, [firestore, authUid]);
 
-  const completeTour = useCallback(async () => {
-    if (!firestore || !currentUser) return;
-    try {
-      const userRef = doc(firestore, 'users', currentUser.id);
-      await updateDoc(userRef, { hasCompletedTour: true });
-    } catch (err) {
-      console.error('Failed to update tour status:', err);
-    }
-  }, [firestore, currentUser]);
-
   return (
     <DataContext.Provider value={{ 
-        projects, tasks, clients, teamMembers, users, scrumUpdates, files, folders, clientDocuments: clientDocuments || [], notifications: notificationsData, chats: chatsData || [], getOrCreateChat, sendMessage, timerSessions: timerSessions || [], clientPackages: clientPackages || [], addProject, addTask, deleteTask, updateProjectTeam, updateTaskStatus, createUser, deleteUser, updateClient, selectPackage, updateTeamMember, addScrumUpdate, addTimerSession, isLoading, deleteProject, updateProject, addFile, updateFile, deleteFile, addFolder, deleteFolder, addClientDocument, deleteClientDocument, addNotification, markNotificationsAsRead, markChatNotificationsAsRead, completeTour
+        projects, tasks, clients, teamMembers, users, scrumUpdates, files, folders, clientDocuments: clientDocuments || [], notifications: notificationsData, chats: chatsData || [], getOrCreateChat, sendMessage, timerSessions: timerSessions || [], clientPackages: clientPackages || [], addProject, addTask, deleteTask, updateProjectTeam, updateTaskStatus, createUser, deleteUser, updateClient, selectPackage, updateTeamMember, addScrumUpdate, addTimerSession, isLoading, deleteProject, updateProject, addFile, updateFile, deleteFile, addFolder, deleteFolder, addClientDocument, deleteClientDocument, addNotification, markNotificationsAsRead, markChatNotificationsAsRead
     }}>
       {children}
     </DataContext.Provider>

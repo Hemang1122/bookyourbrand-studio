@@ -33,23 +33,23 @@ import { useAuth } from '@/firebase/provider';
 import { Badge } from './ui/badge';
 
 const navItems = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'team', 'client'], id: 'nav-dashboard' },
-  { href: '/projects', icon: FolderKanban, label: 'Projects', roles: ['admin', 'team', 'client'], id: 'nav-projects' },
-  { href: '/time-tracker', icon: Clock, label: 'Time Tracker', roles: ['team'], id: 'nav-time-tracker' },
-  { href: '/admin/time-tracking', icon: Clock, label: 'Team Tracking', roles: ['admin'], id: 'nav-admin-time-tracking' },
-  { href: '/packages', icon: CreditCard, label: 'Packages', roles: ['client'], id: 'nav-packages' },
-  { href: '/admin/packages', icon: Package, label: 'Package Mgmt', roles: ['admin'], id: 'nav-admin-packages' },
-  { href: '/admin/migration', icon: RefreshCw, label: 'Migration Tool', roles: ['admin'], id: 'nav-admin-migration' },
-  { href: '/admin/documents', icon: ClipboardCheck, label: 'Doc Approvals', roles: ['admin'], id: 'nav-admin-documents' },
-  { href: '/clients', icon: Briefcase, label: 'Clients', roles: ['admin'], id: 'nav-clients' },
-  { href: '/team', icon: Users, label: 'Team', roles: ['admin'], id: 'nav-team' },
-  { href: '/documents', icon: FileText, label: 'Documents', roles: ['client'], id: 'nav-documents' },
-  { href: '/profile', icon: Users, label: 'Profile', roles: ['admin', 'team', 'client'], id: 'nav-profile' },
-  { href: '/support', icon: MessageSquare, label: 'Support', roles: ['admin', 'client', 'team'], id: 'nav-support' },
-  { href: '/scrum', icon: GitCommit, label: 'Scrum', roles: ['admin', 'team'], id: 'nav-scrum' },
-  { href: '/schedule', icon: CalendarDays, label: 'Schedule', roles: ['admin'], id: 'nav-schedule' },
-  { href: '/reports', icon: BarChart, label: 'Reports', roles: ['admin'], id: 'nav-reports' },
-  { href: '/settings', icon: Settings, label: 'Settings', roles: ['admin', 'team', 'client'], id: 'nav-settings' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'team', 'client'] },
+  { href: '/projects', icon: FolderKanban, label: 'Projects', roles: ['admin', 'team', 'client'] },
+  { href: '/time-tracker', icon: Clock, label: 'Time Tracker', roles: ['team'] },
+  { href: '/admin/time-tracking', icon: Clock, label: 'Team Tracking', roles: ['admin'] },
+  { href: '/packages', icon: CreditCard, label: 'Packages', roles: ['client'] },
+  { href: '/admin/packages', icon: Package, label: 'Package Mgmt', roles: ['admin'] },
+  { href: '/admin/migration', icon: RefreshCw, label: 'Migration Tool', roles: ['admin'] },
+  { href: '/admin/documents', icon: ClipboardCheck, label: 'Doc Approvals', roles: ['admin'] },
+  { href: '/clients', icon: Briefcase, label: 'Clients', roles: ['admin'] },
+  { href: '/team', icon: Users, label: 'Team', roles: ['admin'] },
+  { href: '/documents', icon: FileText, label: 'Documents', roles: ['client'] },
+  { href: '/profile', icon: Users, label: 'Profile', roles: ['admin', 'team', 'client'] },
+  { href: '/support', icon: MessageSquare, label: 'Support', roles: ['admin', 'client', 'team'] },
+  { href: '/scrum', icon: GitCommit, label: 'Scrum', roles: ['admin', 'team'] },
+  { href: '/schedule', icon: CalendarDays, label: 'Schedule', roles: ['admin'] },
+  { href: '/reports', icon: BarChart, label: 'Reports', roles: ['admin'] },
+  { href: '/settings', icon: Settings, label: 'Settings', roles: ['admin', 'team', 'client'] },
 ];
 
 export function MainNav({ userRole }: { userRole: UserRole }) {
@@ -70,7 +70,7 @@ export function MainNav({ userRole }: { userRole: UserRole }) {
       <SidebarMenu>
         {visibleItems.map((item) => (
           <SidebarMenuItem key={item.href}>
-            <Link href={item.href} className="relative" id={item.id}>
+            <Link href={item.href} className="relative">
               <SidebarMenuButton
                 isActive={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))}
                 tooltip={item.label}
@@ -82,7 +82,7 @@ export function MainNav({ userRole }: { userRole: UserRole }) {
                  )}
               </SidebarMenuButton>
               {item.href === '/support' && unreadSupportCount > 0 && !isMobile && (
-                <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 justify-center p-0" id={item.id === 'nav-support' ? 'nav-support' : undefined}>{unreadSupportCount > 99 ? '99+' : unreadSupportCount}</Badge>
+                <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 justify-center p-0">{unreadSupportCount > 99 ? '99+' : unreadSupportCount}</Badge>
               )}
             </Link>
           </SidebarMenuItem>
