@@ -175,7 +175,7 @@ export default function ProjectsPage() {
         </div>
       </div>
       
-       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6" data-tour="packages">
         {[
           { label: 'Total', count: projectCounts.totalCount, color: 'text-white', value: 'All' as const },
           { label: 'Active', count: projectCounts.activeCount, color: 'text-blue-400', value: 'Active' as const },

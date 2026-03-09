@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -256,7 +257,7 @@ export default function ProjectDetailPage() {
       </div>
       
       <Tabs defaultValue="tasks" className="w-full">
-        <TabsList className="flex gap-1 p-1 rounded-xl mb-6 bg-white/5 border border-white/5 w-fit">
+        <TabsList className="flex gap-1 p-1 rounded-xl mb-6 bg-white/5 border border-white/5 w-fit" data-tour="files-tab">
           <TabsTrigger value="tasks" className="px-6 py-2 rounded-lg text-sm font-medium transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-purple-500/25 data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-white data-[state=inactive]:hover:bg-white/5">
               <LayoutList className="h-4 w-4 mr-2" />Tasks
           </TabsTrigger>

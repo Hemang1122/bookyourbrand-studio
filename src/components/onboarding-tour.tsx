@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { X, ArrowRight, ArrowLeft, Sparkles } from 'lucide-react';
@@ -77,8 +77,10 @@ export function OnboardingTour() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const resizeTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    // Only trigger for clients who haven't finished the tour
     if (user?.role === 'client' && !user?.hasCompletedTour) {
       const timer = setTimeout(() => setIsVisible(true), 2000);
       return () => clearTimeout(timer);
@@ -108,17 +110,23 @@ export function OnboardingTour() {
       router.push(step.path);
     }
 
-    // Give time for navigation and rendering
-    const timer = setTimeout(updateTargetRect, 500);
+    // Delay slightly to allow for DOM updates and navigation
+    const timer = setTimeout(updateTargetRect, 600);
     return () => clearTimeout(timer);
   }, [currentStep, isVisible, pathname, router, updateTargetRect]);
 
   useEffect(() => {
-    window.addEventListener('resize', updateTargetRect);
-    window.addEventListener('scroll', updateTargetRect);
+    const handleResize = () => {
+      if (resizeTimer.current) clearTimeout(resizeTimer.current);
+      resizeTimer.current = setTimeout(updateTargetRect, 100);
+    };
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('scroll', updateTargetRect, true);
+    
     return () => {
-      window.removeEventListener('resize', updateTargetRect);
-      window.removeEventListener('scroll', updateTargetRect);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', updateTargetRect, true);
     };
   }, [updateTargetRect]);
 
@@ -143,7 +151,8 @@ export function OnboardingTour() {
       particleCount: 150,
       spread: 70,
       origin: { y: 0.6 },
-      colors: ['#7C3AED', '#EC4899', '#ffffff']
+      colors: ['#7C3AED', '#EC4899', '#ffffff'],
+      zIndex: 10001
     });
   };
 
@@ -163,18 +172,18 @@ export function OnboardingTour() {
     left: targetRect.left - 8,
     width: targetRect.width + 16,
     height: targetRect.height + 16,
-    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.7), 0 0 20px 2px rgba(124, 58, 237, 0.6)',
+    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.75), 0 0 20px 2px rgba(124, 58, 237, 0.6)',
     borderRadius: '12px',
     position: 'fixed',
     zIndex: 9998,
     pointerEvents: 'none',
-    transition: 'all 0.3s ease-out'
+    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
   } : {
     top: 0,
     left: 0,
     width: '100vw',
     height: '100vh',
-    background: 'rgba(0, 0, 0, 0.7)',
+    background: 'rgba(0, 0, 0, 0.75)',
     position: 'fixed',
     zIndex: 9998,
     pointerEvents: 'none',
@@ -184,13 +193,15 @@ export function OnboardingTour() {
     if (!targetRect) return { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
 
     const padding = 20;
+    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    
     switch (step.position) {
       case 'bottom':
         return { top: targetRect.bottom + padding, left: targetRect.left + (targetRect.width / 2), transform: 'translateX(-50%)' };
       case 'right':
         return { top: targetRect.top + (targetRect.height / 2), left: targetRect.right + padding, transform: 'translateY(-50%)' };
       case 'left':
-        return { top: targetRect.top + (targetRect.height / 2), left: targetRect.left - 340, transform: 'translateY(-50%)' };
+        return { top: targetRect.top + (targetRect.height / 2), left: targetRect.left - 360, transform: 'translateY(-50%)' };
       case 'top':
         return { top: targetRect.top - 250, left: targetRect.left + (targetRect.width / 2), transform: 'translateX(-50%)' };
       default:
@@ -200,7 +211,7 @@ export function OnboardingTour() {
 
   return (
     <div className="fixed inset-0 z-[9999] pointer-events-none">
-      <div style={spotlightStyle} className="transition-all duration-300" />
+      <div style={spotlightStyle} className="transition-all duration-400" />
       
       <div 
         style={tooltipPosition}
