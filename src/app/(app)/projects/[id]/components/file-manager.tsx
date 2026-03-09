@@ -30,6 +30,7 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
   const { toast } = useToast();
   const { addFile, files: allFiles, deleteFile } = useData();
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [previewFile, setPreviewFile] = useState<ProjectFile | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -42,20 +43,31 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
     if (!file || !user) return;
 
     setIsUploading(true);
+    setUploadProgress(0);
+
     try {
+      console.log('📤 Starting upload:', file.name);
+      setUploadProgress(10);
+
+      // Always use server upload (skip browser direct upload)
       const formData = new FormData();
       formData.append('file', file);
       formData.append('clientName', clientName);
+      
+      console.log('📡 Sending to /api/nas-upload...');
+      setUploadProgress(30);
 
-      console.log(`📤 Starting upload for ${file.name}...`);
-
-      const response = await fetch('/api/nas-upload', {
-        method: 'POST',
-        body: formData
+      const response = await fetch('/api/nas-upload', { 
+        method: 'POST', 
+        body: formData 
       });
 
+      setUploadProgress(60);
+      
       const result = await response.json();
       console.log('📥 Server response:', result);
+
+      setUploadProgress(90);
 
       if (!response.ok || !result.success) {
         throw new Error(result.error || `Upload failed with status ${response.status}`);
@@ -72,19 +84,23 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
         size: `${(file.size / 1024 / 1024).toFixed(2)} MB`
       });
 
+      setUploadProgress(100);
+
       toast({ 
         title: '✅ File Uploaded', 
         description: `${file.name} uploaded to NAS successfully.` 
       });
+
     } catch (error: any) {
-      console.error('❌ Upload execution error:', error);
+      console.error('❌ Upload error:', error);
       toast({ 
         title: '❌ Upload Failed', 
-        description: error.message || 'Could not complete the transfer to NAS.', 
+        description: error.message, 
         variant: 'destructive' 
       });
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
@@ -104,10 +120,11 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
       {previewFile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-[#13131F] rounded-2xl border border-white/10 w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
             <div className="flex items-center justify-between p-4 border-b border-white/10">
               <p className="text-white font-medium truncate">{previewFile.name}</p>
               <div className="flex items-center gap-2">
-                {previewFile.url && (
+                {previewFile.url && !previewFile.url.startsWith('/CLIENT') && (
                   <a href={previewFile.url} target="_blank" rel="noopener noreferrer" download={previewFile.name}>
                     <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
                       <Download className="h-4 w-4 mr-2" /> Download
@@ -120,21 +137,22 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
               </div>
             </div>
 
+            {/* Modal Content */}
             <div className="p-4 flex items-center justify-center min-h-[300px] max-h-[75vh] overflow-auto">
-              {isVideo(previewFile.name) && previewFile.url ? (
+              {isVideo(previewFile.name) && previewFile.url && !previewFile.url.startsWith('/CLIENT') ? (
                 <video controls autoPlay className="w-full max-h-[65vh] rounded-xl" src={previewFile.url}>
                   Your browser does not support video playback.
                 </video>
-              ) : isImage(previewFile.name) && previewFile.url ? (
+              ) : isImage(previewFile.name) && previewFile.url && !previewFile.url.startsWith('/CLIENT') ? (
                 <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-[65vh] rounded-xl object-contain" />
-              ) : isPdf(previewFile.name) && previewFile.url ? (
+              ) : isPdf(previewFile.name) && previewFile.url && !previewFile.url.startsWith('/CLIENT') ? (
                 <iframe src={previewFile.url} className="w-full h-[65vh] rounded-xl" />
               ) : (
                 <div className="text-center text-muted-foreground py-12">
                   <FileIcon className="h-16 w-16 mx-auto mb-4 text-purple-400" />
                   <p className="text-white font-medium mb-2">{previewFile.name}</p>
                   <p className="text-sm mb-4">Preview not available for this file type.</p>
-                  {previewFile.url && (
+                  {previewFile.url && !previewFile.url.startsWith('/CLIENT') && (
                     <a href={previewFile.url} target="_blank" rel="noopener noreferrer" download={previewFile.name}>
                       <Button className="bg-purple-600 hover:bg-purple-700 text-white">
                         <Download className="h-4 w-4 mr-2" /> Download File
@@ -154,20 +172,10 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
           <h2 className="text-xl font-bold text-white">File Management</h2>
           <p className="text-sm text-muted-foreground">Upload and access all project-related files.</p>
         </div>
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          onChange={handleFileChange} 
-          className="hidden" 
-          accept="*/*" 
-        />
-        <Button 
-          onClick={handleUploadClick} 
-          disabled={isUploading} 
-          className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0"
-        >
+        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="*/*" />
+        <Button onClick={handleUploadClick} disabled={isUploading} className="bg-gradient-to-r from-purple-600 to-pink-500 text-white border-0">
           {isUploading ? (
-            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Uploading...</>
+            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Uploading ({uploadProgress}%)...</>
           ) : (
             <><Upload className="mr-2 h-4 w-4" />Upload to NAS</>
           )}
