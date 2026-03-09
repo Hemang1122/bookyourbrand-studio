@@ -142,10 +142,24 @@ export type Task = {
   remarks: TaskRemark[];
 };
 
+export type AssetCategory = 'raw' | 'deliverable';
+
+export type ProjectFolder = {
+  id: string;
+  projectId: string;
+  name: string;
+  category: AssetCategory;
+  createdAt: Timestamp;
+  createdBy: string;
+};
+
 export type ProjectFile = {
   id: string;
   projectId: string;
+  folderId?: string | null;
+  category: AssetCategory;
   name:string;
+  description?: string;
   url: string;
   nasPath?: string;
   uploadedById: string;

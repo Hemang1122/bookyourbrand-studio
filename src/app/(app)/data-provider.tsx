@@ -1,7 +1,8 @@
+
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus, TimerSession, Chat, ChatMessage, ClientDocument, ClientPackage } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, ProjectFolder, Notification, TaskRemark, PackageName, ProjectStatus, TimerSession, Chat, ChatMessage, ClientDocument, ClientPackage } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -21,6 +22,7 @@ type DataContextType = {
   users: User[];
   scrumUpdates: ScrumUpdate[];
   files: ProjectFile[];
+  folders: ProjectFolder[];
   clientDocuments: ClientDocument[];
   notifications: Notification[];
   timerSessions: TimerSession[];
@@ -44,7 +46,10 @@ type DataContextType = {
   deleteProject: (projectId: string) => void;
   updateProject: (projectId: string, projectData: Partial<Omit<Project, 'id' | 'client' | 'team_ids' | 'coverImage'>>) => void;
   addFile: (file: Omit<ProjectFile, 'id'>) => void;
+  updateFile: (fileId: string, data: Partial<ProjectFile>) => void;
   deleteFile: (fileId: string) => void;
+  addFolder: (folder: Omit<ProjectFolder, 'id' | 'createdAt'>) => void;
+  deleteFolder: (folderId: string) => void;
   addClientDocument: (document: Omit<ClientDocument, 'id' | 'uploadedAt' | 'uploadedById' | 'url' | 'storagePath' | 'fileName'>, file: File) => Promise<void>;
   deleteClientDocument: (document: ClientDocument) => Promise<void>;
   addNotification: (message: string, url: string, recipients: string[], type: 'system' | 'chat', chatId?: string) => void;
@@ -100,6 +105,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
   const { data: files, isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? query(collection(firestore, 'files')) : null, [firestore]));
+  const { data: folders, isLoading: foldersLoading } = useCollection<ProjectFolder>(useMemoFirebase(() => firestore ? query(collection(firestore, 'project-folders')) : null, [firestore]));
   
   const clientsQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
@@ -171,7 +177,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     return () => unsubscribes.forEach(unsub => unsub());
   }, [chatsData, firestore, authUid]);
 
-  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading || (currentUser?.role === 'client' && chatsLoading) || documentsLoading || clientPackagesLoading;
+  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || foldersLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading || (currentUser?.role === 'client' && chatsLoading) || documentsLoading || clientPackagesLoading;
   
   const teamEditorMapping = useMemo(() => {
     if (!usersData) return new Map<string, string>();
@@ -501,11 +507,26 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     if (!firestore) return;
     setDocumentNonBlocking(doc(collection(firestore, 'files')), { ...fileData, uploadedAt: Timestamp.now() }, {});
   }
+
+  const updateFile = (fileId: string, fileData: Partial<ProjectFile>) => {
+    if (!firestore) return;
+    updateDocumentNonBlocking(doc(firestore, 'files', fileId), fileData);
+  }
   
   const deleteFile = (fileId: string) => {
     if (!firestore) return;
     deleteDocumentNonBlocking(doc(firestore, 'files', fileId));
   };
+
+  const addFolder = (folderData: Omit<ProjectFolder, 'id' | 'createdAt'>) => {
+    if (!firestore) return;
+    setDocumentNonBlocking(doc(collection(firestore, 'project-folders')), { ...folderData, createdAt: Timestamp.now() }, {});
+  }
+
+  const deleteFolder = (folderId: string) => {
+    if (!firestore) return;
+    deleteDocumentNonBlocking(doc(firestore, 'project-folders', folderId));
+  }
   
   const addClientDocument = async (documentData: Omit<ClientDocument, 'id' | 'uploadedAt' | 'uploadedById' | 'url' | 'storagePath' | 'fileName'>, file: File) => {
     if (!firestore || !currentUser) return;
@@ -539,7 +560,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   return (
     <DataContext.Provider value={{ 
-        projects, tasks, clients, teamMembers, users, scrumUpdates, files, clientDocuments: clientDocuments || [], notifications: notificationsData, chats: chatsData || [], getOrCreateChat, sendMessage, timerSessions: timerSessions || [], clientPackages: clientPackages || [], addProject, addTask, deleteTask, updateProjectTeam, updateTaskStatus, createUser, deleteUser, updateClient, selectPackage, updateTeamMember, addScrumUpdate, addTimerSession, isLoading, deleteProject, updateProject, addFile, deleteFile, addClientDocument, deleteClientDocument, addNotification, markNotificationsAsRead, markChatNotificationsAsRead,
+        projects, tasks, clients, teamMembers, users, scrumUpdates, files, folders: folders || [], clientDocuments: clientDocuments || [], notifications: notificationsData, chats: chatsData || [], getOrCreateChat, sendMessage, timerSessions: timerSessions || [], clientPackages: clientPackages || [], addProject, addTask, deleteTask, updateProjectTeam, updateTaskStatus, createUser, deleteUser, updateClient, selectPackage, updateTeamMember, addScrumUpdate, addTimerSession, isLoading, deleteProject, updateProject, addFile, updateFile, deleteFile, addFolder, deleteFolder, addClientDocument, deleteClientDocument, addNotification, markNotificationsAsRead, markChatNotificationsAsRead,
     }}>
       {children}
     </DataContext.Provider>
