@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import type { ProjectFile } from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Trash2, File as FileIcon, Upload, Loader2, Download, Play, X, HardDrive } from 'lucide-react';
 import { useAuth } from '@/firebase/provider';
 import { useToast } from '@/hooks/use-toast';
@@ -107,7 +108,7 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
 
   return (
     <div className="space-y-4">
-      {/* File Detail Modal (Replaces Preview Modal) */}
+      {/* File Detail Modal */}
       {selectedFile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-[#13131F] rounded-2xl border border-white/10 w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
