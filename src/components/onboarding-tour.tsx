@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -42,6 +41,14 @@ const TOUR_STEPS: TourStep[] = [
     path: '/projects',
     elementSelector: '#nav-projects',
     position: 'right',
+  },
+  {
+    id: 'files',
+    title: 'File Management',
+    description: 'Inside each project, use the Files tab to upload your raw video clips in organized folders. Your editor will deliver the final videos here too.',
+    path: '/projects',
+    elementSelector: '[data-tour="files-tab"]',
+    position: 'bottom',
   },
   {
     id: 'packages',
@@ -172,28 +179,29 @@ export function OnboardingTour() {
     left: targetRect.left - 8,
     width: targetRect.width + 16,
     height: targetRect.height + 16,
-    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.75), 0 0 20px 2px rgba(124, 58, 237, 0.6)',
-    borderRadius: '12px',
+    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.6), 0 0 40px 10px rgba(124, 58, 237, 0.4)',
+    borderRadius: '16px',
     position: 'fixed',
     zIndex: 9998,
     pointerEvents: 'none',
-    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+    border: '2px solid rgba(168, 85, 247, 0.5)'
   } : {
     top: 0,
     left: 0,
     width: '100vw',
     height: '100vh',
-    background: 'rgba(0, 0, 0, 0.75)',
+    background: 'rgba(0, 0, 0, 0.6)',
     position: 'fixed',
     zIndex: 9998,
     pointerEvents: 'none',
+    backdropFilter: 'blur(2px)'
   };
 
   const tooltipPosition: React.CSSProperties = (() => {
     if (!targetRect) return { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
 
-    const padding = 20;
-    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    const padding = 30;
     
     switch (step.position) {
       case 'bottom':
@@ -217,7 +225,7 @@ export function OnboardingTour() {
         style={tooltipPosition}
         className="absolute w-[340px] pointer-events-auto animate-in zoom-in-95 fade-in duration-300"
       >
-        <div className="bg-[#13131F] border border-primary/30 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
+        <div className="bg-[#13131F] border-2 border-primary/40 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
           {isLast && (
             <div className="absolute inset-0 z-0 pointer-events-none opacity-20">
               <div className="absolute top-[-50px] left-[-50px] w-full h-full bg-gradient-to-br from-primary to-pink-500 rounded-full blur-3xl animate-pulse" />
@@ -239,12 +247,12 @@ export function OnboardingTour() {
             )}
             
             <h3 className="text-xl font-bold text-white mb-2 leading-tight">{step.title}</h3>
-            <p className="text-sm text-gray-400 leading-relaxed mb-6">
+            <p className="text-sm text-gray-300 leading-relaxed mb-6">
               {step.description}
             </p>
 
             <div className="space-y-4">
-              <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
+              <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
                 <div 
                   className="bg-gradient-to-r from-purple-600 to-pink-500 h-full transition-all duration-500"
                   style={{ width: `${((currentStep + 1) / TOUR_STEPS.length) * 100}%` }}
@@ -271,7 +279,7 @@ export function OnboardingTour() {
                   <Button 
                     size="sm" 
                     onClick={handleNext}
-                    className="h-8 text-xs bg-gradient-to-r from-purple-600 to-pink-500 border-0 shadow-lg"
+                    className="h-8 text-xs bg-gradient-to-r from-purple-600 to-pink-500 border-0 shadow-lg hover:shadow-purple-500/20"
                   >
                     {isLast ? "Start Creating →" : "Next Step"}
                     {!isLast && <ArrowRight className="h-3 w-3 ml-1" />}
