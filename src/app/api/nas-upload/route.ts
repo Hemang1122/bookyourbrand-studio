@@ -8,6 +8,7 @@ const USERNAME = 'crm-uploads';
 const PASSWORD = '0TYuOj>a';
 
 export const maxDuration = 300;
+export const config = { api: { bodyParser: false, responseLimit: "500mb" } };
 export const dynamic = 'force-dynamic';
 
 let cachedSid: string | null = null;
