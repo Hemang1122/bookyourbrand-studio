@@ -49,7 +49,7 @@ const navItems = [
   { href: '/scrum', icon: GitCommit, label: 'Scrum', roles: ['admin', 'team'] },
   { href: '/schedule', icon: CalendarDays, label: 'Schedule', roles: ['admin'] },
   { href: '/reports', icon: BarChart, label: 'Reports', roles: ['admin'] },
-  { href: '/about', icon: Info, label: 'About BYB', roles: ['admin', 'team', 'client'] },
+  { href: '/about', icon: Info, label: 'About Us', roles: ['admin', 'team', 'client'] },
   { href: '/settings', icon: Settings, label: 'Settings', roles: ['admin', 'team', 'client'] },
 ];
 

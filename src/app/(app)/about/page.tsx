@@ -23,7 +23,7 @@ export default function AboutPage() {
 
         {/* Founder Section */}
         <div className="bg-[#13131F] rounded-3xl border border-white/10 p-8 md:p-12 mb-12">
-          <div className="flex flex-col md:row-reverse lg:flex-row items-center gap-8 md:gap-12">
+          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
             
             {/* Founder Image */}
             <div className="flex-shrink-0">
