@@ -3,6 +3,7 @@ runConfig:
   cpu: 2
   memoryMiB: 4096
   concurrency: 80
-  minInstances: 0
+  minInstances: 1
+  maxInstances: 1
 buildConfig:
   npmInstallCommand: npm ci --legacy-peer-deps

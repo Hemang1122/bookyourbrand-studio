@@ -29,41 +29,49 @@ export async function GET(req: NextRequest) {
     const filePath = searchParams.get('path');
     if (!filePath) return NextResponse.json({ error: 'No path provided' }, { status: 400 });
 
-    // If it's a NAS share URL (https://byb.i234.me...), redirect directly
+    // If it's a full NAS share URL, redirect directly
     if (filePath.startsWith('http')) {
       return NextResponse.redirect(filePath);
     }
 
-    // Otherwise it's an internal path like /CLIENT FILES/...
     const sid = await getSession();
     const params = new URLSearchParams({
       api: 'SYNO.FileStation.Download',
       version: '2',
       method: 'download',
       path: filePath,
-      mode: 'open',
+      mode: 'download',
       _sid: sid
     });
 
-    const fileRes = await fetch(`${NAS_URL}/webapi/entry.cgi?${params}`, {
+    const nasUrl = `${NAS_URL}/webapi/entry.cgi?${params}`;
+    const fileRes = await fetch(nasUrl, {
       agent: httpsAgent
     } as any);
 
-    if (!fileRes.ok) {
+    if (!fileRes.ok || !fileRes.body) {
       cachedSid = null;
       return NextResponse.json({ error: 'File not found' }, { status: 404 });
     }
 
     const contentType = fileRes.headers.get('content-type') || 'application/octet-stream';
-    const buffer = await fileRes.arrayBuffer();
+    const contentLength = fileRes.headers.get('content-length');
+    const fileName = filePath.split('/').pop() || 'download';
 
-    return new NextResponse(buffer, {
-      headers: {
-        'Content-Type': contentType,
-        'Content-Disposition': 'inline',
-        'Cache-Control': 'private, max-age=3600',
-      }
-    });
+    // Stream directly - no buffering!
+    const headers: Record<string, string> = {
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
+      'Cache-Control': 'private, max-age=3600',
+      'Transfer-Encoding': 'chunked',
+    };
+
+    if (contentLength) {
+      headers['Content-Length'] = contentLength;
+    }
+
+    return new NextResponse(fileRes.body as any, { headers });
+
   } catch (error: any) {
     cachedSid = null;
     return NextResponse.json({ error: error.message }, { status: 500 });

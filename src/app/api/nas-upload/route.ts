@@ -2,20 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import https from 'https';
 import Busboy from 'busboy';
 import { Readable } from 'stream';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const NAS_URL = 'https://byb.i234.me:5001';
 const USERNAME = 'crm-uploads';
 const PASSWORD = '0TYuOj>a';
 
 export const maxDuration = 300;
-export const config = { api: { bodyParser: false, responseLimit: "500mb" } };
 export const dynamic = 'force-dynamic';
 
 let cachedSid: string | null = null;
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
-
-// In-memory chunk store: key = clientName/folderName/fileName
-const chunkStore = new Map<string, { chunks: Buffer[], totalChunks: number, mimeType: string }>();
 
 async function getSession(): Promise<string> {
   if (cachedSid) return cachedSid;
@@ -30,7 +28,18 @@ async function getSession(): Promise<string> {
   return cachedSid!;
 }
 
-function parseMultipart(req: NextRequest, contentType: string): Promise<{ fileBuffer: Buffer; fileName: string; clientName: string; folderName: string; mimeType: string; chunkIndex: number; totalChunks: number }> {
+function sanitizeFileName(name: string): string {
+  return name
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '') // remove emojis
+    .replace(/[^\w\s.\-()]/g, '_')           // replace special chars
+    .replace(/\s+/g, ' ')                     // normalize spaces
+    .trim();
+}
+
+function parseMultipart(req: NextRequest, contentType: string): Promise<{
+  fileBuffer: Buffer; fileName: string; clientName: string;
+  folderName: string; mimeType: string; chunkIndex: number; totalChunks: number;
+}> {
   return new Promise(async (resolve, reject) => {
     const busboy = Busboy({
       headers: { 'content-type': contentType },
@@ -95,46 +104,55 @@ export async function POST(req: NextRequest) {
     if (!contentType.includes('multipart/form-data')) {
       return NextResponse.json({ success: false, error: 'Expected multipart/form-data' });
     }
-    const { fileBuffer, fileName, clientName, folderName, mimeType, chunkIndex, totalChunks } = await parseMultipart(req, contentType);
-    console.log(`Chunk ${chunkIndex + 1}/${totalChunks} - File: ${fileName}`);
 
-    const uploadPath = folderName ? `/CLIENT FILES/${clientName}/${folderName}` : `/CLIENT FILES/${clientName}`;
-    const filePath = `${uploadPath}/${fileName}`;
-    const storeKey = `${clientName}/${folderName}/${fileName}`;
+    const { fileBuffer, fileName, clientName, folderName, mimeType, chunkIndex, totalChunks } =
+      await parseMultipart(req, contentType);
 
-    // Single chunk - upload directly
-    if (totalChunks === 1) {
-      const sid = await getSession();
-      const result = await uploadCompleteFileToNAS(sid, fileBuffer, fileName, mimeType, uploadPath);
-      if (!result.success) { cachedSid = null; return NextResponse.json({ success: false, error: JSON.stringify(result) }); }
-      return NextResponse.json({ success: true, nasPath: filePath, shareUrl: null, fileName, done: true });
-    }
+    const safeFileName = sanitizeFileName(fileName);
+    console.log(`Chunk ${chunkIndex + 1}/${totalChunks} - File: ${safeFileName} (${(fileBuffer.length/1024/1024).toFixed(1)}MB)`);
 
-    // Multi-chunk: store in memory
-    if (!chunkStore.has(storeKey)) {
-      chunkStore.set(storeKey, { chunks: new Array(totalChunks), totalChunks, mimeType });
-    }
-    const store = chunkStore.get(storeKey)!;
-    store.chunks[chunkIndex] = fileBuffer;
+    const uploadPath = folderName
+      ? `/CLIENT FILES/${clientName}/${folderName}`
+      : `/CLIENT FILES/${clientName}`;
+    const filePath = `${uploadPath}/${safeFileName}`;
 
-    const receivedCount = store.chunks.filter(Boolean).length;
-    console.log(`Stored chunk ${chunkIndex + 1}/${totalChunks}, received ${receivedCount} so far`);
+    // Use /tmp to store chunks persistently on this instance
+    const tmpDir = `/tmp/uploads/${clientName}_${folderName}_${safeFileName}`.replace(/[^a-zA-Z0-9_\/]/g, '_');
+    fs.mkdirSync(tmpDir, { recursive: true });
+    const chunkFile = path.join(tmpDir, `chunk_${String(chunkIndex).padStart(6, '0')}`);
+    fs.writeFileSync(chunkFile, fileBuffer);
 
-    if (receivedCount < totalChunks) {
+    // Count how many chunks we have
+    const existingChunks = fs.readdirSync(tmpDir).filter(f => f.startsWith('chunk_')).length;
+    console.log(`Saved chunk ${chunkIndex + 1}/${totalChunks}, have ${existingChunks} so far in ${tmpDir}`);
+
+    if (existingChunks < totalChunks) {
       return NextResponse.json({ success: true, chunkIndex, done: false });
     }
 
-    // All chunks received - merge and upload as ONE file
-    console.log(`All chunks received for ${fileName}, merging (${(Buffer.concat(store.chunks).length / 1024 / 1024).toFixed(1)} MB)...`);
-    const completeFile = Buffer.concat(store.chunks);
-    chunkStore.delete(storeKey);
+    // All chunks saved - read and merge in order
+    console.log(`All ${totalChunks} chunks received, merging...`);
+    const chunkFiles = fs.readdirSync(tmpDir)
+      .filter(f => f.startsWith('chunk_'))
+      .sort();
+
+    const allBuffers = chunkFiles.map(f => fs.readFileSync(path.join(tmpDir, f)));
+    const completeFile = Buffer.concat(allBuffers);
+    console.log(`Merged file size: ${(completeFile.length / 1024 / 1024).toFixed(1)} MB`);
+
+    // Clean up tmp
+    fs.rmSync(tmpDir, { recursive: true, force: true });
 
     const sid = await getSession();
-    const result = await uploadCompleteFileToNAS(sid, completeFile, fileName, mimeType, uploadPath);
-    if (!result.success) { cachedSid = null; return NextResponse.json({ success: false, error: JSON.stringify(result) }); }
+    const result = await uploadCompleteFileToNAS(sid, completeFile, safeFileName, mimeType, uploadPath);
 
-    console.log(`Successfully uploaded: ${fileName}`);
-    return NextResponse.json({ success: true, nasPath: filePath, shareUrl: null, fileName, done: true });
+    if (!result.success) {
+      cachedSid = null;
+      return NextResponse.json({ success: false, error: JSON.stringify(result) });
+    }
+
+    console.log(`Successfully uploaded: ${safeFileName}`);
+    return NextResponse.json({ success: true, nasPath: filePath, shareUrl: null, fileName: safeFileName, done: true });
 
   } catch (error: any) {
     cachedSid = null;
