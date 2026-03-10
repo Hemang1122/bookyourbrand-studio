@@ -3,7 +3,7 @@
 import { useState, useRef, useMemo } from 'react';
 import type { ProjectFile, ProjectFolder } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Trash2, File as FileIcon, Upload, Loader2, Download, X, FolderPlus, Folder, ChevronRight, Info, Save } from 'lucide-react';
+import { Trash2, File as FileIcon, Upload, Loader2, Download, X, FolderPlus, Folder, ChevronRight, Info, Save, Play, Eye } from 'lucide-react';
 import { useAuth } from '@/firebase/provider';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -38,10 +38,23 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
   const [newFolderName, setNewFolderName] = useState('');
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [infoFile, setInfoFile] = useState<ProjectFile | null>(null);
+  const [previewFile, setPreviewFile] = useState<ProjectFile | null>(null);
   const [fileDescription, setFileDescription] = useState('');
   const [isSavingDescription, setIsSavingDescription] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isImage = (fileName: string) => /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+  const isVideo = (fileName: string) => /\.(mp4|webm|mov|mkv)$/i.test(fileName);
+
+  const getDownloadUrl = (file: ProjectFile) => {
+    // If it's a NAS file (no shareUrl), use our proxy
+    if (file.type === 'nas' && file.url.startsWith('/CLIENT FILES')) {
+      return `/api/nas-download?path=${encodeURIComponent(file.url)}`;
+    }
+    // Otherwise use the URL directly
+    return file.url;
+  };
 
   // Folders for this project
   const folders = useMemo(() => 
@@ -177,10 +190,10 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
       key={file.id} 
       className="group rounded-xl p-4 flex items-center gap-4 bg-[#13131F] border border-white/5 hover:border-purple-500/30 transition-all relative"
     >
-      <div className="p-3 rounded-xl bg-white/5 border border-white/5">
+      <div className="p-3 rounded-xl bg-white/5 border border-white/5 cursor-pointer" onClick={() => setPreviewFile(file)}>
         <FileIcon className="h-6 w-6 text-gray-400" />
       </div>
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setPreviewFile(file)}>
         <p className="text-sm font-medium text-white truncate pr-6">{file.name}</p>
         <p className="text-[10px] text-muted-foreground mt-0.5">
           {file.size || 'NAS'} · {file.uploadedAt ? format(file.uploadedAt?.toDate ? file.uploadedAt.toDate() : new Date(file.uploadedAt), 'MMM d') : 'Recently'}
@@ -191,7 +204,7 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-purple-400" onClick={(e) => openInfo(e, file)}>
           <Info className={cn("h-4 w-4", file.description && "text-purple-400 fill-purple-400/20")} />
         </Button>
-        <a href={`/api/nas-preview?path=${encodeURIComponent(file.url)}`} target="_blank" rel="noopener noreferrer">
+        <a href={getDownloadUrl(file)} download={file.name}>
           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-white">
             <Download className="h-4 w-4" />
           </Button>
@@ -251,6 +264,56 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Preview Modal */}
+      {previewFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#13131F] rounded-2xl border border-white/10 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <p className="text-white font-medium truncate">{previewFile.name}</p>
+              <div className="flex items-center gap-2">
+                <a 
+                  href={getDownloadUrl(previewFile)} 
+                  download={previewFile.name}
+                >
+                  <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
+                    <Download className="h-4 w-4 mr-2" /> Download
+                  </Button>
+                </a>
+                <Button variant="ghost" size="icon" onClick={() => setPreviewFile(null)}>
+                  <X className="h-5 w-5 text-white" />
+                </Button>
+              </div>
+            </div>
+            
+            <div className="p-4 flex items-center justify-center min-h-[300px] flex-1 bg-black/20 overflow-auto">
+              {isVideo(previewFile.name) ? (
+                <div className="text-center">
+                  <Play className="h-16 w-16 mx-auto mb-4 text-purple-400" />
+                  <p className="text-white mb-4">Video preview not available</p>
+                  <a href={getDownloadUrl(previewFile)} download={previewFile.name}>
+                    <Button className="bg-purple-600 hover:bg-purple-700">
+                      <Download className="h-4 w-4 mr-2" /> Download Video
+                    </Button>
+                  </a>
+                </div>
+              ) : isImage(previewFile.name) ? (
+                <img src={`/api/nas-preview?path=${encodeURIComponent(previewFile.url)}`} alt={previewFile.name} className="max-w-full max-h-[65vh] rounded-xl object-contain" />
+              ) : (
+                <div className="text-center">
+                  <FileIcon className="h-16 w-16 mx-auto mb-4 text-purple-400" />
+                  <p className="text-white mb-4">{previewFile.name}</p>
+                  <a href={getDownloadUrl(previewFile)} download={previewFile.name}>
+                    <Button className="bg-purple-600 hover:bg-purple-700">
+                      <Download className="h-4 w-4 mr-2" /> Download File
+                    </Button>
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header & Controls */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
