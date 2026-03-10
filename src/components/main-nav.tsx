@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -19,6 +18,7 @@ import {
   RefreshCw,
   ClipboardCheck,
   Clock,
+  Info,
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -49,6 +49,7 @@ const navItems = [
   { href: '/scrum', icon: GitCommit, label: 'Scrum', roles: ['admin', 'team'] },
   { href: '/schedule', icon: CalendarDays, label: 'Schedule', roles: ['admin'] },
   { href: '/reports', icon: BarChart, label: 'Reports', roles: ['admin'] },
+  { href: '/about', icon: Info, label: 'About BYB', roles: ['admin', 'team', 'client'] },
   { href: '/settings', icon: Settings, label: 'Settings', roles: ['admin', 'team', 'client'] },
 ];
 
