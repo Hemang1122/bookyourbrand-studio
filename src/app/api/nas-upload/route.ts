@@ -70,19 +70,6 @@ function parseMultipart(req: NextRequest, contentType: string): Promise<{ fileBu
   });
 }
 
-async function generateShareLink(sid: string, filePath: string): Promise<string | null> {
-  try {
-    const params = new URLSearchParams({
-      api: 'SYNO.FileStation.Sharing', version: '3', method: 'create',
-      path: filePath, password: '', date_expired: '-1', date_available: '-1', _sid: sid
-    });
-    const res = await fetch(`${NAS_URL}/webapi/entry.cgi?${params}`, { agent: httpsAgent } as any);
-    const data = await res.json();
-    if (data.success && data.data?.links?.[0]?.url) return data.data.links[0].url;
-    return null;
-  } catch { return null; }
-}
-
 async function uploadChunkToNAS(sid: string, fileBuffer: Buffer, fileName: string, mimeType: string, uploadPath: string, chunkIndex: number, totalChunks: number) {
   const boundary = '----NASChunkBoundary' + Date.now();
   const chunks: Buffer[] = [];
@@ -139,14 +126,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: JSON.stringify(uploadData) });
     }
 
-    if (chunkIndex === totalChunks - 1 && totalChunks > 1) {
-      const shareUrl = await generateShareLink(sid, `${uploadPath}/${fileName}.part${chunkIndex}`);
-      return NextResponse.json({ success: true, nasPath: filePath, shareUrl, fileName, done: true });
-    }
-
-    if (totalChunks === 1) {
-      const shareUrl = await generateShareLink(sid, filePath);
-      return NextResponse.json({ success: true, nasPath: filePath, shareUrl, fileName, done: true });
+    // Final chunk or single chunk upload completed
+    if (chunkIndex === totalChunks - 1) {
+      return NextResponse.json({ 
+        success: true, 
+        nasPath: filePath, 
+        shareUrl: null, // Disable broken share links, use direct proxy instead
+        fileName, 
+        done: true 
+      });
     }
 
     return NextResponse.json({ success: true, chunkIndex, done: false });
