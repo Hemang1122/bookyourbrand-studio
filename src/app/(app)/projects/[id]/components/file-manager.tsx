@@ -50,7 +50,7 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
   const getDownloadUrl = (file: ProjectFile) => {
     // If it's a NAS file (no shareUrl), use our proxy
     if (file.type === 'nas' && file.url.startsWith('/CLIENT FILES')) {
-      return `/api/nas-download?path=${encodeURIComponent(file.url)}`;
+      return `/api/nas-preview?path=${encodeURIComponent(file.url)}`;
     }
     // Otherwise use the URL directly
     return file.url;
