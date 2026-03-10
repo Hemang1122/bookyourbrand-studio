@@ -1,0 +1,59 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "avatar-2",
+      "description": "A placeholder avatar for a user.",
+      "imageUrl": "https://images.unsplash.com/photo-1695470667338-e7e8608ff048?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxwZXJzb24lMjBmYWNlfGVufDB8fHx8MTc2MDg1NDQyOXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person face"
+    },
+    {
+      "id": "avatar-3",
+      "description": "A placeholder avatar for a user.",
+      "imageUrl": "https://images.unsplash.com/photo-1695470667338-e7e8608ff048?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxwZXJzb24lMjBmYWNlfGVufDB8fHx8MTc2MDg1NDQyOXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person face"
+    },
+    {
+      "id": "avatar-4",
+      "description": "A placeholder avatar for a user.",
+      "imageUrl": "https://images.unsplash.com/photo-1517462964-21fdcec3f25b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8cGVyc29uJTIwZmFjZXxlbnwwfHx8fDE3NjA4NTQ0Mjl8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person face"
+    },
+    {
+      "id": "avatar-generic",
+      "description": "A generic placeholder avatar.",
+      "imageUrl": "https://images.unsplash.com/photo-1565619624098-cf4168a7cd9d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxhYnN0cmFjdCUyMHBhdHRlcm58ZW58MHx8fHwxNzYyMTA2MTA4fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract pattern"
+    },
+    {
+      "id": "project-1",
+      "description": "A placeholder image for a project.",
+      "imageUrl": "https://images.unsplash.com/photo-1605106702842-01a887a31122?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxhYnN0cmFjdCUyMGRlc2lnbnxlbnwwfHx8fDE3NjA4NDc1MTB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract design"
+    },
+    {
+      "id": "project-2",
+      "description": "A placeholder image for a project.",
+      "imageUrl": "https://images.unsplash.com/photo-1686061594225-3e92c0cd51b0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxtYXJrZXRpbmclMjBjYW1wYWlnbnxlbnwwfHx8fDE3NjA3ODM5NDB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "marketing campaign"
+    },
+    {
+      "id": "project-3",
+      "description": "A placeholder image for a project.",
+      "imageUrl": "https://images.unsplash.com/photo-1584224549374-995cbac1ab62?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHx2aWRlbyUyMHByb2R1Y3Rpb258ZW58MHx8fHwxNzYwNzYwNjI2fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "video production"
+    },
+    {
+      "id": "payment-qr",
+      "description": "UPI payment QR code for Harsha Lalani.",
+      "imageUrl": "https://picsum.photos/seed/qr/400/400",
+      "imageHint": "payment qr"
+    },
+    {
+      "id": "founder-photo",
+      "description": "Preeti Lalani - Founder & CEO of BookYourBrands",
+      "imageUrl": "/founder.jpg",
+      "imageHint": "professional woman"
+    }
+  ]
+}

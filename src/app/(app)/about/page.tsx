@@ -1,7 +1,8 @@
+
 'use client';
 
 import Image from 'next/image';
-import { MapPin, Target, Users, Award, Globe } from 'lucide-react';
+import { MapPin, Target, Users, Award, Globe, Info } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default function AboutPage() {
