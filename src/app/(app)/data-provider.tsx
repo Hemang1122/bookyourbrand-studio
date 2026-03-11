@@ -2,7 +2,7 @@
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
-import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus, TimerSession, Chat, ChatMessage, ClientDocument, ClientPackage, ProjectFolder } from '@/lib/types';
+import type { Project, Task, User, Client, TaskStatus, ScrumUpdate, ProjectFile, Notification, TaskRemark, PackageName, ProjectStatus, TimerSession, Chat, ChatMessage, ClientDocument, ClientPackage, ProjectFolder, MessageType } from '@/lib/types';
 import { users as initialUsers, clients as initialClients, projects as initialProjects, tasks as initialTasks } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -298,7 +298,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
       senderName: currentUser.name, 
       senderRole: currentUser.role, 
       senderAvatar: currentUser.photoURL || currentUser.avatar,
-      type: mediaUrl ? 'media' : 'text', 
+      type: (mediaUrl ? 'media' : 'text') as MessageType, 
       text: messageText, 
       mediaURL: mediaUrl || null, 
       readBy: [authUid], 
@@ -312,7 +312,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
         text: messageText, 
         senderId: authUid, 
         senderName: currentUser.name, 
-        type: mediaUrl ? 'media' : 'text', 
+        type: (mediaUrl ? 'media' : 'text') as MessageType, 
         timestamp: serverTimestamp(), 
         readBy: [authUid] 
       }, 

@@ -217,7 +217,7 @@ export interface TimerSession {
   date: string; // YYYY-MM-DD
 }
 
-export type MessageType = 'text' | 'image' | 'video' | 'voice' | 'file';
+export type MessageType = 'text' | 'image' | 'video' | 'voice' | 'file' | 'media';
 
 export type ChatLastMessage = {
   text: string;
