@@ -3,7 +3,7 @@
 import { useState, useRef, useMemo } from 'react';
 import type { ProjectFile, ProjectFolder } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Trash2, File as FileIcon, Upload, Loader2, Download, X, FolderPlus, Folder, ChevronRight, Info, Save, Play, Eye } from 'lucide-react';
+import { Trash2, File as FileIcon, Upload, Loader2, Download, X, FolderPlus, Folder, ChevronRight, Info, Save, Play, Eye, Link as LinkIcon, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/firebase/provider';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { AddFileLinkDialog } from './add-file-link-dialog';
 
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
 
@@ -48,6 +49,8 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
   const isVideo = (fileName: string) => /\.(mp4|webm|mov|mkv)$/i.test(fileName);
 
   const getDownloadUrl = (file: ProjectFile) => {
+    // If it's a link, return as is
+    if (file.type === 'link') return file.url;
     // If it's a NAS file (no shareUrl), use our proxy
     if (file.type === 'nas' && file.url.startsWith('/CLIENT FILES')) {
       return `/api/nas-download-redirect?path=${encodeURIComponent(file.url)}`;
@@ -136,6 +139,22 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
     }
   };
 
+  const handleSaveLink = (name: string, url: string) => {
+    if (!user) return;
+    addFile({
+      projectId,
+      folderId: currentFolderId,
+      name,
+      url,
+      uploadedById: user.id,
+      uploadedByName: user.name,
+      uploadedByAvatar: user.avatar,
+      type: 'link',
+      size: 'External Link'
+    });
+    toast({ title: '✅ Link Added', description: `"${name}" added to workspace.` });
+  };
+
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
     setIsCreatingFolder(true);
@@ -191,10 +210,13 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
       className="group rounded-xl p-4 flex items-center gap-4 bg-[#13131F] border border-white/5 hover:border-purple-500/30 transition-all relative"
     >
       <div className="p-3 rounded-xl bg-white/5 border border-white/5 cursor-pointer" onClick={() => setPreviewFile(file)}>
-        <FileIcon className="h-6 w-6 text-gray-400" />
+        {file.type === 'link' ? <LinkIcon className="h-6 w-6 text-blue-400" /> : <FileIcon className="h-6 w-6 text-gray-400" />}
       </div>
       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setPreviewFile(file)}>
-        <p className="text-sm font-medium text-white truncate pr-6">{file.name}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium text-white truncate pr-2">{file.name}</p>
+          {file.type === 'link' && <Badge variant="outline" className="text-[8px] h-4 px-1.5 py-0 border-blue-500/30 text-blue-400 bg-blue-500/5">LINK</Badge>}
+        </div>
         <p className="text-[10px] text-muted-foreground mt-0.5">
           {file.size || 'NAS'} · {file.uploadedAt ? format(file.uploadedAt?.toDate ? file.uploadedAt.toDate() : new Date(file.uploadedAt), 'MMM d') : 'Recently'}
         </p>
@@ -204,9 +226,9 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-purple-400" onClick={(e) => openInfo(e, file)}>
           <Info className={cn("h-4 w-4", file.description && "text-purple-400 fill-purple-400/20")} />
         </Button>
-        <a href={getDownloadUrl(file)} download={file.name}>
+        <a href={getDownloadUrl(file)} target={file.type === 'link' ? "_blank" : undefined} download={file.type !== 'link' ? file.name : undefined} rel={file.type === 'link' ? "noopener noreferrer" : undefined}>
           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-white">
-            <Download className="h-4 w-4" />
+            {file.type === 'link' ? <ExternalLink className="h-4 w-4" /> : <Download className="h-4 w-4" />}
           </Button>
         </a>
         <AlertDialog>
@@ -274,10 +296,12 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
               <div className="flex items-center gap-2">
                 <a 
                   href={getDownloadUrl(previewFile)} 
-                  download={previewFile.name}
+                  target={previewFile.type === 'link' ? "_blank" : undefined}
+                  download={previewFile.type !== 'link' ? previewFile.name : undefined}
+                  rel={previewFile.type === 'link' ? "noopener noreferrer" : undefined}
                 >
                   <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
-                    <Download className="h-4 w-4 mr-2" /> Download
+                    {previewFile.type === 'link' ? <><ExternalLink className="h-4 w-4 mr-2" /> Open Link</> : <><Download className="h-4 w-4 mr-2" /> Download</>}
                   </Button>
                 </a>
                 <Button variant="ghost" size="icon" onClick={() => setPreviewFile(null)}>
@@ -287,7 +311,20 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
             </div>
             
             <div className="p-4 flex items-center justify-center min-h-[300px] flex-1 bg-black/20 overflow-auto">
-              {isVideo(previewFile.name) ? (
+              {previewFile.type === 'link' ? (
+                <div className="text-center p-12">
+                  <div className="w-20 h-20 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-blue-500/20">
+                    <LinkIcon className="h-10 w-10 text-blue-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2">{previewFile.name}</h3>
+                  <p className="text-gray-400 mb-8 max-w-md mx-auto">This is an external link. Click the button below to visit the external site.</p>
+                  <a href={previewFile.url} target="_blank" rel="noopener noreferrer">
+                    <Button size="lg" className="bg-blue-600 hover:bg-blue-700 h-14 px-8 rounded-xl font-bold">
+                      <ExternalLink className="h-5 w-5 mr-3" /> Visit External Link
+                    </Button>
+                  </a>
+                </div>
+              ) : isVideo(previewFile.name) ? (
                 <div className="text-center">
                   <Play className="h-16 w-16 mx-auto mb-4 text-purple-400" />
                   <p className="text-white mb-4">Video preview not available</p>
@@ -298,7 +335,7 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
                   </a>
                 </div>
               ) : isImage(previewFile.name) ? (
-                <img src={`/api/nas-preview?path=${encodeURIComponent(previewFile.url)}`} alt={previewFile.name} className="max-w-full max-h-[65vh] rounded-xl object-contain" />
+                <img src={previewFile.type === 'nas' ? `/api/nas-preview?path=${encodeURIComponent(previewFile.url)}` : previewFile.url} alt={previewFile.name} className="max-w-full max-h-[65vh] rounded-xl object-contain" />
               ) : (
                 <div className="text-center">
                   <FileIcon className="h-16 w-16 mx-auto mb-4 text-purple-400" />
@@ -367,6 +404,12 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          <AddFileLinkDialog onAddFile={handleSaveLink}>
+            <Button variant="outline" size="sm" className="border-white/10 hover:bg-white/5 text-white">
+              <LinkIcon className="h-4 w-4 mr-2" /> Add Link
+            </Button>
+          </AddFileLinkDialog>
 
           <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
           <Button 
@@ -450,7 +493,7 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
       {folders.length === 0 && filesInView.length === 0 && (!currentFolderId ? ungroupedFiles.length === 0 : true) && (
         <div className="col-span-full py-20 text-center rounded-2xl border border-dashed border-white/5">
           <FileIcon className="h-10 w-10 text-muted-foreground/20 mx-auto mb-4" />
-          <p className="text-gray-500">Empty workspace. Create a folder or upload a file.</p>
+          <p className="text-gray-500">Empty workspace. Create a folder, upload a file, or add a link.</p>
         </div>
       )}
     </div>
