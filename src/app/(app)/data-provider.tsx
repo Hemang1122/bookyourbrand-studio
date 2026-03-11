@@ -1,4 +1,3 @@
-
 'use client';
 
 import { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
@@ -533,7 +532,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   };
   
   const markNotificationsAsRead = useCallback(async (type?: 'system' | 'chat') => {
-    if (!firestore || !authUid || notificationsData.length === 0) return;
+    if (!firestore || !authUid || !notificationsData || notificationsData.length === 0) return;
     const batch = writeBatch(firestore);
     notificationsData.filter(n => !(n.readBy || []).includes(authUid) && (!type || n.type === type)).forEach(n => {
       batch.update(doc(firestore, 'notifications', n.id), { readBy: arrayUnion(authUid) });
