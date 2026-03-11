@@ -51,7 +51,7 @@ type DataContextType = {
   deleteFolder: (folderId: string) => Promise<void>;
   addClientDocument: (document: Omit<ClientDocument, 'id' | 'uploadedAt' | 'uploadedById' | 'url' | 'storagePath' | 'fileName'>, file: File) => Promise<void>;
   deleteClientDocument: (document: ClientDocument) => Promise<void>;
-  addNotification: (message: string, url: string, recipients: string[], type: 'system' | 'chat', chatId?: string) => void;
+  addNotification: (message: string, url: string, recipients: string[], type: 'system' | 'chat' | 'missed_call', chatId?: string) => void;
   markNotificationsAsRead: (type?: 'system' | 'chat') => void;
   markChatNotificationsAsRead: (chatId: string) => void;
 };
@@ -66,7 +66,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   
   const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
 
-  const addNotification = useCallback((message: string, url: string, recipients: string[], type: 'system' | 'chat' = 'system', chatId?: string) => {
+  const addNotification = useCallback((message: string, url: string, recipients: string[], type: 'system' | 'chat' | 'missed_call' = 'system', chatId?: string) => {
     if (!firestore || recipients.length === 0) return;
     const newNotif: Omit<Notification, 'id'> = {
       message,
@@ -495,7 +495,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   const addFile = (fileData: Omit<ProjectFile, 'id'>) => {
     if (!firestore) return;
-    setDocumentNonBlocking(doc(collection(firestore, 'files')), { ...fileData, uploadedAt: Timestamp.now() }, {});
+    setDocumentNonBlocking(doc(collection(firestore, 'files')), { ...fileData }, {});
   }
 
   const updateFile = (fileId: string, fileData: Partial<ProjectFile>) => {

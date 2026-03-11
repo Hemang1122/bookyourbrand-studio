@@ -4,6 +4,7 @@ import Busboy from 'busboy';
 import { Readable } from 'stream';
 import * as fs from 'fs';
 import * as path from 'path';
+import axios from 'axios';
 
 const NAS_URL = 'https://byb.i234.me:5001';
 const USERNAME = 'crm-uploads';
@@ -17,14 +18,20 @@ const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 async function getSession(): Promise<string> {
   if (cachedSid) return cachedSid;
-  const params = new URLSearchParams({
-    api: 'SYNO.API.Auth', version: '6', method: 'login',
-    account: USERNAME, passwd: PASSWORD, session: 'FileStation', format: 'sid'
+  const res = await axios.get(`${NAS_URL}/webapi/auth.cgi`, {
+    params: {
+      api: 'SYNO.API.Auth',
+      version: 6,
+      method: 'login',
+      account: USERNAME,
+      passwd: PASSWORD,
+      session: 'FileStation',
+      format: 'sid'
+    },
+    httpsAgent
   });
-  const res = await fetch(`${NAS_URL}/webapi/auth.cgi?${params}`, { agent: httpsAgent } as any);
-  const data = await res.json();
-  if (!data.success) throw new Error('NAS login failed');
-  cachedSid = data.data.sid;
+  if (!res.data.success) throw new Error('NAS login failed');
+  cachedSid = res.data.data.sid;
   return cachedSid!;
 }
 
@@ -89,13 +96,14 @@ async function uploadCompleteFileToNAS(sid: string, fileBuffer: Buffer, fileName
   parts.push(fileBuffer);
   parts.push(Buffer.from(`\r\n--${boundary}--\r\n`));
   const body = Buffer.concat(parts);
-  const uploadRes = await fetch(`${NAS_URL}/webapi/entry.cgi?_sid=${sid}`, {
-    method: 'POST',
+  
+  const uploadRes = await axios.post(`${NAS_URL}/webapi/entry.cgi?_sid=${sid}`, body, {
     headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
-    body,
-    agent: httpsAgent
-  } as any);
-  return await uploadRes.json();
+    httpsAgent,
+    maxContentLength: Infinity,
+    maxBodyLength: Infinity,
+  });
+  return uploadRes.data;
 }
 
 export async function POST(req: NextRequest) {

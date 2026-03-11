@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AddFileLinkDialog } from './add-file-link-dialog';
+import { Timestamp } from 'firebase/firestore';
 
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
 
@@ -48,18 +49,21 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
   const isImage = (fileName: string) => /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
   const isVideo = (fileName: string) => /\.(mp4|webm|mov|mkv)$/i.test(fileName);
 
+  const getUploadedAtDate = (uploadedAt: any): Date => {
+    if (!uploadedAt) return new Date(0);
+    if (uploadedAt?.toDate) return uploadedAt.toDate();
+    if (uploadedAt instanceof Date) return uploadedAt;
+    return new Date(0);
+  };
+
   const getDownloadUrl = (file: ProjectFile) => {
-    // If it's a link, return as is
     if (file.type === 'link') return file.url;
-    // If it's a NAS file (no shareUrl), use our proxy
     if (file.type === 'nas' && file.url.startsWith('/CLIENT FILES')) {
       return `/api/nas-download-redirect?path=${encodeURIComponent(file.url)}`;
     }
-    // Otherwise use the URL directly
     return file.url;
   };
 
-  // Folders for this project
   const folders = useMemo(() => 
     allFolders.filter(f => f.projectId === projectId), 
   [allFolders, projectId]);
@@ -68,12 +72,10 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
     folders.find(f => f.id === currentFolderId), 
   [folders, currentFolderId]);
 
-  // Files specifically inside the currently selected folder (or root files with folderId === null)
   const filesInView = useMemo(() => 
     allFiles.filter(f => f.projectId === projectId && f.folderId === currentFolderId), 
   [allFiles, projectId, currentFolderId]);
 
-  // "Legacy" or "Ungrouped" files that have no folderId field at all, or it's empty
   const ungroupedFiles = useMemo(() => 
     allFiles.filter(f => f.projectId === projectId && !f.folderId), 
   [allFiles, projectId]);
@@ -126,7 +128,8 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
         uploadedByName: user.name,
         uploadedByAvatar: user.avatar,
         type: 'nas',
-        size: `${(file.size / 1024 / 1024).toFixed(2)} MB`
+        size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+        uploadedAt: Timestamp.now(),
       });
 
       toast({ title: '✅ File Uploaded', description: `${file.name} uploaded successfully.` });
@@ -150,7 +153,8 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
       uploadedByName: user.name,
       uploadedByAvatar: user.avatar,
       type: 'link',
-      size: 'External Link'
+      size: 'External Link',
+      uploadedAt: Timestamp.now(),
     });
     toast({ title: '✅ Link Added', description: `"${name}" added to workspace.` });
   };
@@ -218,7 +222,7 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
           {file.type === 'link' && <Badge variant="outline" className="text-[8px] h-4 px-1.5 py-0 border-blue-500/30 text-blue-400 bg-blue-500/5">LINK</Badge>}
         </div>
         <p className="text-[10px] text-muted-foreground mt-0.5">
-          {file.size || 'NAS'} · {file.uploadedAt ? format(file.uploadedAt?.toDate ? file.uploadedAt.toDate() : new Date(file.uploadedAt), 'MMM d') : 'Recently'}
+          {file.size || 'NAS'} · {file.uploadedAt ? format(getUploadedAtDate(file.uploadedAt), 'MMM d') : 'Recently'}
         </p>
       </div>
       
@@ -398,7 +402,7 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsNewFolderOpen(false)}>Cancel</Button>
                 <Button onClick={handleCreateFolder} disabled={isCreatingFolder || !newFolderName.trim()}>
-                  {isCreatingFolder ? <Loader2 className="mr-2 h-4 w-4 animate-spin mr-2" /> : null}
+                  {isCreatingFolder ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Create
                 </Button>
               </DialogFooter>
@@ -436,7 +440,6 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
 
       {/* Main Explorer Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {/* Render Folders (only in root) */}
         {!currentFolderId && folders.map(folder => (
           <div 
             key={folder.id} 
@@ -470,11 +473,10 @@ export function FileManager({ projectId, clientName = 'Unknown Client' }: FileMa
           </div>
         ))}
 
-        {/* Render Folder-Specific Files */}
         {filesInView.map(file => renderFileCard(file))}
       </div>
 
-      {/* Ungrouped/Legacy Files Section (Only visible at Root) */}
+      {/* Ungrouped/Legacy Files Section */}
       {!currentFolderId && ungroupedFiles.length > 0 && (
         <div className="space-y-4 pt-8 border-t border-white/5">
           <div className="flex items-center gap-2">

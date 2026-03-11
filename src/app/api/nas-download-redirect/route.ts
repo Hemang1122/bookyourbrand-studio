@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import https from 'https';
+import axios from 'axios';
 
 const NAS_URL = 'https://byb.i234.me:5001';
 const USERNAME = 'crm-uploads';
@@ -9,16 +10,20 @@ const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 export const dynamic = 'force-dynamic';
 
 async function getSession(): Promise<string> {
-  const params = new URLSearchParams({
-    api: 'SYNO.API.Auth', version: '6', method: 'login',
-    account: USERNAME, passwd: PASSWORD, session: 'FileStation', format: 'sid'
+  const res = await axios.get(`${NAS_URL}/webapi/auth.cgi`, {
+    params: {
+      api: 'SYNO.API.Auth',
+      version: 6,
+      method: 'login',
+      account: USERNAME,
+      passwd: PASSWORD,
+      session: 'FileStation',
+      format: 'sid'
+    },
+    httpsAgent
   });
-  const res = await fetch(`${NAS_URL}/webapi/auth.cgi?${params}`, {
-    agent: httpsAgent
-  } as any);
-  const data = await res.json();
-  if (!data.success) throw new Error('NAS login failed');
-  return data.data.sid;
+  if (!res.data.success) throw new Error('NAS login failed');
+  return res.data.data.sid;
 }
 
 export async function GET(req: NextRequest) {

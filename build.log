@@ -1,0 +1,37 @@
+
+> nextn@0.1.0 build
+> NODE_ENV=production next build
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /home/user/package-lock.json as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * /home/user/studio/package-lock.json
+
+   ▲ Next.js 15.5.12
+   - Environments: .env.local, .env
+   - Experiments (use with caution):
+     · serverActions
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 37.5s
+   Linting and checking validity of types ...
+Failed to compile.
+
+./src/app/(app)/projects/[id]/components/file-manager.tsx:221:122
+Type error: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'Timestamp' is not assignable to parameter of type 'string | number | Date'.
+      Type 'Timestamp' is missing the following properties from type 'Date': toDateString, toTimeString, toLocaleDateString, toLocaleTimeString, and 36 more.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'Timestamp' is not assignable to parameter of type 'string | number'.
+
+[0m [90m 219 |[39m         [33m<[39m[33m/[39m[33mdiv[39m[33m>[39m
+ [90m 220 |[39m         [33m<[39m[33mp[39m className[33m=[39m[32m"text-[10px] text-muted-foreground mt-0.5"[39m[33m>[39m
+[31m[1m>[22m[39m[90m 221 |[39m           {file[33m.[39msize [33m||[39m [32m'NAS'[39m} · {file[33m.[39muploadedAt [33m?[39m format(file[33m.[39muploadedAt[33m?[39m[33m.[39mtoDate [33m?[39m file[33m.[39muploadedAt[33m.[39mtoDate() [33m:[39m [36mnew[39m [33mDate[39m(file[33m.[39muploadedAt)[33m,[39m [32m'MMM d'[39m) [33m:[39m [32m'Recently'[39m}
+ [90m     |[39m                                                                                                                          [31m[1m^[22m[39m
+ [90m 222 |[39m         [33m<[39m[33m/[39m[33mp[39m[33m>[39m
+ [90m 223 |[39m       [33m<[39m[33m/[39m[33mdiv[39m[33m>[39m
+ [90m 224 |[39m       [0m
+Next.js build worker exited with code: 1 and signal: null

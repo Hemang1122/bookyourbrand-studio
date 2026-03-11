@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Check, PhoneMissed } from 'lucide-react';
+import { Bell, PhoneMissed } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -9,7 +9,6 @@ import {
 } from '@/components/ui/popover';
 import { useData } from './data-provider';
 import { useAuth } from '@/firebase/provider';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatDistanceToNow, compareDesc } from 'date-fns';
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -22,31 +21,26 @@ export function NotificationBell() {
   const { notifications, markNotificationsAsRead, chats, isLoading } = useData();
   const prevUnreadCountRef = useRef<number>();
 
-  // Memoize notifications to prevent re-renders, handle null safety
   const allNotifications = useMemo(() => {
     if (!Array.isArray(notifications)) return [];
     return notifications;
   }, [notifications]);
 
-  // Sort notifications once
   const sortedNotifications = useMemo(() => {
     return [...allNotifications].sort((a, b) => {
-        const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(0);
-        const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(0);
-        return compareDesc(dateA, dateB);
+      const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(0);
+      const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(0);
+      return compareDesc(dateA, dateB);
     });
   }, [allNotifications]);
 
-
   const unreadNotificationsCount = useMemo(() => {
     if (!user) return 0;
-    
-    // Count unread notifications
+
     const unreadNotifs = sortedNotifications.filter(
       n => !(n.readBy || []).includes(user.id)
     ).length;
-    
-    // Count unread chat messages manually for debugging
+
     let unreadChats = 0;
     if (chats && Array.isArray(chats)) {
       chats.forEach(chat => {
@@ -55,36 +49,26 @@ export function NotificationBell() {
         }
       });
     }
-    
-    console.log('Unread notifs:', unreadNotifs, 'Unread chats:', unreadChats, 'Total:', unreadNotifs + unreadChats);
-    
+
     return unreadNotifs + unreadChats;
   }, [sortedNotifications, user, chats]);
 
   useEffect(() => {
-    // On the first run, the ref is undefined. We'll set it and skip playing a sound.
     if (prevUnreadCountRef.current === undefined) {
       prevUnreadCountRef.current = unreadNotificationsCount;
       return;
     }
-
-    // If the new unread count is greater than the previous one, it means a new notification has arrived.
     if (unreadNotificationsCount > prevUnreadCountRef.current) {
       sounds.notification();
     }
-
-    // Update the ref to the current count for the next check.
     prevUnreadCountRef.current = unreadNotificationsCount;
   }, [unreadNotificationsCount]);
 
-
   const handleOpenChange = (open: boolean) => {
-    // When the popover is closed, mark notifications as read.
     if (!open && unreadNotificationsCount > 0) {
       markNotificationsAsRead();
     }
   };
-
 
   if (!user) return null;
 
@@ -113,39 +97,41 @@ export function NotificationBell() {
           </div>
           <ScrollArea className="h-96">
             {isLoading ? (
-               <div className="p-4 space-y-4">
-                  <div className="space-y-2">
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-3 w-2/3" />
-                  </div>
-                   <div className="space-y-2">
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-3 w-1/2" />
-                  </div>
-                   <div className="space-y-2">
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-3 w-3/4" />
-                  </div>
-               </div>
+              <div className="p-4 space-y-4">
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-3 w-2/3" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-3 w-3/4" />
+                </div>
+              </div>
             ) : sortedNotifications.length > 0 ? (
               <div className="divide-y">
                 {sortedNotifications.map(notif => {
                   const timestampDate = notif.timestamp?.toDate ? notif.timestamp.toDate() : new Date(0);
                   const isUnread = !(notif.readBy || []).includes(user.id);
-                  
-                  if (notif.type === 'missed_call') {
+                  const notifAny = notif as any;
+
+                  // Handle missed_call type via cast since it's not in the base Notification type
+                  if (notifAny.type === 'missed_call') {
                     return (
-                      <Link href={notif.url || '#'} key={notif.id} className="block">
+                      <Link href={notifAny.url || '#'} key={notifAny.id} className="block">
                         <div className={`flex items-center gap-3 p-4 ${isUnread ? 'bg-red-500/10' : ''} hover:bg-muted/50 border-l-2 ${isUnread ? 'border-red-500' : 'border-transparent'}`}>
                           <div className="h-10 w-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
                             <PhoneMissed className="h-5 w-5 text-red-400" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-red-400">
-                              Missed call from {(notif as any).senderName || 'Someone'}
+                              Missed call from {notifAny.senderName || 'Someone'}
                             </p>
                             <p className="text-xs text-muted-foreground mt-1">
-                                {formatDistanceToNow(timestampDate, { addSuffix: true })}
+                              {formatDistanceToNow(timestampDate, { addSuffix: true })}
                             </p>
                           </div>
                         </div>
@@ -158,11 +144,11 @@ export function NotificationBell() {
                       <div className={`p-4 ${isUnread ? 'bg-accent/50' : ''} hover:bg-muted/50`}>
                         <p className="text-sm">{notif.message}</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                            {formatDistanceToNow(timestampDate, { addSuffix: true })}
+                          {formatDistanceToNow(timestampDate, { addSuffix: true })}
                         </p>
                       </div>
                     </Link>
-                  )
+                  );
                 })}
               </div>
             ) : (
