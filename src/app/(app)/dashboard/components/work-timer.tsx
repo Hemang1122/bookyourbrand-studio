@@ -39,7 +39,7 @@ type WorkTimerProps = {
 export function WorkTimer({ onTimeUpdate }: WorkTimerProps) {
   const { user } = useAuth();
   const userId = user?.id;
-  const { addTimerSession, users } = useData();
+  const { addTimerSession } = useData();
 
   const [isRunning, setIsRunning] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -48,7 +48,7 @@ export function WorkTimer({ onTimeUpdate }: WorkTimerProps) {
 
   // State for the session saving dialog
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
-  const [sessionToSave, setSessionToSave] = useState<Omit<TimerSession, 'name' | 'date' | 'userId'> | null>(null);
+  const [sessionToSave, setSessionToSave] = useState<Omit<TimerSession, 'name' | 'date'> | null>(null);
 
   // Expose time update to parent
   useEffect(() => {
@@ -132,7 +132,7 @@ export function WorkTimer({ onTimeUpdate }: WorkTimerProps) {
     setLocalStorage('timerCurrentSessionStart', userId, 0);
     
     // Prepare session for saving and open dialog
-    setSessionToSave({ id: uuidv4(), startTime, endTime });
+    setSessionToSave({ id: uuidv4(), userId, startTime, endTime });
     setIsSaveDialogOpen(true);
   };
 
@@ -142,7 +142,6 @@ export function WorkTimer({ onTimeUpdate }: WorkTimerProps) {
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const newSession: Omit<TimerSession, 'id'> = {
       ...sessionToSave,
-      userId,
       name,
       date: todayStr,
     };
