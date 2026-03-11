@@ -25,25 +25,29 @@ export async function POST(request: NextRequest) {
     try {
       // 2. Authenticate
       sid = await nasLogin(nasUrl);
-      
+
+      if (!sid) {
+        return NextResponse.json({ success: false, error: 'NAS authentication failed' }, { status: 503 });
+      }
+
       // 3. Define path (must start with a shared folder name)
       const folderPath = `/CRM-Uploads/projects/${projectId}`;
-      
+
       // 4. Execute Upload
       const uploadResult = await nasUploadFile(nasUrl, sid, folderPath, file.name, buffer);
-      
+
       if (uploadResult.success) {
         console.log(`✅ Successfully uploaded ${file.name} to NAS`);
-        return NextResponse.json({ 
-          success: true, 
+        return NextResponse.json({
+          success: true,
           fileName: file.name,
           path: `${folderPath}/${file.name}`
         });
       } else {
         console.error('❌ NAS Upload Response Error:', uploadResult.error);
-        return NextResponse.json({ 
-          success: false, 
-          error: `NAS Error Code: ${uploadResult.error?.code || 'Unknown'}` 
+        return NextResponse.json({
+          success: false,
+          error: `NAS Error Code: ${uploadResult.error?.code || 'Unknown'}`
         }, { status: 500 });
       }
     } finally {
@@ -55,9 +59,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('❌ NAS Upload API Route Exception:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: error.message || 'Internal Server Error' 
+    return NextResponse.json({
+      success: false,
+      error: error.message || 'Internal Server Error'
     }, { status: 500 });
   }
 }

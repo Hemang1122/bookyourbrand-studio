@@ -31,7 +31,9 @@ const multiSelectVariants = cva(
   }
 );
 
-interface MultiSelectProps extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof multiSelectVariants> {
+interface MultiSelectProps
+  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onChange'>,
+    VariantProps<typeof multiSelectVariants> {
   options: {
     label: string;
     value: string;
@@ -91,26 +93,26 @@ const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>(
             <CommandInput placeholder="Search..." />
             <CommandEmpty>No options found.</CommandEmpty>
             <CommandList>
-                <CommandGroup>
+              <CommandGroup>
                 {options.map((option) => (
-                    <CommandItem
+                  <CommandItem
                     key={option.value}
                     onSelect={() => {
-                        onChange(
+                      onChange(
                         selected.includes(option.value)
-                            ? selected.filter((item) => item !== option.value)
-                            : [...selected, option.value]
-                        );
-                        setOpen(true);
+                          ? selected.filter((item) => item !== option.value)
+                          : [...selected, option.value]
+                      );
+                      setOpen(true);
                     }}
-                    >
+                  >
                     <Check
-                        className={cn('mr-2 h-4 w-4', selected.includes(option.value) ? 'opacity-100' : 'opacity-0')}
+                      className={cn('mr-2 h-4 w-4', selected.includes(option.value) ? 'opacity-100' : 'opacity-0')}
                     />
                     {option.label}
-                    </CommandItem>
+                  </CommandItem>
                 ))}
-                </CommandGroup>
+              </CommandGroup>
             </CommandList>
           </Command>
         </PopoverContent>

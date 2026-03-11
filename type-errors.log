@@ -1,0 +1,18 @@
+src/app/(app/dashboard/components/team-dashboard.tsx(8,25): error TS2307: Cannot find module '../../data-provider' or its corresponding type declarations.
+src/app/(app/dashboard/components/team-dashboard.tsx(9,34): error TS2307: Cannot find module './daily-standup-card' or its corresponding type declarations.
+src/app/(app/dashboard/components/team-dashboard.tsx(20,28): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/app/(app/dashboard/components/team-dashboard.tsx(25,25): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/app/(app/dashboard/components/team-dashboard.tsx(32,39): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/app/(app/dashboard/components/team-dashboard.tsx(33,42): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/app/(app/dashboard/components/team-dashboard.tsx(34,41): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/app/(app/dashboard/components/team-dashboard.tsx(94,40): error TS7006: Parameter 'project' implicitly has an 'any' type.
+src/app/api/nas/upload/route.ts(33,56): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/components/theme-provider.tsx(5,41): error TS2307: Cannot find module 'next-themes/dist/types' or its corresponding type declarations.
+src/components/ui/multi-select.tsx(34,11): error TS2430: Interface 'MultiSelectProps' incorrectly extends interface 'ButtonHTMLAttributes<HTMLButtonElement>'.
+  Types of property 'onChange' are incompatible.
+    Type 'Dispatch<SetStateAction<string[]>>' is not assignable to type 'FormEventHandler<HTMLButtonElement>'.
+      Types of parameters 'value' and 'event' are incompatible.
+        Type 'FormEvent<HTMLButtonElement>' is not assignable to type 'SetStateAction<string[]>'.
+src/lib/data.ts(9,3): error TS2741: Property 'uid' is missing in type '{ id: string; name: string; email: string; avatar: string; role: "admin"; username: string; }' but required in type 'User'.
+src/lib/data.ts(10,3): error TS2741: Property 'uid' is missing in type '{ id: string; name: string; email: string; avatar: string; role: "team"; username: string; }' but required in type 'User'.
