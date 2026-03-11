@@ -31,8 +31,8 @@ export function NotificationBell() {
   // Sort notifications once
   const sortedNotifications = useMemo(() => {
     return [...allNotifications].sort((a, b) => {
-        const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp || 0);
-        const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp || 0);
+        const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(0);
+        const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(0);
         return compareDesc(dateA, dateB);
     });
   }, [allNotifications]);
@@ -130,7 +130,7 @@ export function NotificationBell() {
             ) : sortedNotifications.length > 0 ? (
               <div className="divide-y">
                 {sortedNotifications.map(notif => {
-                  const timestampDate = notif.timestamp?.toDate ? notif.timestamp.toDate() : new Date(notif.timestamp || 0);
+                  const timestampDate = notif.timestamp?.toDate ? notif.timestamp.toDate() : new Date(0);
                   const isUnread = !(notif.readBy || []).includes(user.id);
                   
                   if (notif.type === 'missed_call') {
