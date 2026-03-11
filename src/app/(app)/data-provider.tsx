@@ -551,7 +551,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   return (
     <DataContext.Provider value={{ 
-        projects, tasks, clients, teamMembers, users, scrumUpdates, files: files || [], folders, clientDocuments: clientDocuments || [], notifications: notificationsData, chats: chatsData || [], getOrCreateChat, sendMessage, timerSessions: timerSessions || [], clientPackages: clientPackages || [], addProject, addTask, deleteTask, updateProjectTeam, updateTaskStatus, createUser, deleteUser, updateClient, selectPackage, updateTeamMember, addScrumUpdate, addTimerSession, isLoading, deleteProject, updateProject, addFile, updateFile, deleteFile, addFolder, deleteFolder, addClientDocument, deleteClientDocument, addNotification, markNotificationsAsRead, markChatNotificationsAsRead
+        projects, tasks, clients, teamMembers, users, scrumUpdates, files: files || [], folders, clientDocuments: clientDocuments || [], notifications: notificationsData || [], chats: chatsData || [], getOrCreateChat, sendMessage, timerSessions: timerSessions || [], clientPackages: clientPackages || [], addProject, addTask, deleteTask, updateProjectTeam, updateTaskStatus, createUser, deleteUser, updateClient, selectPackage, updateTeamMember, addScrumUpdate, addTimerSession, isLoading, deleteProject, updateProject, addFile, updateFile, deleteFile, addFolder, deleteFolder, addClientDocument, deleteClientDocument, addNotification, markNotificationsAsRead, markChatNotificationsAsRead
     }}>
       {children}
     </DataContext.Provider>
