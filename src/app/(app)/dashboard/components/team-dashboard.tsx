@@ -1,17 +1,17 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ListTodo, Clock, FolderKanban, ArrowRight } from 'lucide-react';
 import { useData } from '../../data-provider';
 import { useAuth } from '@/firebase/provider';
-import { useMemo } from 'react';
 import { EditorResponsibilityPanel } from './editor-responsibility-panel';
 import { ProjectCalendarCard } from './project-calendar-card';
 import { DailyStandupCard } from './daily-standup-card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { format, isToday } from 'date-fns';
+import { isToday } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 
 export function TeamDashboard() {
@@ -138,5 +138,3 @@ export function TeamDashboard() {
     </div>
   );
 }
-
-import { useState } from 'react';

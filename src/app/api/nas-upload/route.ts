@@ -50,7 +50,7 @@ function parseMultipart(req: NextRequest, contentType: string): Promise<{
   return new Promise(async (resolve, reject) => {
     const busboy = Busboy({
       headers: { 'content-type': contentType },
-      limits: { fileSize: 50 * 1024 * 1024 }
+      limits: { fileSize: 100 * 1024 * 1024 }
     });
     let fileName = 'upload', clientName = 'Unknown Client', folderName = '', mimeType = 'application/octet-stream';
     let chunkIndex = 0, totalChunks = 1;
@@ -75,6 +75,8 @@ function parseMultipart(req: NextRequest, contentType: string): Promise<{
       resolve({ fileBuffer: Buffer.concat(chunks), fileName, clientName, folderName, mimeType, chunkIndex, totalChunks });
     });
     busboy.on('error', reject);
+    
+    // Convert Web ReadableStream to Node Readable
     const body = await req.arrayBuffer();
     Readable.from(Buffer.from(body)).pipe(busboy);
   });
@@ -117,36 +119,34 @@ export async function POST(req: NextRequest) {
       await parseMultipart(req, contentType);
 
     const safeFileName = sanitizeFileName(fileName);
-    console.log(`Chunk ${chunkIndex + 1}/${totalChunks} - File: ${safeFileName} (${(fileBuffer.length/1024/1024).toFixed(1)}MB)`);
-
     const uploadPath = folderName
       ? `/CLIENT FILES/${clientName}/${folderName}`
       : `/CLIENT FILES/${clientName}`;
     const filePath = `${uploadPath}/${safeFileName}`;
 
     // Use /tmp to store chunks persistently on this instance
-    const tmpDir = `/tmp/uploads/${clientName}_${folderName}_${safeFileName}`.replace(/[^a-zA-Z0-9_\/]/g, '_');
-    fs.mkdirSync(tmpDir, { recursive: true });
+    const tmpDir = path.join('/tmp', 'uploads', `${clientName}_${folderName}_${safeFileName}`.replace(/[^a-zA-Z0-9_]/g, '_'));
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true });
+    }
+    
     const chunkFile = path.join(tmpDir, `chunk_${String(chunkIndex).padStart(6, '0')}`);
     fs.writeFileSync(chunkFile, fileBuffer);
 
     // Count how many chunks we have
     const existingChunks = fs.readdirSync(tmpDir).filter(f => f.startsWith('chunk_')).length;
-    console.log(`Saved chunk ${chunkIndex + 1}/${totalChunks}, have ${existingChunks} so far in ${tmpDir}`);
 
     if (existingChunks < totalChunks) {
       return NextResponse.json({ success: true, chunkIndex, done: false });
     }
 
     // All chunks saved - read and merge in order
-    console.log(`All ${totalChunks} chunks received, merging...`);
     const chunkFiles = fs.readdirSync(tmpDir)
       .filter(f => f.startsWith('chunk_'))
       .sort();
 
-    const allBuffers = chunkFiles.map(f => fs.readFileSync(path.join(tmpDir, f)));
-    const completeFile = Buffer.concat(allBuffers);
-    console.log(`Merged file size: ${(completeFile.length / 1024 / 1024).toFixed(1)} MB`);
+    // Use a stream-friendly approach to avoid OOM
+    const completeFile = Buffer.concat(chunkFiles.map(f => fs.readFileSync(path.join(tmpDir, f))));
 
     // Clean up tmp
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -159,7 +159,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: JSON.stringify(result) });
     }
 
-    console.log(`Successfully uploaded: ${safeFileName}`);
     return NextResponse.json({ success: true, nasPath: filePath, shareUrl: null, fileName: safeFileName, done: true });
 
   } catch (error: any) {

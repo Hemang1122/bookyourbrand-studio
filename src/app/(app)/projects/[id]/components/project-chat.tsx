@@ -20,7 +20,6 @@ import { useData } from '../../../data-provider';
 import { useSearchParams } from 'next/navigation';
 import { useVoiceRecorder } from '@/hooks/use-voice-recorder';
 import { useToast } from '@/hooks/use-toast';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { RecordingIndicator } from '@/components/recording-indicator';
 
 const EMOJI_OPTIONS = ['👍', '❤️', '😂', '😮', '🔥', '👏'];
@@ -95,7 +94,7 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { user: currentUser } = useAuth();
-  const { firestore, auth, firebaseApp, functions } = useFirebaseServices();
+  const { firestore, auth, firebaseApp } = useFirebaseServices();
   const { addNotification, markChatNotificationsAsRead, users } = useData();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -164,12 +163,10 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!newMessage.trim() || !firestore || !currentUser) return;
-
     if (currentUser.role === 'team') return;
 
     try {
       const messageText = newMessage.trim();
-      
       await addDoc(
         collection(firestore, 'projects', projectId, 'chat-messages'),
         {
@@ -183,7 +180,6 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
           type: 'text'
         }
       );
-
       sounds.messageSent();
       setNewMessage('');
       setTimeout(scrollToBottom, 100);
@@ -198,6 +194,11 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
 
     if (currentUser.role === 'team') {
       toast({ title: 'Permission Denied', description: 'Editors can only read messages', variant: 'destructive' });
+      return;
+    }
+
+    if (!firebaseApp) {
+      toast({ title: 'Upload Failed', description: 'Firebase not initialized', variant: 'destructive' });
       return;
     }
 
@@ -222,7 +223,6 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
         },
         async () => {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-
           await addDoc(collection(firestore, 'projects', projectId, 'chat-messages'), {
             text: file.name,
             senderId: currentUser.id,
@@ -237,7 +237,6 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
             readBy: [currentUser.id],
             reactions: {}
           });
-
           sounds.messageSent();
           setIsUploading(false);
           setUploadProgress(0);
@@ -255,6 +254,11 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
 
     if (currentUser.role === 'team') {
       toast({ title: 'Permission Denied', description: 'Editors can only read messages', variant: 'destructive' });
+      return;
+    }
+
+    if (!firebaseApp) {
+      toast({ title: 'Upload Failed', description: 'Firebase not initialized', variant: 'destructive' });
       return;
     }
 
@@ -279,7 +283,6 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
         },
         async () => {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-
           await addDoc(collection(firestore, 'projects', projectId, 'chat-messages'), {
             text: `🎤 Voice message`,
             senderId: currentUser.id,
@@ -292,7 +295,6 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
             readBy: [currentUser.id],
             reactions: {}
           });
-
           sounds.messageSent();
           setIsUploading(false);
           setUploadProgress(0);
@@ -308,7 +310,6 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
 
   const handleReaction = async (messageId: string, emoji: string) => {
     if (!firestore || !currentUser) return;
-    
     const msgRef = doc(firestore, 'projects', projectId, 'chat-messages', messageId);
     const msg = messages?.find(m => m.id === messageId);
     if (!msg) return;
@@ -359,35 +360,21 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
           <div className="flex items-center gap-3">
             <div className="relative">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={client.photoURL || PlaceHolderImages.find(p => p.id === client.avatar)?.imageUrl} />
+                <AvatarImage src={PlaceHolderImages.find(p => p.id === client.avatar)?.imageUrl} />
                 <AvatarFallback>{client.name?.charAt(0)}</AvatarFallback>
               </Avatar>
               <div className={cn("absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-[#13131F]", clientStatus?.isOnline ? "bg-green-500" : "bg-gray-500")} />
             </div>
             <div>
-              <p className="font-semibold text-sm text-white truncate max-w-[180px]">
-                {projectName}
-              </p>
-              <p className="text-[10px] text-gray-400">
-                {clientStatus?.isOnline ? 'Active now' : 'Offline'}
-              </p>
+              <p className="font-semibold text-sm text-white truncate max-w-[180px]">{projectName}</p>
+              <p className="text-[10px] text-gray-400">{clientStatus?.isOnline ? 'Active now' : 'Offline'}</p>
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-gray-400 hover:text-white"
-              onClick={() => setIsMinimized(!isMinimized)}
-            >
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-white" onClick={() => setIsMinimized(!isMinimized)}>
               {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-gray-400 hover:text-red-400"
-              onClick={() => setIsOpen(false)}
-            >
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-400" onClick={() => setIsOpen(false)}>
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -403,13 +390,7 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
                   const sender = [client as unknown as User, ...teamMembers].find(u => u.id === msg.senderId);
 
                   return (
-                    <div
-                      key={msg.id}
-                      className={cn(
-                        'flex gap-2',
-                        isCurrentUser ? 'justify-end' : 'justify-start'
-                      )}
-                    >
+                    <div key={msg.id} className={cn('flex gap-2', isCurrentUser ? 'justify-end' : 'justify-start')}>
                       {!isCurrentUser && (
                         <Avatar className="h-8 w-8 shrink-0">
                           <AvatarImage src={sender?.photoURL || PlaceHolderImages.find(p => p.id === sender?.avatar)?.imageUrl} />
@@ -423,14 +404,12 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
                         )}
                         
                         <div className="group relative">
-                          <div
-                            className={cn(
-                              'px-3 py-2 rounded-2xl text-sm break-words',
-                              isCurrentUser
-                                ? 'bg-gradient-to-br from-primary to-pink-500 text-white rounded-br-sm shadow-lg shadow-primary/10'
-                                : 'bg-[#1E1E2A] border border-white/10 text-gray-200 rounded-bl-sm'
-                            )}
-                          >
+                          <div className={cn(
+                            'px-3 py-2 rounded-2xl text-sm break-words',
+                            isCurrentUser
+                              ? 'bg-gradient-to-br from-primary to-pink-500 text-white rounded-br-sm shadow-lg shadow-primary/10'
+                              : 'bg-[#1E1E2A] border border-white/10 text-gray-200 rounded-bl-sm'
+                          )}>
                             {msg.type === 'media' && msg.mediaURL && (
                               <div className="space-y-2">
                                 {(msg as any).mediaType?.startsWith('image/') ? (
@@ -440,18 +419,11 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
                                 ) : (msg as any).mediaType?.startsWith('video/') ? (
                                   <video src={msg.mediaURL} controls className="max-w-full rounded-lg" />
                                 ) : (
-                                  <a 
-                                    href={msg.mediaURL} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 p-2 bg-black/20 rounded-lg hover:bg-black/30"
-                                  >
+                                  <a href={msg.mediaURL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 bg-black/20 rounded-lg hover:bg-black/30">
                                     <FileText className="h-4 w-4" />
                                     <div className="flex-1 min-w-0">
                                       <p className="text-xs font-semibold truncate">{(msg as any).fileName}</p>
-                                      <p className="text-[10px] opacity-60">
-                                        {((msg as any).fileSize / 1024).toFixed(1)} KB
-                                      </p>
+                                      <p className="text-[10px] opacity-60">{((msg as any).fileSize / 1024).toFixed(1)} KB</p>
                                     </div>
                                     <Download className="h-4 w-4" />
                                   </a>
@@ -460,11 +432,7 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
                             )}
 
                             {msg.type === 'voice' && msg.mediaURL && (
-                              <VoiceNotePlayer 
-                                audioUrl={msg.mediaURL} 
-                                duration={msg.duration || 0}
-                                isCurrentUser={isCurrentUser}
-                              />
+                              <VoiceNotePlayer audioUrl={msg.mediaURL} duration={msg.duration || 0} isCurrentUser={isCurrentUser} />
                             )}
 
                             {msg.text && (msg.type !== 'media' || (msg as any).mediaType?.startsWith('image/') === false) && (
@@ -485,11 +453,7 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
                               <PopoverContent className="w-auto p-1 border-primary/20 bg-[#1E1E2A] rounded-full shadow-2xl">
                                 <div className="flex gap-1">
                                   {EMOJI_OPTIONS.map(emoji => (
-                                    <button
-                                      key={emoji}
-                                      onClick={() => handleReaction(msg.id, emoji)}
-                                      className="text-xl hover:scale-125 transition-transform p-1"
-                                    >
+                                    <button key={emoji} onClick={() => handleReaction(msg.id, emoji)} className="text-xl hover:scale-125 transition-transform p-1">
                                       {emoji}
                                     </button>
                                   ))}
@@ -521,9 +485,7 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
                           )}
                         </div>
 
-                        <p className="text-[9px] text-gray-500 mt-1">
-                          {format(date, 'p')}
-                        </p>
+                        <p className="text-[9px] text-gray-500 mt-1">{format(date, 'p')}</p>
                       </div>
                     </div>
                   );
