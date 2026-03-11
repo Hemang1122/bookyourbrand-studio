@@ -7,13 +7,10 @@ const USERNAME = 'crm-uploads';
 const PASSWORD = '0TYuOj>a';
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
-let cachedSid: string | null = null;
-
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
 async function getSession(): Promise<string> {
-  cachedSid = null; // Always fresh session for downloads
   const res = await axios.get(`${NAS_URL}/webapi/auth.cgi`, {
     params: {
       api: 'SYNO.API.Auth',
@@ -27,8 +24,7 @@ async function getSession(): Promise<string> {
     httpsAgent
   });
   if (!res.data.success) throw new Error('NAS login failed');
-  cachedSid = res.data.data.sid;
-  return cachedSid!;
+  return res.data.data.sid;
 }
 
 export async function GET(req: NextRequest) {
@@ -37,7 +33,6 @@ export async function GET(req: NextRequest) {
     const filePath = searchParams.get('path');
     if (!filePath) return NextResponse.json({ error: 'No path provided' }, { status: 400 });
 
-    // If it's a full URL, redirect
     if (filePath.startsWith('http')) {
       return NextResponse.redirect(filePath);
     }
@@ -45,8 +40,7 @@ export async function GET(req: NextRequest) {
     const sid = await getSession();
     const nasUrl = `${NAS_URL}/webapi/entry.cgi`;
     
-    console.log('Downloading from NAS for preview:', filePath);
-
+    // Request a stream from NAS instead of a full buffer
     const fileRes = await axios.get(nasUrl, {
       params: {
         api: 'SYNO.FileStation.Download',
@@ -56,20 +50,17 @@ export async function GET(req: NextRequest) {
         mode: 'download',
         _sid: sid
       },
-      responseType: 'arraybuffer',
+      responseType: 'stream',
       httpsAgent
     });
 
     const contentType = fileRes.headers['content-type'] || 'application/octet-stream';
     const fileName = filePath.split('/').pop() || 'download';
 
-    console.log('File buffered for preview, size:', fileRes.data.byteLength);
-
     return new NextResponse(fileRes.data, {
       headers: {
         'Content-Type': contentType,
         'Content-Disposition': `inline; filename="${encodeURIComponent(fileName)}"`,
-        'Content-Length': String(fileRes.data.byteLength),
         'Cache-Control': 'private, max-age=3600',
       }
     });

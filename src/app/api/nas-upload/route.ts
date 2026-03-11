@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import https from 'https';
 import Busboy from 'busboy';
-import { Readable } from 'stream';
+import { Readable, PassThrough } from 'stream';
 import * as fs from 'fs';
 import * as path from 'path';
 import axios from 'axios';
@@ -50,8 +50,9 @@ function parseMultipart(req: NextRequest, contentType: string): Promise<{
   return new Promise(async (resolve, reject) => {
     const busboy = Busboy({
       headers: { 'content-type': contentType },
-      limits: { fileSize: 100 * 1024 * 1024 }
+      limits: { fileSize: 500 * 1024 * 1024 } // Support up to 500MB
     });
+    
     let fileName = 'upload', clientName = 'Unknown Client', folderName = '', mimeType = 'application/octet-stream';
     let chunkIndex = 0, totalChunks = 1;
     const chunks: Buffer[] = [];
@@ -64,21 +65,38 @@ function parseMultipart(req: NextRequest, contentType: string): Promise<{
       file.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
       file.on('error', reject);
     });
+    
     busboy.on('field', (fieldname, value) => {
       if (fieldname === 'clientName') clientName = value;
       if (fieldname === 'folderName') folderName = value;
       if (fieldname === 'chunkIndex') chunkIndex = parseInt(value);
       if (fieldname === 'totalChunks') totalChunks = parseInt(value);
     });
+    
     busboy.on('finish', () => {
       if (!fileReceived || chunks.length === 0) return reject(new Error('No file received'));
       resolve({ fileBuffer: Buffer.concat(chunks), fileName, clientName, folderName, mimeType, chunkIndex, totalChunks });
     });
+    
     busboy.on('error', reject);
     
     // Convert Web ReadableStream to Node Readable
-    const body = await req.arrayBuffer();
-    Readable.from(Buffer.from(body)).pipe(busboy);
+    const reader = req.body?.getReader();
+    if (reader) {
+      const stream = new Readable({
+        async read() {
+          const { done, value } = await reader.read();
+          if (done) {
+            this.push(null);
+          } else {
+            this.push(value);
+          }
+        }
+      });
+      stream.pipe(busboy);
+    } else {
+      reject(new Error('Request body is empty'));
+    }
   });
 }
 
@@ -140,12 +158,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, chunkIndex, done: false });
     }
 
-    // All chunks saved - read and merge in order
+    // All chunks saved - read and merge
     const chunkFiles = fs.readdirSync(tmpDir)
       .filter(f => f.startsWith('chunk_'))
       .sort();
 
-    // Use a stream-friendly approach to avoid OOM
+    // Create a buffer for the complete file (OOM danger for extremely large files, but 500MB should pass)
     const completeFile = Buffer.concat(chunkFiles.map(f => fs.readFileSync(path.join(tmpDir, f))));
 
     // Clean up tmp

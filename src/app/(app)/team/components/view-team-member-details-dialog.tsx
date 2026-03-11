@@ -55,7 +55,7 @@ export function ViewTeamMemberDetailsDialog({ teamMember, children }: ViewTeamMe
           <div className="pt-4 border-t border-white/5">
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                  <Button variant="destructive" variant="outline" className="w-full border-red-500/20 text-red-400 hover:bg-red-500/10">
+                  <Button variant="outline" className="w-full border-red-500/20 text-red-400 hover:bg-red-500/10">
                       <Trash2 className="mr-2 h-4 w-4" /> Delete Team Account
                   </Button>
               </AlertDialogTrigger>

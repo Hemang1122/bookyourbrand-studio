@@ -29,6 +29,7 @@ type ReelUpdate = {
 };
 
 function ScrumUpdateCard({ update, user, isExpanded, onToggleExpand }: { update: ScrumUpdateType, user: User, isExpanded: boolean, onToggleExpand: () => void }) {
+  const reels = update.reels ?? [];
   return (
     <Collapsible open={isExpanded} onOpenChange={onToggleExpand}>
       <div className="rounded-2xl mb-4 overflow-hidden bg-[#13131F] border border-white/5">
@@ -74,18 +75,18 @@ function ScrumUpdateCard({ update, user, isExpanded, onToggleExpand }: { update:
               </div>
             )}
 
-            {update.reels && update.reels.length > 0 && (
+            {reels.length > 0 && (
               <div className="rounded-xl overflow-hidden border border-white/5">
                 <div className="grid grid-cols-4 gap-4 px-4 py-3 bg-purple-900/10 border-b border-white/5">
                   {['Reel Name', 'Duration', 'Issues', 'Remarks'].map(col => (
                     <span key={col} className="text-xs font-semibold uppercase tracking-wider text-purple-300">{col}</span>
                   ))}
                 </div>
-                {update.reels.map((reel, i) => (
+                {reels.map((reel, i) => (
                   <div
                     key={i}
                     className="grid grid-cols-4 gap-4 px-4 py-3 items-center transition-colors hover:bg-white/[0.02]"
-                    style={{ borderBottom: i < update.reels.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}
+                    style={{ borderBottom: i < (update.reels?.length ?? 0) - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}
                   >
                     <span className="text-sm text-white font-medium">{reel.reelName}</span>
                     <span className="text-sm text-gray-400">{reel.duration}</span>
@@ -103,9 +104,9 @@ function ScrumUpdateCard({ update, user, isExpanded, onToggleExpand }: { update:
                   </div>
                 ))}
                 <div className="px-4 py-2 flex items-center gap-2 bg-black/10">
-                  <span className="text-xs text-gray-500">{update.reels.length} reels submitted</span>
+                  <span className="text-xs text-gray-500">{reels.length} reels submitted</span>
                   <span className="text-xs text-green-400">
-                    · {update.reels.filter(r => r.remarks?.toLowerCase().includes('complete')).length} completed
+                    · {reels.filter(r => r.remarks?.toLowerCase().includes('complete')).length} completed
                   </span>
                 </div>
               </div>
@@ -164,9 +165,10 @@ export default function ScrumPage() {
       return;
     }
     setIsLoading(true);
-    const newScrumUpdate: Omit<ScrumUpdateType, 'id' | 'timestamp'> = {
+    const newScrumUpdate: Omit<ScrumUpdateType, 'id'> = {
       userId: user.id,
       timestamp: new Date().toISOString(),
+    
       reels: reelUpdates.filter(u => u.reelName.trim()),
       yesterday,
       today,
@@ -189,10 +191,10 @@ export default function ScrumPage() {
 
   const stats = useMemo(() => {
     const totalCompletedReels = updatesForSelectedDate.reduce((acc, update) => {
-      return acc + (update.reels || []).filter(r => r.remarks?.toLowerCase().includes('complete')).length;
+      return acc + (update.reels ?? []).filter(r => r.remarks?.toLowerCase().includes('complete')).length;
     }, 0);
     const totalIssues = updatesForSelectedDate.reduce((acc, update) => {
-      return acc + (update.reels || []).filter(r => r.issues && r.issues.toLowerCase() !== 'no' && r.issues !== '').length;
+      return acc + (update.reels ?? []).filter(r => r.issues && r.issues.toLowerCase() !== 'no' && r.issues !== '').length;
     }, 0);
     return { updatesCount: updatesForSelectedDate.length, totalCompletedReels, totalIssues };
   }, [updatesForSelectedDate]);
