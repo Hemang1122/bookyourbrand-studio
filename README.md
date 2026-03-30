@@ -125,10 +125,13 @@ npm run dev
 
 > Requires Node.js 18+, a Firebase project, and a configured Synology NAS for file features.
 
----## 📸 Screenshots
+---
 
-<img width="1920" height="1080" alt="Clean Login Page" src="https://github.com/user-attachments/assets/3753fd22-f1c9-472d-bb8e-25e96acbe13e" />
-<img width="1920" height="1080" alt="Admin pannel" src="https://github.com/user-attachments/assets/a34c3494-d6cf-43e8-a1f2-c9584c953d36" />
+## 📸 Screenshots
+
+<img width="800" height="1080" alt="Clean Login Page" src="https://github.com/user-attachments/assets/3753fd22-f1c9-472d-bb8e-25e96acbe13e" />
+
+<img width="800" height="1080" alt="Admin pannel" src="https://github.com/user-attachments/assets/a34c3494-d6cf-43e8-a1f2-c9584c953d36" />
 
 
 
