@@ -4,3 +4,14 @@ node_modules/
 src/node_modules/
 *.pack
 functions/node_modules/
+service-accounts.json
+.env
+.env.local
+.env*.local
+*.pem
+*private-key*
+*service-account*
+build-errors.txt
+lint-errors.txt
+ts-errors.txt
+tsconfig.tsbuildinfo

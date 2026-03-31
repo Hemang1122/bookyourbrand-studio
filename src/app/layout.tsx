@@ -8,6 +8,9 @@ export const metadata: Metadata = {
   title: 'BookYourBrands CRM',
   description: 'CRM for BookYourBrands Agency',
   manifest: '/manifest.json',
+};
+
+export const viewport = {
   themeColor: '#ffffff',
 };
 
