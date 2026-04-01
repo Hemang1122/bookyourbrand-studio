@@ -147,4 +147,4 @@ npm run dev
 
 ---
 
-> *BookYourBrand Studio is a real production tool used by an active agency. Built solo over 5 months with 300+ commits.*
+> *BookYourBrand Studio is a real production tool used by an active agency. Built solo over 5 months with 800+ commits.*
