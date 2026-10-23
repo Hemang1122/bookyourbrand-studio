@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, addDoc, onSnapshot, updateDoc, doc, arrayUnion, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, updateDoc, doc, arrayUnion, serverTimestamp, query, where } from 'firebase/firestore';
 import { useFirebaseServices } from '@/firebase';
 import { sounds } from '@/lib/sounds';
 import type { User } from '@/lib/types';
@@ -197,7 +197,9 @@ export function useVoiceCall(chatId: string | null, currentUser: User | null) {
   useEffect(() => {
     if (!firestore || !chatId) return;
 
-    const callsRef = collection(firestore, 'calls');
+    // Only listen to calls for this chat. Listening to the whole 'calls' collection
+    // re-read every call ever made each time this effect re-subscribed.
+    const callsRef = query(collection(firestore, 'calls'), where('chatId', '==', chatId));
     const unsubscribe = onSnapshot(callsRef, (snapshot) => {
       snapshot.docChanges().forEach(async (change) => {
         const callData = { id: change.doc.id, ...change.doc.data() as any };
