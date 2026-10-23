@@ -158,21 +158,29 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
+  // Key the unread-count listeners on the set of chat IDs only. chatsData gets a new
+  // array whenever any chat's lastMessage changes, and re-subscribing on every change
+  // re-read every message of every chat (a large source of Firestore read costs).
+  const chatIdsKey = useMemo(
+    () => (chatsData || []).map(c => c.id).sort().join(','),
+    [chatsData]
+  );
+
   useEffect(() => {
-    if (!chatsData || !firestore || !authUid) return;
-    const unsubscribes = chatsData.map(chat => {
-      const messagesQuery = query(collection(firestore, 'chats', chat.id, 'messages'));
+    if (!chatIdsKey || !firestore || !authUid) return;
+    const unsubscribes = chatIdsKey.split(',').map(chatId => {
+      const messagesQuery = query(collection(firestore, 'chats', chatId, 'messages'));
       return onSnapshot(messagesQuery, (snapshot) => {
         let count = 0;
         snapshot.forEach(doc => {
           const message = doc.data() as ChatMessage;
           if (message.senderId !== authUid && !(message.readBy || []).includes(authUid)) count++;
         });
-        setUnreadCounts(prev => ({ ...prev, [chat.id]: count }));
+        setUnreadCounts(prev => ({ ...prev, [chatId]: count }));
       });
     });
     return () => unsubscribes.forEach(unsub => unsub());
-  }, [chatsData, firestore, authUid]);
+  }, [chatIdsKey, firestore, authUid]);
 
   const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading || (currentUser?.role === 'client' && chatsLoading) || documentsLoading || clientPackagesLoading || foldersLoading;
   
