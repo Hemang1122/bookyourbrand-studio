@@ -3,13 +3,37 @@
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  connectFirestoreEmulator,
+  Firestore,
+} from 'firebase/firestore';
 import { getDatabase, connectDatabaseEmulator } from 'firebase/database';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 
+/**
+ * Use a persistent, multi-tab local cache in the browser. Reopening or reloading the
+ * CRM resumes listeners from the cache instead of re-downloading every document,
+ * and several open tabs share one set of listeners. Both cut Firestore read costs.
+ * Falls back to the default instance on the server or if Firestore already exists.
+ */
+function getAppFirestore(app: FirebaseApp): Firestore {
+  if (typeof window === 'undefined') return getFirestore(app);
+  try {
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+  } catch {
+    return getFirestore(app);
+  }
+}
+
 export function initializeFirebase() {
   const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-  const firestore = getFirestore(app);
+  const firestore = getAppFirestore(app);
   const database = getDatabase(app);
   const auth = getAuth(app);
   const functions = getFunctions(app);
