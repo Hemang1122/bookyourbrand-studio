@@ -1,6 +1,7 @@
 
 'use server';
 import nodemailer from 'nodemailer';
+import { withEmailSwitch } from '@/lib/email-switch';
 
 /**
  * Server Action to send a welcome email to a new client.
@@ -15,10 +16,10 @@ export async function sendWelcomeEmailAction(name: string, email: string, passwo
       throw new Error('Email credentials (GMAIL_USER/GMAIL_APP_PASSWORD) are not configured.');
     }
 
-    const transporter = nodemailer.createTransport({
+    const transporter = withEmailSwitch(nodemailer.createTransport({
       service: 'gmail',
       auth: { user, pass },
-    });
+    }));
 
     await transporter.sendMail({
       from: `"BookYourBrands" <${user}>`,

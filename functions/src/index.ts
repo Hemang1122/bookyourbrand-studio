@@ -10,18 +10,19 @@ import {
   sendTaskStatusUpdateEmail
 } from './email-service';
 import * as nodemailer from 'nodemailer';
+import { withEmailSwitch } from './email-switch';
 
 if (admin.apps.length === 0) {
     admin.initializeApp();
 }
 
-const transporter = nodemailer.createTransport({
+const transporter = withEmailSwitch(nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.GMAIL_USER || '',
     pass: process.env.GMAIL_PASS || ''
   }
-});
+}));
 
 export { syncUserToFirestore };
 

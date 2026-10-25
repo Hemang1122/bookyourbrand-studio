@@ -1,7 +1,8 @@
 import * as nodemailer from 'nodemailer';
+import { withEmailSwitch } from './email-switch';
 
 // CRM Email Transporter - For onboarding
-const crmTransporter = nodemailer.createTransport({
+const crmTransporter = withEmailSwitch(nodemailer.createTransport({
   host: 'mail.bookyourbrands.com',
   port: 465,
   secure: true,
@@ -12,16 +13,16 @@ const crmTransporter = nodemailer.createTransport({
   tls: {
     rejectUnauthorized: false
   }
-});
+}));
 
 // Gmail Transporter - For System Notifications
-const gmailTransporter = nodemailer.createTransport({
+const gmailTransporter = withEmailSwitch(nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.GMAIL_USER || '',
     pass: process.env.GMAIL_PASS || ''
   }
-});
+}));
 
 export interface WelcomeEmailParams {
   to: string;

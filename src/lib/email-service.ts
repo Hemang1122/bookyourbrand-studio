@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { withEmailSwitch } from '@/lib/email-switch';
 
 /**
  * @fileOverview BookYourBrands Email Service
@@ -7,7 +8,7 @@ import nodemailer from 'nodemailer';
  */
 
 // CRM Email Transporter - For onboarding and credentials
-const crmTransporter = nodemailer.createTransport({
+const crmTransporter = withEmailSwitch(nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'mail.bookyourbrands.com',
   port: parseInt(process.env.SMTP_PORT || '465'),
   secure: process.env.SMTP_SECURE === 'true',
@@ -18,10 +19,10 @@ const crmTransporter = nodemailer.createTransport({
   tls: {
     rejectUnauthorized: false
   }
-});
+}));
 
 // Updates Email Transporter - For project and task notifications
-const updatesTransporter = nodemailer.createTransport({
+const updatesTransporter = withEmailSwitch(nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'mail.bookyourbrands.com',
   port: parseInt(process.env.SMTP_PORT || '465'),
   secure: process.env.SMTP_SECURE === 'true',
@@ -32,7 +33,7 @@ const updatesTransporter = nodemailer.createTransport({
   tls: {
     rejectUnauthorized: false
   }
-});
+}));
 
 export interface SendEmailParams {
   to: string;
