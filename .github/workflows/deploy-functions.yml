@@ -26,7 +26,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          npx --yes firebase-tools@13 deploy --non-interactive \
+          npx --yes firebase-tools@latest deploy --non-interactive \
             --project studio-6449361728-f6242 \
             --only functions:onTaskCreated,functions:onTaskUpdated,functions:onProjectChatMessageCreated,functions:onProjectUpdated,functions:onNotificationCreated,functions:onUserDocCreated,functions:sendProjectCompletionEmail,functions:sendTaskNotification,functions:sendProjectChatNotification,functions:createUser,functions:deleteUser,functions:syncUserToFirestore \
             2>&1 | tee deploy.log || {
