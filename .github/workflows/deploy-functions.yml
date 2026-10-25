@@ -22,9 +22,17 @@ jobs:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       # Functions are named explicitly so the deploy never touches the
       # Hosting SSR function (ssrstudio...) or deletes anything.
-      - run: >
-          npx --yes firebase-tools@13 deploy --non-interactive
-          --project studio-6449361728-f6242
-          --only functions:onTaskCreated,functions:onTaskUpdated,functions:onProjectChatMessageCreated,functions:onProjectUpdated,functions:onNotificationCreated,functions:onUserDocCreated,functions:sendProjectCompletionEmail,functions:sendTaskNotification,functions:sendProjectChatNotification,functions:createUser,functions:deleteUser,functions:syncUserToFirestore
+      - name: Deploy functions
+        shell: bash
+        run: |
+          set -o pipefail
+          npx --yes firebase-tools@latest deploy --non-interactive \
+            --project studio-6449361728-f6242 \
+            --only functions:onTaskCreated,functions:onTaskUpdated,functions:onProjectChatMessageCreated,functions:onProjectUpdated,functions:onNotificationCreated,functions:onUserDocCreated,functions:sendProjectCompletionEmail,functions:sendTaskNotification,functions:sendProjectChatNotification,functions:createUser,functions:deleteUser,functions:syncUserToFirestore \
+            2>&1 | tee deploy.log || {
+              msg=$(tail -n 40 deploy.log | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+              echo "::error title=Functions deploy failed::$msg"
+              exit 1
+            }
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
