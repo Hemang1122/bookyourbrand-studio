@@ -39,8 +39,9 @@ exports.sendTaskAssignedEmail = sendTaskAssignedEmail;
 exports.sendTaskStatusUpdateEmail = sendTaskStatusUpdateEmail;
 exports.sendProjectChatMessageEmail = sendProjectChatMessageEmail;
 const nodemailer = __importStar(require("nodemailer"));
+const email_switch_1 = require("./email-switch");
 // CRM Email Transporter - For onboarding
-const crmTransporter = nodemailer.createTransport({
+const crmTransporter = (0, email_switch_1.withEmailSwitch)(nodemailer.createTransport({
     host: 'mail.bookyourbrands.com',
     port: 465,
     secure: true,
@@ -51,15 +52,15 @@ const crmTransporter = nodemailer.createTransport({
     tls: {
         rejectUnauthorized: false
     }
-});
+}));
 // Gmail Transporter - For System Notifications
-const gmailTransporter = nodemailer.createTransport({
+const gmailTransporter = (0, email_switch_1.withEmailSwitch)(nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: process.env.GMAIL_USER || '',
         pass: process.env.GMAIL_PASS || ''
     }
-});
+}));
 /**
  * Sends a welcome email to a new user.
  */

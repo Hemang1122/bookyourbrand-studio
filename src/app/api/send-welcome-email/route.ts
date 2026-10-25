@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import { withEmailSwitch } from '@/lib/email-switch';
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,13 +29,13 @@ export async function POST(request: NextRequest) {
 
     console.log('📧 Sending welcome email to:', email);
 
-    const transporter = nodemailer.createTransport({
+    const transporter = withEmailSwitch(nodemailer.createTransport({
       service: 'gmail',
       auth: {
         user: gmailUser,
         pass: gmailPass,
       },
-    });
+    }));
 
     const loginUrl = 'https://bybcrm.bookyourbrands.com';
     const roleLabel = userType === 'team' ? 'Team Member' : 'Client';

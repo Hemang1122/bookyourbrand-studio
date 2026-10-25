@@ -41,16 +41,17 @@ const sync_user_1 = require("./sync-user");
 Object.defineProperty(exports, "syncUserToFirestore", { enumerable: true, get: function () { return sync_user_1.syncUserToFirestore; } });
 const email_service_1 = require("./email-service");
 const nodemailer = __importStar(require("nodemailer"));
+const email_switch_1 = require("./email-switch");
 if (admin.apps.length === 0) {
     admin.initializeApp();
 }
-const transporter = nodemailer.createTransport({
+const transporter = (0, email_switch_1.withEmailSwitch)(nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: process.env.GMAIL_USER || '',
         pass: process.env.GMAIL_PASS || ''
     }
-});
+}));
 // ─── Trigger: Task Created ──────────────────────────────────────────────────
 exports.onTaskCreated = (0, firestore_1.onDocumentCreated)({ document: 'tasks/{taskId}', secrets: ['GMAIL_USER', 'GMAIL_PASS'] }, async (event) => {
     var _a, _b;
