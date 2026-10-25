@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { Task, TaskStatus, User } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { AddTaskDialog } from './add-task-dialog';
@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Plus, Wand2, CheckCircle, Play, History, MoreHorizontal, AlertCircle, Calendar, Trash2 } from 'lucide-react';
 import { useData } from '../../../data-provider';
 import { useAuth } from '@/firebase/provider';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
   Tooltip,
@@ -189,7 +191,29 @@ export function TaskList({ projectId }: TaskListProps) {
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
 
 
-  const projectTasks = (tasks || []).filter((t) => t.projectId === projectId).sort((a, b) => (a as any).order - (b as any).order);
+  // The global task list only holds open and recent tasks, so this project's
+  // tasks are also read directly; older ones fill in what the global list lacks.
+  const firestore = useFirestore();
+  const { data: ownTasks } = useCollection<Task>(useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'tasks'), where('projectId', '==', projectId)) : null,
+    [firestore, projectId]
+  ));
+  const projectTasks = useMemo(() => {
+    const merged = new Map<string, Task>();
+    (tasks || []).filter((t) => t.projectId === projectId).forEach((t) => merged.set(t.id, t));
+    (ownTasks || []).forEach((t) => {
+      if (merged.has(t.id)) return;
+      const task: Task = { ...t, remarks: t.remarks || [] };
+      if (user?.role === 'client') {
+        // Same rule as the global list: clients never see team member names.
+        const role = task.assignedTo?.role;
+        task.assignedTo = { ...task.assignedTo, name: role === 'admin' ? 'Admin' : 'Editor', avatar: 'avatar-generic' };
+        task.remarks = task.remarks.map((r) => ({ ...r, userName: 'Team' }));
+      }
+      merged.set(t.id, task);
+    });
+    return Array.from(merged.values()).sort((a, b) => (a as any).order - (b as any).order);
+  }, [tasks, ownTasks, projectId, user?.role]);
   
   const statusConfig: { [key in TaskStatus]: { color: string, textColor: string } } = {
     Pending: { color: 'bg-yellow-400', textColor: 'text-yellow-400' },

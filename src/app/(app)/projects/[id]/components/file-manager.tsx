@@ -19,7 +19,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AddFileLinkDialog } from './add-file-link-dialog';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, collection, query, where } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
 
@@ -31,7 +32,19 @@ type FileManagerProps = {
 export function FileManager({ projectId, clientName = 'Unknown Client' }: FileManagerProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { addFile, files: allFiles, deleteFile, folders: allFolders, addFolder, deleteFolder, updateFile } = useData();
+  const { addFile, deleteFile, addFolder, deleteFolder, updateFile } = useData();
+  // Files and folders are read for this project only, not for every project.
+  const firestore = useFirestore();
+  const { data: projectFiles } = useCollection<ProjectFile>(useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'files'), where('projectId', '==', projectId)) : null,
+    [firestore, projectId]
+  ));
+  const { data: projectFolders } = useCollection<ProjectFolder>(useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'folders'), where('projectId', '==', projectId)) : null,
+    [firestore, projectId]
+  ));
+  const allFiles = projectFiles || [];
+  const allFolders = projectFolders || [];
   
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
