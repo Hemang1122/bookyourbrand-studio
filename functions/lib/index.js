@@ -47,8 +47,8 @@ if (admin.apps.length === 0) {
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: process.env.GMAIL_USER || 'bookyourbrandscrm@gmail.com',
-        pass: process.env.GMAIL_PASS || 'qzng wikf gddz ppwc'
+        user: process.env.GMAIL_USER || '',
+        pass: process.env.GMAIL_PASS || ''
     }
 });
 // ─── Trigger: Task Created ──────────────────────────────────────────────────
