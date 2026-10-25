@@ -102,9 +102,24 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   const { data: projectsData, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  const { data: tasksData, isLoading: tasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? collection(firestore, 'tasks') : null, [firestore]));
-  const { data: files, isLoading: filesLoading } = useCollection<ProjectFile>(useMemoFirebase(() => firestore ? query(collection(firestore, 'files')) : null, [firestore]));
-  const { data: foldersData, isLoading: foldersLoading } = useCollection<ProjectFolder>(useMemoFirebase(() => firestore ? query(collection(firestore, 'folders')) : null, [firestore]));
+  // Tasks: load only work that is still open (any date) plus tasks due in the last
+  // 90 days or later, instead of every task ever created. Older finished tasks are
+  // loaded per project where they are shown (task-list.tsx). This keeps dashboards
+  // and reports current while cutting Firestore reads.
+  const tasksSince = useMemo(() => format(addWeeks(new Date(), -13), 'yyyy-MM-dd'), []);
+  const { data: openTasksData, isLoading: openTasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? query(collection(firestore, 'tasks'), where('status', 'in', ['Pending', 'In Progress', 'Rework'])) : null, [firestore]));
+  const { data: recentTasksData, isLoading: recentTasksLoading } = useCollection<Task>(useMemoFirebase(() => firestore ? query(collection(firestore, 'tasks'), where('dueDate', '>=', tasksSince)) : null, [firestore, tasksSince]));
+  const tasksData = useMemo(() => {
+    if (!openTasksData && !recentTasksData) return null;
+    const byId = new Map<string, Task>();
+    (openTasksData || []).forEach(t => byId.set(t.id, t));
+    (recentTasksData || []).forEach(t => byId.set(t.id, t));
+    return Array.from(byId.values());
+  }, [openTasksData, recentTasksData]);
+  const tasksLoading = openTasksLoading || recentTasksLoading;
+  // Files and folders are loaded per project by the file manager, not globally.
+  const files: ProjectFile[] = [];
+  const foldersData: ProjectFolder[] = [];
   
   const clientsQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
@@ -118,7 +133,8 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   const { data: clientsData, isLoading: clientsLoading } = useCollection<Client>(clientsQuery);
 
-  const { data: clientPackages, isLoading: clientPackagesLoading } = useCollection<ClientPackage>(useMemoFirebase(() => firestore ? query(collection(firestore, 'client-packages'), orderBy('createdAt', 'desc')) : null, [firestore]));
+  // client-packages is not read anywhere in the app, so it is no longer loaded.
+  const clientPackages: ClientPackage[] = [];
   
   const { data: clientDocuments, isLoading: documentsLoading } = useCollection<ClientDocument>(useMemoFirebase(() => firestore ? collection(firestore, 'clientDocuments') : null, [firestore]));
 
@@ -182,7 +198,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     return () => unsubscribes.forEach(unsub => unsub());
   }, [chatIdsKey, firestore, authUid]);
 
-  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || filesLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading || (currentUser?.role === 'client' && chatsLoading) || documentsLoading || clientPackagesLoading || foldersLoading;
+  const isLoading = projectsLoading || tasksLoading || usersLoading || clientsLoading || notificationsLoading || scrumUpdatesLoading || timerSessionsLoading || (currentUser?.role === 'client' && chatsLoading) || documentsLoading;
   
   const teamEditorMapping = useMemo(() => {
     if (!usersData) return new Map<string, string>();
@@ -436,11 +452,16 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     toast({ title: 'Team Updated' });
   };
 
-  const updateTaskStatus = (taskId: string, status: TaskStatus, remark: string) => {
-    if (!currentUser || !firestore || !tasksData || !projectsData) return;
-    const task = tasksData.find(t => t.id === taskId);
-    if (!task) return;
-    const project = projectsData.find(p => p.id === task.projectId);
+  const updateTaskStatus = async (taskId: string, status: TaskStatus, remark: string) => {
+    if (!currentUser || !firestore || !projectsData) return;
+    let task = tasksData?.find(t => t.id === taskId);
+    if (!task) {
+      // Older tasks are not in the global list; read this one task directly.
+      const snap = await getDoc(doc(firestore, 'tasks', taskId));
+      if (!snap.exists()) return;
+      task = { ...(snap.data() as Task), id: snap.id };
+    }
+    const project = projectsData.find(p => p.id === task!.projectId);
     if (!project) return;
     const newRemark = { userId: authUid!, userName: currentUser.name, remark, timestamp: new Date().toISOString(), fromStatus: task.status, toStatus: status };
     updateDocumentNonBlocking(doc(firestore, 'tasks', taskId), { status, remarks: [...(task.remarks || []), newRemark] });
@@ -559,7 +580,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   return (
     <DataContext.Provider value={{ 
-        projects, tasks, clients, teamMembers, users, scrumUpdates, files: files || [], folders, clientDocuments: clientDocuments || [], notifications: notificationsData || [], chats: chatsData || [], getOrCreateChat, sendMessage, timerSessions: timerSessions || [], clientPackages: clientPackages || [], addProject, addTask, deleteTask, updateProjectTeam, updateTaskStatus, createUser, deleteUser, updateClient, selectPackage, updateTeamMember, addScrumUpdate, addTimerSession, isLoading, deleteProject, updateProject, addFile, updateFile, deleteFile, addFolder, deleteFolder, addClientDocument, deleteClientDocument, addNotification, markNotificationsAsRead, markChatNotificationsAsRead
+        projects, tasks, clients, teamMembers, users, scrumUpdates, files, folders, clientDocuments: clientDocuments || [], notifications: notificationsData || [], chats: chatsData || [], getOrCreateChat, sendMessage, timerSessions: timerSessions || [], clientPackages, addProject, addTask, deleteTask, updateProjectTeam, updateTaskStatus, createUser, deleteUser, updateClient, selectPackage, updateTeamMember, addScrumUpdate, addTimerSession, isLoading, deleteProject, updateProject, addFile, updateFile, deleteFile, addFolder, deleteFolder, addClientDocument, deleteClientDocument, addNotification, markNotificationsAsRead, markChatNotificationsAsRead
     }}>
       {children}
     </DataContext.Provider>
