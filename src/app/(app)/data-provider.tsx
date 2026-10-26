@@ -6,7 +6,7 @@ import { users as initialUsers, clients as initialClients, projects as initialPr
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking, useFirebaseServices, FirestorePermissionError, errorEmitter } from '@/firebase';
-import { collection, doc, query, where, Timestamp, writeBatch, arrayUnion, runTransaction, getDocs, updateDoc, addDoc, getDoc, orderBy, setDoc, onSnapshot, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, query, where, Timestamp, writeBatch, arrayUnion, runTransaction, getDocs, updateDoc, addDoc, getDoc, orderBy, setDoc, onSnapshot, deleteDoc, serverTimestamp, limit } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { uploadFile, deleteFileFromStorage } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -136,24 +136,35 @@ export function DataProvider({ children, user: currentUser }: { children: React.
   // client-packages is not read anywhere in the app, so it is no longer loaded.
   const clientPackages: ClientPackage[] = [];
   
-  const { data: clientDocuments, isLoading: documentsLoading } = useCollection<ClientDocument>(useMemoFirebase(() => firestore ? collection(firestore, 'clientDocuments') : null, [firestore]));
+  // Client documents are loaded per client where they are shown (document-manager.tsx),
+  // not globally for every user.
+  const clientDocuments: ClientDocument[] = [];
+  const documentsLoading = false;
 
+  // Scrum updates: the last ~6 months instead of the whole history. timestamp is an ISO string.
+  const scrumSince = useMemo(() => addWeeks(new Date(), -26).toISOString(), []);
   const { data: scrumUpdatesData, isLoading: scrumUpdatesLoading } = useCollection<ScrumUpdate>(useMemoFirebase(() => {
     if (!firestore || !currentUser || currentUser.role === 'client') return null;
-    return collection(firestore, 'scrum-updates');
-  }, [firestore, currentUser]));
+    return query(collection(firestore, 'scrum-updates'), where('timestamp', '>=', scrumSince));
+  }, [firestore, currentUser?.id, currentUser?.role, scrumSince]));
 
+  // Timer sessions: admins get the last ~100 days (reports go back at most 90) instead of
+  // every session ever recorded. Reports and the work timer filter on the 'date' field,
+  // so filtering on it here keeps exactly the sessions those screens can use.
+  const timerSince = useMemo(() => format(addWeeks(new Date(), -15), 'yyyy-MM-dd'), []);
   const timerSessionsQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser || !authUid) return null;
-    if (currentUser.role === 'admin') return query(collection(firestore, 'timer-sessions'), orderBy('startTime', 'desc'));
+    if (currentUser.role === 'admin') return query(collection(firestore, 'timer-sessions'), where('date', '>=', timerSince));
     return query(collection(firestore, 'timer-sessions'), where('userId', '==', authUid), orderBy('startTime', 'desc'));
-  }, [firestore, currentUser, authUid]);
+  }, [firestore, currentUser?.id, currentUser?.role, authUid, timerSince]);
   
   const { data: timerSessions, isLoading: timerSessionsLoading } = useCollection<TimerSession>(timerSessionsQuery);
   
   const { data: notificationsData = [], isLoading: notificationsLoading } = useCollection<Notification>(useMemoFirebase(() => {
     if (!firestore || !authUid) return null;
-    return query(collection(firestore, 'notifications'), where('recipients', 'array-contains', authUid));
+    // Newest 100 only (uses the existing recipients + timestamp index) instead of every
+    // notification ever sent to this user.
+    return query(collection(firestore, 'notifications'), where('recipients', 'array-contains', authUid), orderBy('timestamp', 'desc'), limit(100));
   }, [firestore, authUid]));
   
   const chatsQuery = useMemoFirebase(() => {

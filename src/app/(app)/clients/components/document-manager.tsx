@@ -5,6 +5,8 @@ import type { Client, ClientDocument } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Upload, FileText, Download, Trash2, Loader2 } from 'lucide-react';
 import { useData } from '../../data-provider';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
@@ -87,7 +89,14 @@ const DocumentUploadSlot = ({ client, docType, docName }: { client: Client, docT
 
 
 export function DocumentManager({ client }: { client: Client }) {
-    const { clientDocuments, deleteClientDocument } = useData();
+    const { deleteClientDocument } = useData();
+    // Only this client's documents, loaded when this panel is shown.
+    const firestore = useFirestore();
+    const { data: ownDocs } = useCollection<ClientDocument>(useMemoFirebase(
+        () => firestore ? query(collection(firestore, 'clientDocuments'), where('clientId', '==', client.id)) : null,
+        [firestore, client.id]
+    ));
+    const clientDocuments = ownDocs || [];
 
     const { adminDocs, clientDocs } = useMemo(() => {
         const docs = clientDocuments.filter(d => d.clientId === client.id);
