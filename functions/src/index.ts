@@ -10,7 +10,7 @@ import {
   sendTaskStatusUpdateEmail
 } from './email-service';
 import * as nodemailer from 'nodemailer';
-import { withEmailSwitch } from './email-switch';
+import { withEmailSwitch, EMAILS_ENABLED } from './email-switch';
 
 if (admin.apps.length === 0) {
     admin.initializeApp();
@@ -30,6 +30,8 @@ export { syncUserToFirestore };
 export const onTaskCreated = onDocumentCreated(
   { document: 'tasks/{taskId}', secrets: ['GMAIL_USER', 'GMAIL_PASS'] },
   async (event) => {
+    // Emails are off: skip the reads this trigger only does to build emails.
+    if (!EMAILS_ENABLED) return;
     const task = event.data?.data();
     if (!task) return;
 
@@ -69,6 +71,8 @@ export const onTaskCreated = onDocumentCreated(
 export const onTaskUpdated = onDocumentUpdated(
   { document: 'tasks/{taskId}', secrets: ['GMAIL_USER', 'GMAIL_PASS'] },
   async (event) => {
+    // Emails are off: skip the reads this trigger only does to build emails.
+    if (!EMAILS_ENABLED) return;
     const before = event.data?.before.data();
     const after = event.data?.after.data();
     
@@ -123,6 +127,8 @@ export const onProjectChatMessageCreated = onDocumentCreated(
     timeoutSeconds: 540 // Allow 9 minutes for debouncing
   },
   async (event) => {
+    // Emails are off: skip the reads this trigger only does to build emails.
+    if (!EMAILS_ENABLED) return;
     const message = event.data?.data();
     if (!message) return;
 
@@ -249,6 +255,8 @@ export const onProjectChatMessageCreated = onDocumentCreated(
 export const onProjectUpdated = onDocumentUpdated(
   { document: 'projects/{projectId}', secrets: ['GMAIL_USER', 'GMAIL_PASS'] },
   async (event) => {
+    // Emails are off: skip the reads this trigger only does to build emails.
+    if (!EMAILS_ENABLED) return;
     const before = event.data?.before.data();
     const after = event.data?.after.data();
     if (!before || !after) return;
@@ -282,6 +290,8 @@ export const onProjectUpdated = onDocumentUpdated(
 export const onNotificationCreated = onDocumentCreated(
   { document: 'notifications/{notificationId}', secrets: ['GMAIL_USER', 'GMAIL_PASS'] },
   async (event) => {
+    // Emails are off: skip the reads this trigger only does to build emails.
+    if (!EMAILS_ENABLED) return;
     const notification = event.data?.data();
     if (!notification) return;
 
@@ -311,6 +321,8 @@ export const onNotificationCreated = onDocumentCreated(
 
 // ─── Trigger: Onboarding ──────────────────────────────────────────────────
 export const onUserDocCreated = onDocumentCreated('users/{userId}', async (event) => {
+  // Emails are off: nothing else happens in this trigger.
+  if (!EMAILS_ENABLED) return;
   const userData = event.data?.data();
   if (!userData || !userData.email) return;
   try {

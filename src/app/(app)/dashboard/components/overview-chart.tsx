@@ -4,15 +4,15 @@ import { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import type { Task } from '@/lib/types';
 
-export function OverviewChart({ tasks }: { tasks: Task[] }) {
+export function OverviewChart({ tasks, completedTotal }: { tasks: Task[]; completedTotal?: number | null }) {
     const safeTasks = tasks || [];
 
     const chartData = useMemo(() => [
         { name: 'Pending', Tasks: safeTasks.filter(t => t.status === 'Pending').length },
         { name: 'In Progress', Tasks: safeTasks.filter(t => t.status === 'In Progress').length },
         { name: 'Rework', Tasks: safeTasks.filter(t => t.status === 'Rework').length },
-        { name: 'Completed', Tasks: safeTasks.filter(t => t.status === 'Completed').length },
-    ], [safeTasks]);
+        { name: 'Completed', Tasks: completedTotal ?? safeTasks.filter(t => t.status === 'Completed').length },
+    ], [safeTasks, completedTotal]);
 
     return (
         <ResponsiveContainer width="100%" height="100%">

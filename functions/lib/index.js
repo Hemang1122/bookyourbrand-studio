@@ -55,6 +55,9 @@ const transporter = (0, email_switch_1.withEmailSwitch)(nodemailer.createTranspo
 // ─── Trigger: Task Created ──────────────────────────────────────────────────
 exports.onTaskCreated = (0, firestore_1.onDocumentCreated)({ document: 'tasks/{taskId}', secrets: ['GMAIL_USER', 'GMAIL_PASS'] }, async (event) => {
     var _a, _b;
+    // Emails are off: skip the reads this trigger only does to build emails.
+    if (!email_switch_1.EMAILS_ENABLED)
+        return;
     const task = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!task)
         return;
@@ -89,6 +92,9 @@ exports.onTaskCreated = (0, firestore_1.onDocumentCreated)({ document: 'tasks/{t
 // ─── Trigger: Task Updated (Status Change) ───────────────────────────────────
 exports.onTaskUpdated = (0, firestore_1.onDocumentUpdated)({ document: 'tasks/{taskId}', secrets: ['GMAIL_USER', 'GMAIL_PASS'] }, async (event) => {
     var _a, _b, _c;
+    // Emails are off: skip the reads this trigger only does to build emails.
+    if (!email_switch_1.EMAILS_ENABLED)
+        return;
     const before = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
     const after = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
     if (!before || !after)
@@ -136,6 +142,9 @@ exports.onProjectChatMessageCreated = (0, firestore_1.onDocumentCreated)({
     timeoutSeconds: 540 // Allow 9 minutes for debouncing
 }, async (event) => {
     var _a, _b;
+    // Emails are off: skip the reads this trigger only does to build emails.
+    if (!email_switch_1.EMAILS_ENABLED)
+        return;
     const message = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!message)
         return;
@@ -249,6 +258,9 @@ exports.onProjectChatMessageCreated = (0, firestore_1.onDocumentCreated)({
 // ─── Trigger: Project Updated (Completion) ──────────────────────────────────
 exports.onProjectUpdated = (0, firestore_1.onDocumentUpdated)({ document: 'projects/{projectId}', secrets: ['GMAIL_USER', 'GMAIL_PASS'] }, async (event) => {
     var _a, _b, _c;
+    // Emails are off: skip the reads this trigger only does to build emails.
+    if (!email_switch_1.EMAILS_ENABLED)
+        return;
     const before = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
     const after = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
     if (!before || !after)
@@ -280,6 +292,9 @@ exports.onProjectUpdated = (0, firestore_1.onDocumentUpdated)({ document: 'proje
 // ─── Trigger: Generic Notifications ─────────────────────────────────────────
 exports.onNotificationCreated = (0, firestore_1.onDocumentCreated)({ document: 'notifications/{notificationId}', secrets: ['GMAIL_USER', 'GMAIL_PASS'] }, async (event) => {
     var _a;
+    // Emails are off: skip the reads this trigger only does to build emails.
+    if (!email_switch_1.EMAILS_ENABLED)
+        return;
     const notification = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!notification)
         return;
@@ -311,6 +326,9 @@ exports.onNotificationCreated = (0, firestore_1.onDocumentCreated)({ document: '
 // ─── Trigger: Onboarding ──────────────────────────────────────────────────
 exports.onUserDocCreated = (0, firestore_1.onDocumentCreated)('users/{userId}', async (event) => {
     var _a;
+    // Emails are off: nothing else happens in this trigger.
+    if (!email_switch_1.EMAILS_ENABLED)
+        return;
     const userData = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!userData || !userData.email)
         return;

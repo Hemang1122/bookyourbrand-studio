@@ -1,8 +1,8 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuth } from '@/firebase/provider';
 import { useFirebaseServices, useCollection, useMemoFirebase, useUserStatus } from '@/firebase';
-import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, arrayUnion, arrayRemove, limit } from 'firebase/firestore';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -120,13 +120,17 @@ export default function ProjectChat({ projectId, projectName, teamMembers, clien
 
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore || !projectId) return null;
+    // Newest 200 messages instead of the whole chat history on every project page load.
     return query(
       collection(firestore, 'projects', projectId, 'chat-messages'),
-      orderBy('timestamp', 'asc')
+      orderBy('timestamp', 'desc'),
+      limit(200)
     );
   }, [firestore, projectId]);
 
-  const { data: messages } = useCollection<ChatMessage>(messagesQuery);
+  const { data: newestFirst } = useCollection<ChatMessage>(messagesQuery);
+  // Shown oldest-first, as before.
+  const messages = useMemo(() => (newestFirst ? [...newestFirst].reverse() : newestFirst), [newestFirst]);
 
   const scrollToBottom = useCallback(() => {
     const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');

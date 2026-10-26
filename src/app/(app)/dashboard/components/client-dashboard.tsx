@@ -9,7 +9,9 @@ import { Progress } from '@/components/ui/progress';
 import { AddProjectDialog } from '../../projects/components/add-project-dialog';
 import { useData } from '../../data-provider';
 import { useAuth } from '@/firebase/provider';
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
+import { useFirestore } from '@/firebase';
+import { collection, query, where, getCountFromServer } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { format, formatDistanceToNow } from 'date-fns';
 
@@ -23,6 +25,30 @@ export function ClientDashboard() {
     return clients.find(c => c.id === user.id);
   }, [user, clients]);
 
+
+  // Exact progress for the five projects shown, counted on the server, because the
+  // loaded task list only covers open and recent tasks.
+  const firestore = useFirestore();
+  const shownProjectIds = useMemo(
+    () => (projects || []).filter(p => p.client.id === user?.id).slice(0, 5).map(p => p.id).join(','),
+    [projects, user?.id]
+  );
+  const [progressCounts, setProgressCounts] = useState<Record<string, { total: number; done: number }>>({});
+  useEffect(() => {
+    if (!firestore || !shownProjectIds) return;
+    let cancelled = false;
+    Promise.all(shownProjectIds.split(',').map(async (pid) => {
+      const base = query(collection(firestore, 'tasks'), where('projectId', '==', pid));
+      const [all, done] = await Promise.all([
+        getCountFromServer(base),
+        getCountFromServer(query(base, where('status', '==', 'Completed'))),
+      ]);
+      return [pid, { total: all.data().count, done: done.data().count }] as const;
+    }))
+      .then(entries => { if (!cancelled) setProgressCounts(Object.fromEntries(entries)); })
+      .catch(err => console.warn('Project progress counts failed; using loaded tasks', err));
+    return () => { cancelled = true; };
+  }, [firestore, shownProjectIds]);
 
   if (isLoading || !myClientRecord) {
     return (
@@ -164,8 +190,10 @@ export function ClientDashboard() {
                 <div className="space-y-6">
                 {myProjects.slice(0, 5).map(project => {
                     const projectTasks = safeTasks.filter(t => t.projectId === project.id);
-                    const completedTasks = projectTasks.filter(t => t.status === 'Completed').length;
-                    const progress = projectTasks.length > 0 ? (completedTasks / projectTasks.length) * 100 : 0;
+                    const counted = progressCounts[project.id];
+                    const completedTasks = counted ? counted.done : projectTasks.filter(t => t.status === 'Completed').length;
+                    const totalTasks = counted ? counted.total : projectTasks.length;
+                    const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
                     return (
                     <Link key={project.id} href={`/projects/${project.id}`} className="block group">
                         <div className="space-y-2 p-4 rounded-xl border border-white/5 group-hover:border-purple-500/20 transition-all bg-black/20">
