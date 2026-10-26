@@ -19,7 +19,9 @@ export default function WorkTimerPage() {
     const sessionsForSelectedDate = useMemo(() => {
         if (!selectedDate || !user) return [];
         const dateStr = format(selectedDate, 'yyyy-MM-dd');
-        return timerSessions.filter(session => session.date === dateStr && session.userId === user.id);
+        // Newest first; the admin query is no longer ordered on the server.
+        return timerSessions.filter(session => session.date === dateStr && session.userId === user.id)
+            .sort((a: any, b: any) => (Number(b.startTime) || 0) - (Number(a.startTime) || 0));
     }, [selectedDate, timerSessions, user]);
 
     const totalTimeForSelectedDate = useMemo(() => {

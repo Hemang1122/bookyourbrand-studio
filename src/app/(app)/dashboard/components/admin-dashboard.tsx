@@ -13,7 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 export function AdminDashboard() {
-    const { projects, tasks, isLoading, clients } = useData();
+    const { projects, tasks, isLoading, clients, completedTasksTotal } = useData();
     const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date());
     const router = useRouter();
 
@@ -53,7 +53,7 @@ export function AdminDashboard() {
         { name: 'Pending', Tasks: safeTasks.filter(t => t.status === 'Pending').length },
         { name: 'In Progress', Tasks: safeTasks.filter(t => t.status === 'In Progress').length },
         { name: 'Rework', Tasks: safeTasks.filter(t => t.status === 'Rework').length },
-        { name: 'Completed', Tasks: safeTasks.filter(t => t.status === 'Completed').length },
+        { name: 'Completed', Tasks: completedTasksTotal ?? safeTasks.filter(t => t.status === 'Completed').length },
     ];
     
     const scheduledProjects = useMemo(() => {

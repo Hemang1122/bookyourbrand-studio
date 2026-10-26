@@ -24,7 +24,7 @@ const getPackagePrice = (packageName: PackageName | undefined): number => {
     return parseInt(tier.price.replace(/,/g, ''), 10);
 };
 
-const BusinessAnalytics = ({ tasks, projects, clients }: { tasks: Task[], projects: Project[], clients: Client[] }) => {
+const BusinessAnalytics = ({ tasks, projects, clients, completedTotal }: { tasks: Task[], projects: Project[], clients: Client[], completedTotal?: number | null }) => {
     const safeTasks = tasks || [];
     const safeProjects = projects || [];
     const safeClients = clients || [];
@@ -40,7 +40,7 @@ const BusinessAnalytics = ({ tasks, projects, clients }: { tasks: Task[], projec
         { label: 'Total Revenue', value: `₹${totalRevenue.toLocaleString('en-IN')}`, icon: IndianRupee, color: '#10B981', change: '+12%' },
         { label: 'Total Clients', value: safeClients.length.toString(), icon: Users, color: '#7C3AED', change: '+8%' },
         { label: 'Total Projects', value: safeProjects.length.toString(), icon: FolderKanban, color: '#3B82F6', change: '+24%' },
-        { label: 'Completed Tasks', value: safeTasks.filter(t => t?.status === 'Completed').length.toString(), icon: IndianRupee, color: '#EC4899', change: '+18%' },
+        { label: 'Completed Tasks', value: (completedTotal ?? safeTasks.filter(t => t?.status === 'Completed').length).toString(), icon: IndianRupee, color: '#EC4899', change: '+18%' },
     ];
 
     const executiveSummary = `This report provides a comprehensive overview of BookYourBrands' performance, analyzing key metrics across revenue, client acquisition, and operational efficiency.`;
@@ -66,7 +66,7 @@ const BusinessAnalytics = ({ tasks, projects, clients }: { tasks: Task[], projec
                     <h3 className="font-semibold text-white mb-2">Task Status Overview</h3>
                     <p className="text-xs text-muted-foreground mb-4">Distribution of tasks by current status</p>
                     <div className="h-64">
-                        <OverviewChart tasks={safeTasks} />
+                        <OverviewChart tasks={safeTasks} completedTotal={completedTotal} />
                     </div>
                 </div>
                 <div className="rounded-2xl p-6 bg-[#13131F] border border-white/5">
@@ -89,7 +89,7 @@ export default function ReportsPage() {
     const [activeTab, setActiveTab] = useState<AnalyticsTab>('team-analytics');
     const [isDownloading, setIsDownloading] = useState(false);
 
-    const { teamMembers, tasks, clients, projects, timerSessions, isLoading } = useData();
+    const { teamMembers, tasks, clients, projects, timerSessions, isLoading, completedTasksTotal } = useData();
 
     // Safe arrays - prevent crashes from undefined data
     const safeTasks = tasks || [];
@@ -167,7 +167,7 @@ export default function ReportsPage() {
                 ['Total Revenue', `₹${totalRevenue.toLocaleString('en-IN')}`],
                 ['Total Clients', safeClients.length.toString()],
                 ['Total Projects', safeProjects.length.toString()],
-                ['Completed Tasks', safeTasks.filter(t => t?.status === 'Completed').length.toString()]
+                ['Completed Tasks', (completedTasksTotal ?? safeTasks.filter(t => t?.status === 'Completed').length).toString()]
             ];
 
             (doc as any).autoTable({
@@ -341,7 +341,7 @@ export default function ReportsPage() {
             { label: 'Total Revenue', value: `₹${(totalRevenue / 1000).toFixed(1)}k`, icon: IndianRupee, color: '#10B981' },
             { label: 'Total Clients', value: safeClients.length, icon: Users, color: '#7C3AED' },
             { label: 'Active Projects', value: safeProjects.filter(p => p?.status === 'Active' || p?.status === 'In Progress').length, icon: FolderKanban, color: '#3B82F6' },
-            { label: 'Completed Tasks', value: safeTasks.filter(t => t?.status === 'Completed').length, icon: CheckCircle, color: '#EC4899' },
+            { label: 'Completed Tasks', value: (completedTasksTotal ?? safeTasks.filter(t => t?.status === 'Completed').length), icon: CheckCircle, color: '#EC4899' },
         ];
     }, [safeProjects, safeClients, safeTasks]);
 
@@ -415,12 +415,12 @@ export default function ReportsPage() {
             <div>
                 {activeTab === 'team-analytics' && <TeamAnalytics dateRange={dateRange} />}
                 {activeTab === 'client-analytics' && <ClientAnalytics dateRange={dateRange} />}
-                {activeTab === 'business-analytics' && <BusinessAnalytics tasks={safeTasks} projects={safeProjects} clients={safeClients} />}
+                {activeTab === 'business-analytics' && <BusinessAnalytics tasks={safeTasks} projects={safeProjects} clients={safeClients} completedTotal={completedTasksTotal} />}
             </div>
 
             <div className="absolute -left-[9999px] top-0 w-[800px] bg-background p-4">
                 <div id="overview-chart-for-pdf">
-                    <OverviewChart tasks={safeTasks} />
+                    <OverviewChart tasks={safeTasks} completedTotal={completedTasksTotal} />
                 </div>
             </div>
         </div>

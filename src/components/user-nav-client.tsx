@@ -19,13 +19,14 @@ import { useFirebaseServices } from '@/firebase';
 import { useAuth as useAppAuth } from '@/firebase/provider';
 import { useAuth as useFirebaseAuth } from '@/lib/auth-client';
 import { signOut } from 'firebase/auth';
+import { terminate, clearIndexedDbPersistence } from 'firebase/firestore';
 
 
 export function UserNavClient() {
   const { user: appUser } = useAppAuth();
   const { user: firebaseUser } = useFirebaseAuth();
   const router = useRouter();
-  const { auth: authService } = useFirebaseServices();
+  const { auth: authService, firestore } = useFirebaseServices();
   
   const user = appUser || firebaseUser;
   
@@ -45,6 +46,18 @@ export function UserNavClient() {
     try {
       if (authService) {
         await signOut(authService);
+      }
+      // Remove the locally cached CRM data so the next person on this computer can't see it.
+      if (firestore) {
+        try {
+          await terminate(firestore);
+          await clearIndexedDbPersistence(firestore);
+        } catch (e) {
+          console.warn('Could not clear local data cache', e);
+        }
+        // Full reload so a fresh Firestore instance is created for the next login.
+        window.location.href = '/login';
+        return;
       }
       router.push('/login');
     } catch (error) {

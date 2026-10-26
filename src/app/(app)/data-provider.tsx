@@ -6,7 +6,7 @@ import { users as initialUsers, clients as initialClients, projects as initialPr
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, useCollection, setDocumentNonBlocking, useFirebaseServices, FirestorePermissionError, errorEmitter } from '@/firebase';
-import { collection, doc, query, where, Timestamp, writeBatch, arrayUnion, runTransaction, getDocs, updateDoc, addDoc, getDoc, orderBy, setDoc, onSnapshot, deleteDoc, serverTimestamp, limit } from 'firebase/firestore';
+import { collection, doc, query, where, Timestamp, writeBatch, arrayUnion, runTransaction, getDocs, updateDoc, addDoc, getDoc, orderBy, setDoc, onSnapshot, deleteDoc, serverTimestamp, limit, getCountFromServer } from 'firebase/firestore';
 import { useAuth } from '@/firebase/provider';
 import { uploadFile, deleteFileFromStorage } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -16,6 +16,8 @@ import { httpsCallable } from 'firebase/functions';
 type DataContextType = {
   projects: Project[];
   tasks: Task[];
+  /** Count of ALL completed tasks in the database (the loaded task list only covers open + recent tasks). null until loaded. */
+  completedTasksTotal: number | null;
   clients: Client[];
   teamMembers: User[];
   users: User[];
@@ -33,7 +35,7 @@ type DataContextType = {
   addTask: (task: Omit<Task, 'id' | 'assignedTo' | 'status' | 'remarks' | 'dueDate'>) => void;
   deleteTask: (taskId: string) => void;
   updateProjectTeam: (projectId: string, teamMemberIds: string[]) => void;
-  updateTaskStatus: (taskId: string, status: TaskStatus, remark: string) => void;
+  updateTaskStatus: (taskId: string, status: TaskStatus, remark: string) => Promise<void>;
   createUser: (userData: { name: string; role: 'client' | 'team', realEmail?: string; company?: string; }) => Promise<any>;
   deleteUser: (userId: string) => Promise<any>;
   updateClient: (clientId: string, clientData: Partial<Client>) => Promise<void>;
@@ -117,6 +119,17 @@ export function DataProvider({ children, user: currentUser }: { children: React.
     return Array.from(byId.values());
   }, [openTasksData, recentTasksData]);
   const tasksLoading = openTasksLoading || recentTasksLoading;
+  // Exact all-time completed count from the server (about 1 read per 1,000 tasks),
+  // so totals stay correct even though only open + recent tasks are loaded.
+  const [completedTasksTotal, setCompletedTasksTotal] = useState<number | null>(null);
+  useEffect(() => {
+    if (!firestore || !currentUser || currentUser.role === 'client') return;
+    let cancelled = false;
+    getCountFromServer(query(collection(firestore, 'tasks'), where('status', '==', 'Completed')))
+      .then(snap => { if (!cancelled) setCompletedTasksTotal(snap.data().count); })
+      .catch(err => console.warn('Completed task count failed; showing loaded tasks only', err));
+    return () => { cancelled = true; };
+  }, [firestore, currentUser?.id, currentUser?.role]);
   // Files and folders are loaded per project by the file manager, not globally.
   const files: ProjectFile[] = [];
   const foldersData: ProjectFolder[] = [];
@@ -465,18 +478,22 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   const updateTaskStatus = async (taskId: string, status: TaskStatus, remark: string) => {
     if (!currentUser || !firestore || !projectsData) return;
-    let task = tasksData?.find(t => t.id === taskId);
-    if (!task) {
-      // Older tasks are not in the global list; read this one task directly.
-      const snap = await getDoc(doc(firestore, 'tasks', taskId));
-      if (!snap.exists()) return;
-      task = { ...(snap.data() as Task), id: snap.id };
+    try {
+      let task = tasksData?.find(t => t.id === taskId);
+      if (!task) {
+        // Older tasks are not in the global list; read this one task directly.
+        const snap = await getDoc(doc(firestore, 'tasks', taskId));
+        if (!snap.exists()) throw new Error('This task no longer exists.');
+        task = { ...(snap.data() as Task), id: snap.id };
+      }
+      const project = projectsData.find(p => p.id === task!.projectId);
+      if (!project) throw new Error('Could not find the project for this task.');
+      const newRemark = { userId: authUid!, userName: currentUser.name, remark, timestamp: new Date().toISOString(), fromStatus: task.status, toStatus: status };
+      updateDocumentNonBlocking(doc(firestore, 'tasks', taskId), { status, remarks: [...(task.remarks || []), newRemark] });
+      addNotification(`Task '${task.title}' updated to '${status}'.`, `/projects/${project.id}`, [project.client.id, ...project.team_ids].filter(id => id !== authUid), 'system');
+    } catch (e: any) {
+      toast({ title: 'Task not updated', description: e?.message || 'Please try again.', variant: 'destructive' });
     }
-    const project = projectsData.find(p => p.id === task!.projectId);
-    if (!project) return;
-    const newRemark = { userId: authUid!, userName: currentUser.name, remark, timestamp: new Date().toISOString(), fromStatus: task.status, toStatus: status };
-    updateDocumentNonBlocking(doc(firestore, 'tasks', taskId), { status, remarks: [...(task.remarks || []), newRemark] });
-    addNotification(`Task '${task.title}' updated to '${status}'.`, `/projects/${project.id}`, [project.client.id, ...project.team_ids].filter(id => id !== authUid), 'system');
   }
 
   const updateClient = async (clientId: string, clientData: Partial<Client>) => {
@@ -591,7 +608,7 @@ export function DataProvider({ children, user: currentUser }: { children: React.
 
   return (
     <DataContext.Provider value={{ 
-        projects, tasks, clients, teamMembers, users, scrumUpdates, files, folders, clientDocuments: clientDocuments || [], notifications: notificationsData || [], chats: chatsData || [], getOrCreateChat, sendMessage, timerSessions: timerSessions || [], clientPackages, addProject, addTask, deleteTask, updateProjectTeam, updateTaskStatus, createUser, deleteUser, updateClient, selectPackage, updateTeamMember, addScrumUpdate, addTimerSession, isLoading, deleteProject, updateProject, addFile, updateFile, deleteFile, addFolder, deleteFolder, addClientDocument, deleteClientDocument, addNotification, markNotificationsAsRead, markChatNotificationsAsRead
+        projects, tasks, completedTasksTotal, clients, teamMembers, users, scrumUpdates, files, folders, clientDocuments: clientDocuments || [], notifications: notificationsData || [], chats: chatsData || [], getOrCreateChat, sendMessage, timerSessions: timerSessions || [], clientPackages, addProject, addTask, deleteTask, updateProjectTeam, updateTaskStatus, createUser, deleteUser, updateClient, selectPackage, updateTeamMember, addScrumUpdate, addTimerSession, isLoading, deleteProject, updateProject, addFile, updateFile, deleteFile, addFolder, deleteFolder, addClientDocument, deleteClientDocument, addNotification, markNotificationsAsRead, markChatNotificationsAsRead
     }}>
       {children}
     </DataContext.Provider>

@@ -212,7 +212,9 @@ export function TaskList({ projectId }: TaskListProps) {
       }
       merged.set(t.id, task);
     });
-    return Array.from(merged.values()).sort((a, b) => (a as any).order - (b as any).order);
+    // Tasks without an 'order' (added manually) go last, then by due date, so the order is stable.
+    return Array.from(merged.values()).sort((a, b) =>
+      (((a as any).order ?? 1e9) - ((b as any).order ?? 1e9)) || String(a.dueDate || '').localeCompare(String(b.dueDate || '')));
   }, [tasks, ownTasks, projectId, user?.role]);
   
   const statusConfig: { [key in TaskStatus]: { color: string, textColor: string } } = {
